@@ -587,11 +587,34 @@ async function applyDiscoveries(index, newSeasonMeta, stats = {}, extraCommitPat
     }
   }
 
-  // ── Grade-refresh: fill grades for active seasons still at grades:[] ──────────
+  // ── Grade-refresh ────────────────────────────────────────────────────────────
+  // WIDENED 2026-09-08. This used to select ONLY seasons at grades:[], so a season
+  // captured mid-grading kept its grading grades forever - it had SOME grades, so
+  // it never qualified. discover-fixtures.js has been detecting exactly that and
+  // printing it: on 2026-09-07 it found 29 such seasons, EDJBA (1ae60211) holding
+  // 55 grades against 263 live, and the comment at its detection site said outright
+  // that nothing would correct them.
+  //
+  // It now also takes anything discover-fixtures recorded in
+  // data/stale-grade-seasons.json, which it learns for free from the team list. A
+  // season that is locked is skipped regardless: its grades are immutable.
   let refreshed = 0;
-  const graceless = Object.values(index.seasons).filter(se => se.locked === false && (se.grades || []).length === 0);
+  const gradeless = Object.values(index.seasons).filter(se => se.locked === false && (se.grades || []).length === 0);
+  let staleFromFixtures = [];
+  try {
+    const sf = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'stale-grade-seasons.json'), 'utf8'));
+    const ids = new Set((sf.seasons || []).map(x => x.id));
+    staleFromFixtures = Object.values(index.seasons).filter(se =>
+      se.locked === false && ids.has(se.id) && (se.grades || []).length > 0);
+    if (sf.seasons) console.log(`  stale-grade-seasons.json: ${sf.count} season(s) flagged by discover-fixtures at ${String(sf.generatedAt).slice(0, 19)}`);
+  } catch (_) {
+    // Absent is normal before discover-fixtures has run once. Not an error, but say
+    // so - silence here would look like "nothing was stale".
+    console.log('  stale-grade-seasons.json: not present (discover-fixtures has not written one yet)');
+  }
+  const graceless = [...gradeless, ...staleFromFixtures];
   if (graceless.length) {
-    console.log(`\n  Grade-refresh: ${graceless.length} active grade-less season(s) to re-check (AIMD cap ${CONCURRENCY})`);
+    console.log(`\n  Grade-refresh: ${graceless.length} season(s) to re-check — ${gradeless.length} at grades:[], ${staleFromFixtures.length} flagged stale by discover-fixtures (AIMD cap ${CONCURRENCY})`);
     const refreshDs = new Map();
     await aimdRun(graceless, 'grade-refresh', async (se) => {
       const ds = await discoverSeason(se.id);
