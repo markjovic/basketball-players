@@ -15,7 +15,16 @@ name: Verify outstanding claims
 # printed as drift. A claim that cannot be measured from files SAYS SO rather than
 # being left out, because an omitted claim looks verified.
 #
-# THE CROSS-CHECK HAS A SCOPE AND IT MATTERS. gp - games[] == c - x only holds for
+# THE CROSS-CHECK IDENTITY IS gp - games[] == c - x - F, where F is the forfeits
+# the player holds. gp counts CREDITED games and seenGameKeys skips forfeits at the
+# parse; games[] is built from rosters and includes any forfeit that has one; x is
+# captured-minus-credited with forfeits removed. The first version omitted F and
+# reported 40,926 failures on 2026-09-07, nine in ten with the identical shape
+# gp == games, c = 1, x = 0 - one held forfeit each. The check was wrong, not the
+# data. If data/forfeit-games.json cannot be read the run says so, because F
+# silently becoming 0 would recreate exactly that false alarm.
+#
+# THE CROSS-CHECK ALSO HAS A SCOPE AND IT MATTERS. gp - games[] == c - x only holds for
 # a player fetched since the diff shipped on 2026-09-05. A file last fetched before
 # that has no c/x at all, so its gp-games difference is compared against zero and
 # any real gap reads as a failure. Those players are counted separately, not
