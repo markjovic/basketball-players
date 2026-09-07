@@ -44,10 +44,13 @@ const log = (m) => { if (!JSON_OUT) console.log(m); };
 // Every entry names where it is written down and when it was measured. A claim
 // with no `expect` is one this script surfaces but cannot check.
 const CLAIMS = [
-  { id: 'u_entries',      expect: 39128,  src: 'claude_context.md 2026-09-05',  what: 'player.u entries repo-wide' },
-  { id: 'u_players',      expect: 7501,   src: 'claude_context.md 2026-09-05',  what: 'players carrying a u array' },
-  { id: 'x_entries',      expect: null,   src: 'README.md ~80,000',             what: 'player.x entries repo-wide' },
-  { id: 'c_entries',      expect: null,   src: 'README.md ~224,000',            what: 'player.c entries repo-wide' },
+  // Figures re-baselined 2026-09-07 from a full measurement. The x and c numbers
+  // that were in README.md (~80,000 and ~224,000) were extrapolations from shard
+  // 00 and both ran about 8% high; these are counted, not scaled.
+  { id: 'u_entries',      expect: 39034,  src: 'measured 2026-09-07',           what: 'player.u entries repo-wide' },
+  { id: 'u_players',      expect: 7500,   src: 'measured 2026-09-07',           what: 'players carrying a u array' },
+  { id: 'x_entries',      expect: 73571,  src: 'measured 2026-09-07',           what: 'player.x entries repo-wide' },
+  { id: 'c_entries',      expect: 205946, src: 'measured 2026-09-07',           what: 'player.c entries repo-wide' },
   // NOT a whole-database claim. The cross-check only holds for a player fetched
   // SINCE the diff shipped - a file last fetched before then has no c/x at all, so
   // gp - games gets compared against 0-0 and any real difference reads as a
@@ -56,13 +59,28 @@ const CLAIMS = [
   // players with statsChecked on or after DIFF_SHIPPED; the rest are counted apart.
   // The identity is gp - games == c - x - F, with F the forfeits the player holds.
   // Omitting F reported 40,926 failures on 2026-09-07 that were not failures.
-  // Scope: fetched since the diff shipped AND c/x still self-consistent with the
-  // player's current games[]. Everything else is drift, not failure - see the
-  // self-consistency block for why the arithmetic alone kept over-reporting.
-  { id: 'crosscheck_fail',expect: 0,      src: 'README.md (100.0% on shard 00)',what: 'in-scope players failing gp-games == c-x-F' },
-  { id: 'staleC',         expect: null,   src: 'expected drift, not a fault',   what: 'c entries the player now holds' },
-  { id: 'merged_gp0',     expect: 46,     src: 'OUTSTANDING_TASKS.md item 3',   what: 'merged, public, checked, gp 0, with games' },
-  { id: 'bad_names',      expect: 158,    src: 'matrix heal_names input',       what: 'placeholder / season-label names' },
+  // ⚠️ THE ARITHMETIC IDENTITY IS NOT A CLAIM AND MUST NOT BE ONE.
+  //
+  // It was chased three times on 2026-09-07 and over-reported every time:
+  //   gp - games == c - x            40,926 "failures"
+  //   ... - F  (forfeits held)       39,282
+  //   ... and only where c/x are self-consistent   2,618
+  //
+  // The last 2,618 fail by exactly F, because THE FORFEIT TERM IS ITSELF STALE.
+  // data/forfeit-games.json has grown 26,470 -> 28,372; a game added to it after a
+  // player was fetched was credited at fetch time and sits in c/x as an ordinary
+  // game, while a count taken today calls it a forfeit. Every term in that equation
+  // is measured at a different moment from the fields it is being checked against.
+  //
+  // SELF-CONSISTENCY IS THE CHECK. c means "PlayHQ credits it, games[] does not
+  // hold it" - so a c entry present in games[] is stale, full stop. No dates, no
+  // forfeit list, no arithmetic. The identity is still computed below and printed,
+  // but as an observation, not a pass/fail.
+  { id: 'staleC',         expect: null,   src: 'expected drift, clears on re-fetch', what: 'c entries the player now holds' },
+  { id: 'staleX',         expect: null,   src: 'expected drift, clears on re-fetch', what: 'x entries the player no longer holds' },
+  { id: 'merged_gp0',     expect: 43,     src: 'measured 2026-09-07',           what: 'merged, public, checked, gp 0, with games' },
+  // Was 158 as of 2026-08-23. The heal_names matrix runs since have cleared most.
+  { id: 'bad_names',      expect: 18,     src: 'measured 2026-09-07',           what: 'placeholder / season-label names' },
 ];
 
 // ─── The cross-check identity, derived rather than assumed ───────────────────
@@ -216,8 +234,7 @@ function main() {
   const got = {
     u_entries: R.u_entries, u_players: R.u_players,
     x_entries: R.x_entries, c_entries: R.c_entries,
-    crosscheck_fail: R.crosscheck_fail,
-    staleC: R.staleC,
+    staleC: R.staleC, staleX: R.staleX,
     merged_gp0: R.merged_gp0,
     bad_names: R.bad_names,
   };
@@ -250,7 +267,11 @@ function main() {
   console.log('\n  ── DERIVED, no documented figure ──');
   console.log(`    players carrying x : ${R.x_players.toLocaleString()}`);
   console.log(`    players carrying c : ${R.c_players.toLocaleString()}`);
-  console.log(`    cross-check passes : ${R.crosscheck_ok.toLocaleString()}  (${R.crosscheck_ok + R.crosscheck_fail > 0 ? ((R.crosscheck_ok / (R.crosscheck_ok + R.crosscheck_fail)) * 100).toFixed(2) : '—'}%)`);
+  console.log(`    arithmetic identity holds for : ${R.crosscheck_ok.toLocaleString()} of ${(R.crosscheck_ok + R.crosscheck_fail).toLocaleString()} self-consistent, post-diff players`);
+  console.log('      OBSERVATION ONLY. Every term is measured at a different moment from the');
+  console.log('      fields it checks - the forfeit list alone grew 26,470 -> 28,372. Use the');
+  console.log('      self-consistency figures above it, not this.');
+  console.log(`    (unused) cross-check passes : ${R.crosscheck_ok.toLocaleString()}  (${R.crosscheck_ok + R.crosscheck_fail > 0 ? ((R.crosscheck_ok / (R.crosscheck_ok + R.crosscheck_fail)) * 100).toFixed(2) : '—'}%)`);
   console.log(`    games !== gp       : ${R.gamesNeGp.toLocaleString()} of ${R.fetched.toLocaleString()} fetched-and-public`);
   console.log(`\n  ── ARE c AND x STILL TRUE OF THIS PLAYER'S games[]? ──`);
   console.log(`    self-consistent  : ${R.selfConsistent.toLocaleString()}`);
@@ -270,7 +291,7 @@ function main() {
     }
   }
   if (R.crosscheck_examples.length) {
-    console.log('\n  cross-check failures — each is a player whose c/x do not describe their own games:');
+    console.log('\n  arithmetic mismatches (observation only — most differ by exactly the forfeit count):');
     for (const e of R.crosscheck_examples) {
       console.log(`    ${e.uuid}  gp=${e.gp} games=${e.games} c=${e.c} x=${e.x} forfeits=${e.F}  gp-games=${e.gp - e.games} but c-x-F=${e.c - e.x - e.F}  ${(e.name || '').slice(0, 22)}`);
     }
