@@ -275,7 +275,10 @@ function attributeAliases(s) {
 }
 
 function main() {
-  log(`find-misrouted-appearances  players=${MAX_PLAYERS}  seed=${SEED}${DRY_RUN ? '  DRY RUN' : ''}`);
+  // MAX_PLAYERS is Infinity when --players=0, and printing "players=Infinity"
+  // reads as a fault rather than as "every one of them".
+  const scope = (MAX_PLAYERS === Infinity) ? 'ALL' : MAX_PLAYERS;
+  log(`find-misrouted-appearances  players=${scope}  seed=${SEED}${MAX_PLAYERS === Infinity ? ' (seed unused: no sampling)' : ''}${DRY_RUN ? '  DRY RUN' : ''}${APPLY ? '  APPLY' : ''}`);
   console.log('─'.repeat(72));
 
   // ── Pass 1: sample players carrying x ──────────────────────────────────────
