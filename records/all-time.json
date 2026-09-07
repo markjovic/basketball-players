@@ -1601,6 +1601,17 @@
     },
     {
       "v": 139,
+      "gameKey": "a0c6094f",
+      "sid": "8a2cc9e6",
+      "date": "2026-09-07",
+      "name": "808s and Fastbreaks",
+      "tid": "1f05bc41",
+      "vs": "Rebelz",
+      "score": "59–139",
+      "rank": 42
+    },
+    {
+      "v": 139,
       "gameKey": "3bc16493",
       "sid": "9d9a063f",
       "date": "2022-05-07",
@@ -1642,17 +1653,6 @@
       "vs": "Bellarine U18 Boys 2",
       "score": "139–31",
       "rank": 42
-    },
-    {
-      "v": 138,
-      "gameKey": "9ba60ebd",
-      "sid": "0211d8a5",
-      "date": "2025-02-27",
-      "name": "drakes packing ",
-      "tid": "27a84f43",
-      "vs": "Miami Meat",
-      "score": "48–138",
-      "rank": 50
     }
   ],
   "teamThreePt": [
