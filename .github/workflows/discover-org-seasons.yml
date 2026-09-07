@@ -1,0 +1,136 @@
+# .github/workflows/discover-org-seasons.yml
+name: Discover Org Seasons (top-down)
+
+# Asks every organisation what seasons it runs and adds any that
+# data/sports-index.json does not hold. One request per organisation - a few
+# hundred - instead of 418,000 player probes.
+#
+# WHY THIS EXISTS. discover-seasons.js works BOTTOM-UP off players'
+# publicProfileTeams registrations, so it cannot see a season until somebody has
+# registered in it. playhq_api_reference.md records the org route as closed:
+# "discoverOrganisation for BV: returns null for guest sessions". That note is
+# about a DIFFERENT query. `discoverCompetitions(organisationID)` works on a guest
+# session - captured 2026-09-07 against Kilsyth Basketball (5433b0e3), which
+# returned five competitions with every season each has run, including two with
+# status UPCOMING: Junior Domestic Summer 2026/27 (5e26f10f, starts 2026-10-06)
+# and Senior Domestic Summer 2026/27 (8f43ff68, starts 2026-09-20).
+#
+# It does not replace discover-seasons.js, which also backfills player rosters and
+# recovers grades from registrations. This only finds seasons - earlier, and for a
+# tiny fraction of the requests.
+#
+# ORG IDS COME FROM sports-index.json - every recorded season carries orgId, so the
+# list is every association BV has ever run a season for. A brand-new association
+# is invisible to this until one of its seasons is found another way. Real limit,
+# stated rather than hidden.
+#
+# NO actions/setup-node ANYWHERE. This job fetches api.playhq.com and setup-node's
+# fingerprint change makes CloudFront 403 every request including session
+# acquisition (proven 2026-07-20 on the instrumented matrix shard 00). Preinstalled
+# node only.
+#
+# Sparse checkout is correct here: it reads and writes data/sports-index.json and
+# nothing else. The blobless-clone cost that makes sparse unusable across 418k
+# player files does not apply.
+
+on:
+  # Daily. A season appearing the day an association creates it is the entire
+  # point, and at a few hundred requests the cost is trivial. 19:00 UTC = 05:00
+  # AEST, before the 06:00 weekly sweep and well clear of the overnight cascade.
+  schedule:
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run = report what would be added, write nothing. apply = write and commit.'
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+      season:
+        description: 'Look up ONE season id directly and add it if missing (skips the org sweep entirely). Blank = normal sweep.'
+        required: false
+        default: ''
+        type: string
+      org:
+        description: 'Ask ONE organisation id only. Blank = every organisation in the index.'
+        required: false
+        default: ''
+        type: string
+      concurrency:
+        description: 'Parallel org requests (default 8 — this is a few hundred calls, not a sweep; do not raise it far)'
+        required: false
+        default: '8'
+        type: string
+
+# Shares data-write: it writes sports-index.json, which the nightly and the weekly
+# sweep also write. A -X ours clobber here would silently drop discovered seasons.
+concurrency:
+  group: data-write
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            data
+          sparse-checkout-cone-mode: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Syntax check
+        run: node --check scripts/discover-org-seasons.js
+
+      # ⚠️ SCHEDULED RUNS RECEIVE NO INPUTS — workflow_dispatch defaults do NOT
+      # apply to cron. Every input is read through an explicit fallback, and mode
+      # resolves to APPLY on a schedule: a daily dry run would find seasons and
+      # throw them away. Same trap that made the weekly sweep a no-op for a month.
+      #
+      # Inputs go through env, never straight into the command line - GitHub
+      # substitutes them before bash sees them, so anything in one becomes shell
+      # source text.
+      - name: Discover
+        env:
+          IN_MODE:   ${{ inputs.mode || 'apply' }}
+          IN_SEASON: ${{ inputs.season }}
+          IN_ORG:    ${{ inputs.org }}
+          IN_CONC:   ${{ inputs.concurrency || '8' }}
+        run: |
+          set -euo pipefail
+          ARGS="--concurrency=$IN_CONC"
+          if [ "$IN_MODE" = "dry-run" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ -n "$IN_SEASON" ]; then ARGS="$ARGS --season=$IN_SEASON"; fi
+          if [ -n "$IN_ORG" ]; then ARGS="$ARGS --org=$IN_ORG"; fi
+          node scripts/discover-org-seasons.js $ARGS
+
+      - name: What happens next
+        if: always()
+        run: |
+          echo "Anything added with locked:false is crawled by the next nightly."
+          echo ""
+          echo "An UPCOMING season normally has NO grades yet, so it is written as"
+          echo "'pre-allocated': live, grades empty. discover-seasons.js fills the"
+          echo "grades on its next grade-refresh pass once PlayHQ publishes them."
+          echo ""
+          echo "A COMPLETED season with zero grades is recorded and locked - it exists"
+          echo "but nothing about it is fetchable."
+          echo ""
+          echo "CloudFront-blocked organisations are counted and NOT silently treated"
+          echo "as empty. If any are reported, re-run: the answer is incomplete."
