@@ -19,6 +19,22 @@ name: Discover Org Seasons (top-down)
 # recovers grades from registrations. This only finds seasons - earlier, and for a
 # tiny fraction of the requests.
 #
+# GRADE RESOLUTION USES AIMD, NOT A FIXED SLEEP. The first live run (2026-09-07)
+# found 178 seasons in 53 seconds, then resolved grades in a plain loop with a
+# 120ms sleep and no backoff: 14 got through, CloudFront walled, and it asked 164
+# more times at a steady 130ms apart — every one blocked. The seasons were still
+# created, but 84 landed with grades:[] because the lookup was REFUSED, not because
+# PlayHQ has none. The ones that got through first show what was lost: Bendigo 72
+# grades, Altona Bay 38, Swan Hill 16.
+#
+# It now uses the same aimdRun as discover-seasons.js: blocked items are requeued
+# to the back rather than dropped, concurrency cuts to 60% on a blocked batch, the
+# cap lowers after three consecutive, backoff is 5s x consecutive to a 60s ceiling,
+# and it recovers +10 after two clean batches. Replayed against that exact failure
+# shape: 178 of 178 resolved where the old loop got 14. A permanently refused
+# season gives up after 4 attempts and is COUNTED — a season written with grades:[]
+# because we stopped asking must not look like one PlayHQ has no grades for.
+#
 # ORG IDS COME FROM sports-index.json - every recorded season carries orgId, so the
 # list is every association BV has ever run a season for. A brand-new association
 # is invisible to this until one of its seasons is found another way. Real limit,

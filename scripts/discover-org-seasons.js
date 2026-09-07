@@ -161,6 +161,79 @@ function doFetch(url, options) {
   });
 }
 
+// ─── AIMD, copied from discover-seasons.js L293-418 ──────────────────────────
+// The 2026-09-07 run resolved grades in a plain for-loop with a fixed 120ms sleep
+// and NO backoff. It got 14 seasons through, hit the CloudFront wall, and then
+// asked 164 more times at a steady 130ms apart — every one blocked. The seasons
+// were still created, but 84 landed with grades:[] because the lookup was refused,
+// not because PlayHQ has none. Compare the ones that got through first: Bendigo 72
+// grades, Altona Bay 38, Swan Hill 16.
+//
+// aimdRun requeues a blocked item to the BACK of the queue instead of dropping it,
+// cuts concurrency to 60% on any blocked batch, lowers the cap after three
+// consecutive blocked batches, backs off 5s × consecutive blocked batches, and
+// recovers +10 after two clean ones. Nothing here is tuned differently - the
+// numbers are the ones already proven against this API.
+const AIMD_MIN         = 3;
+const AIMD_CUT         = 0.6;
+const AIMD_RECOVER     = 10;
+const AIMD_CLEAN_BATCHES_TO_RECOVER = 2;
+const AIMD_BLOCKED_BATCHES_TO_LOWER_CAP = 3;
+const AIMD_BACKOFF_MS  = 5000;
+
+async function aimdRun(items, label, worker, opts = {}) {
+  const cap0 = Math.max(AIMD_MIN, opts.cap || 25);
+  const queue = items.slice();          // blocked items go to the BACK, never dropped
+  let cap = cap0, concurrency = cap0;
+  let consecutiveBlocked = 0, cleanBatches = 0;
+  let done = 0, blockedEvents = 0, givenUp = 0;
+  const attempts = new Map();
+  const startTime = Date.now();
+  let lastLog = startTime;
+
+  while (queue.length) {
+    const batch = queue.splice(0, concurrency);
+    const results = await Promise.allSettled(batch.map(async (item) => {
+      const r = await worker(item);
+      return { item, blocked: !!(r && r.blocked) };
+    }));
+
+    let batchBlocked = 0;
+    for (const res of results) {
+      if (res.status === 'fulfilled' && res.value.blocked) {
+        const key = opts.key ? opts.key(res.value.item) : res.value.item;
+        const n = (attempts.get(key) || 0) + 1;
+        attempts.set(key, n);
+        // A ceiling, so a permanently-refused item cannot spin the queue forever.
+        // Giving up is REPORTED, never silent: a season left without grades because
+        // we stopped asking must not look like a season with no grades.
+        if (n >= (opts.maxAttempts || 4)) { givenUp++; done++; continue; }
+        batchBlocked++; blockedEvents++; queue.push(res.value.item);
+      } else done++;
+    }
+
+    if (batchBlocked > 0) {
+      consecutiveBlocked++; cleanBatches = 0;
+      concurrency = Math.max(AIMD_MIN, Math.floor(concurrency * AIMD_CUT));
+      if (consecutiveBlocked >= AIMD_BLOCKED_BATCHES_TO_LOWER_CAP) { cap = Math.max(AIMD_MIN, cap - 5); concurrency = Math.min(concurrency, cap); }
+      const backoff = Math.min(60000, consecutiveBlocked * AIMD_BACKOFF_MS);
+      console.log(`    ⚠ ${label}: ${batchBlocked} blocked in batch → conc=${concurrency} cap=${cap}, backoff ${backoff / 1000}s (queued ${queue.length})`);
+      await sleep(backoff);
+    } else {
+      consecutiveBlocked = 0; cleanBatches++;
+      if (cleanBatches >= AIMD_CLEAN_BATCHES_TO_RECOVER) { concurrency = Math.min(cap, concurrency + AIMD_RECOVER); cleanBatches = 0; }
+    }
+
+    const now = Date.now();
+    if (now - lastLog >= 15000) {
+      lastLog = now;
+      const el = (now - startTime) / 1000, rate = el > 0 ? done / el : 0;
+      console.log(`    …${label} ${done} done, ${queue.length} queued  conc=${concurrency} cap=${cap}  rate=${rate.toFixed(1)}/s`);
+    }
+  }
+  return { done, blockedEvents, givenUp };
+}
+
 // ─── The query ────────────────────────────────────────────────────────────────
 // Reduced to the fields this needs from the shape captured off PlayHQ's own site
 // on 2026-09-07. Their version also pulls OrganisationDetails, logos, contacts and
@@ -372,13 +445,24 @@ async function main() {
   }
 
   // ── Resolve grades for each new season ─────────────────────────────────────
-  log(`\nresolving grades for ${found.length} new season(s)…`);
-  for (const f of found) {
-    if (f.ds) continue;
-    const ds = await discoverSeason(f.sid);
-    f.ds = (ds && ds.blocked) ? null : ds;
-    if (ds && ds.blocked) log(`  ⛔ blocked resolving grades for ${f.sid} — it will still be created, grades fill on the next grade-refresh`);
-    await sleep(120);
+  const needGrades = found.filter(f => !f.ds);
+  if (needGrades.length) {
+    log(`\nresolving grades for ${needGrades.length} new season(s) (AIMD, cap ${CONCURRENCY})…`);
+    const r = await aimdRun(needGrades, 'grades', async (f) => {
+      const ds = await discoverSeason(f.sid);
+      if (ds && ds.blocked) return { blocked: true };   // requeued, not discarded
+      f.ds = ds;
+      return { blocked: false };
+    }, { cap: CONCURRENCY, key: (f) => f.sid, maxAttempts: 4 });
+    const stillNone = needGrades.filter(f => !f.ds).length;
+    log(`grades resolved for ${needGrades.length - stillNone}/${needGrades.length}  (${r.blockedEvents} block events, ${r.givenUp} gave up after 4 attempts)`);
+    if (stillNone) {
+      // Stated, not buried. A season written with grades:[] because we were refused
+      // looks identical on disk to one PlayHQ genuinely has no grades for, and the
+      // difference decides whether anyone should go looking.
+      log(`⚠ ${stillNone} season(s) will be written with grades:[] because the lookup was BLOCKED, not because PlayHQ has none.`);
+      log('  discover-seasons.js grade-refresh fills these on the weekly sweep; they are live either way.');
+    }
   }
 
   let created = 0, removedN = 0, prealloc = 0;
@@ -396,6 +480,8 @@ async function main() {
   console.log(`    pre-allocated  : ${prealloc}  (live, awaiting grades — the UPCOMING case)`);
   console.log(`    recorded only  : ${removedN}  (COMPLETED, 0 grades, not crawlable)`);
   console.log(`  by status        : ${[...byStatus].map(([k, v]) => `${k}=${v}`).join('  ')}`);
+  const blockedGradeless = found.filter(f => !f.ds && (f.meta.status !== 'COMPLETED')).length;
+  if (blockedGradeless) console.log(`  \u26a0 of the pre-allocated, ${blockedGradeless} have grades:[] from a BLOCKED lookup, not from having none`);
 
   if (DRY_RUN) { log('dry run — sports-index.json not written.'); return; }
   fs.writeFileSync(INDEX_FILE, JSON.stringify(index));
