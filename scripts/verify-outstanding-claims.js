@@ -31,6 +31,7 @@ const ROOT        = path.join(__dirname, '..');
 const PLAYERS_DIR = path.join(ROOT, 'players');
 const GAMES_DIR   = path.join(ROOT, 'games', 'bv');
 const REPORT      = path.join(ROOT, 'reports', 'misrouted-appearances.json');
+const FORFEITS    = path.join(ROOT, 'data', 'forfeit-games.json');
 
 // sports.Basketball.c and .x were added to fetch-profile-stats.js on this date.
 // A player last fetched before it has neither, by design.
@@ -53,10 +54,31 @@ const CLAIMS = [
   // failure. The fixture proved it: a legitimate merged/gp-0 player was reported
   // as a cross-check failure purely for predating the field. Scope is therefore
   // players with statsChecked on or after DIFF_SHIPPED; the rest are counted apart.
-  { id: 'crosscheck_fail',expect: 0,      src: 'README.md (100.0% on shard 00)',what: 'post-diff players failing gp-games == c-x' },
+  // The identity is gp - games == c - x - F, with F the forfeits the player holds.
+  // Omitting F reported 40,926 failures on 2026-09-07 that were not failures.
+  { id: 'crosscheck_fail',expect: 0,      src: 'README.md (100.0% on shard 00)',what: 'post-diff players failing gp-games == c-x-F' },
   { id: 'merged_gp0',     expect: 46,     src: 'OUTSTANDING_TASKS.md item 3',   what: 'merged, public, checked, gp 0, with games' },
   { id: 'bad_names',      expect: 158,    src: 'matrix heal_names input',       what: 'placeholder / season-label names' },
 ];
+
+// ─── The cross-check identity, derived rather than assumed ───────────────────
+// gp counts distinct CREDITED games, and seenGameKeys skips forfeits at the parse
+// (fetch-profile-stats.js L393). games[] is built from rosters and INCLUDES any
+// forfeit that has one. x is captured-minus-credited with forfeits removed.
+//
+//   |credited| - |captured| = |credited\captured| - |captured\credited|
+//   gp - games              = c - (x + F)
+//
+// where F is the forfeits the player holds. The first version of this check used
+// gp - games == c - x and reported 40,926 failures on 2026-09-07, nine of every
+// ten with the same shape: gp == games, c = 1, x = 0 - which is exactly one held
+// forfeit. The identity was wrong, not the data.
+const forfeitIds = (() => {
+  try {
+    const a = JSON.parse(fs.readFileSync(FORFEITS, 'utf8'));
+    return new Set(Array.isArray(a) ? a : []);
+  } catch (_) { return null; }   // null, not empty: absent must not read as zero
+})();
 
 function main() {
   log(`\nverify-outstanding-claims   ${new Date().toISOString()}`);
@@ -69,6 +91,7 @@ function main() {
     c_entries: 0, c_players: 0,
     fetched: 0, withheld: 0, neverFetched: 0,
     crosscheck_ok: 0, crosscheck_fail: 0, crosscheck_examples: [], preDiff: 0,
+    withForfeits: 0, forfeitsHeld: 0,
     merged_gp0: 0, merged_gp0_examples: [],
     bad_names: 0, bad_name_examples: [],
     gamesNeGp: 0,
@@ -118,14 +141,22 @@ function main() {
 
       // gp - games[] must equal c - x for any player who has been fetched and is
       // not withheld: both sides derive from the same two sets.
+      // Forfeits held by THIS player, counted from their own games list.
+      let F = 0;
+      if (forfeitIds && Array.isArray(p.games)) {
+        for (const gid of p.games) if (forfeitIds.has(gid)) F++;
+      }
+      if (F) R.withForfeits++;
+      R.forfeitsHeld += F;
+
       const lhs = gp - games;
-      const rhs = (Array.isArray(bk.c) ? bk.c.length : 0) - (Array.isArray(bk.x) ? bk.x.length : 0);
+      const rhs = (Array.isArray(bk.c) ? bk.c.length : 0) - (Array.isArray(bk.x) ? bk.x.length : 0) - F;
       if (preDiff) { /* out of scope - counted as preDiff above */ }
       else if (lhs === rhs) R.crosscheck_ok++;
       else {
         R.crosscheck_fail++;
         if (R.crosscheck_examples.length < 10) {
-          R.crosscheck_examples.push({ uuid: fname.slice(0, 8), name: p.name || null, gp, games, c: Array.isArray(bk.c) ? bk.c.length : 0, x: Array.isArray(bk.x) ? bk.x.length : 0 });
+          R.crosscheck_examples.push({ uuid: fname.slice(0, 8), name: p.name || null, gp, games, c: Array.isArray(bk.c) ? bk.c.length : 0, x: Array.isArray(bk.x) ? bk.x.length : 0, F });
         }
       }
 
@@ -191,13 +222,15 @@ function main() {
   console.log(`    players carrying c : ${R.c_players.toLocaleString()}`);
   console.log(`    cross-check passes : ${R.crosscheck_ok.toLocaleString()}  (${R.crosscheck_ok + R.crosscheck_fail > 0 ? ((R.crosscheck_ok / (R.crosscheck_ok + R.crosscheck_fail)) * 100).toFixed(2) : '—'}%)`);
   console.log(`    games !== gp       : ${R.gamesNeGp.toLocaleString()} of ${R.fetched.toLocaleString()} fetched-and-public`);
+  console.log(`    players holding a forfeit game  : ${R.withForfeits.toLocaleString()}  (${R.forfeitsHeld.toLocaleString()} forfeits held in total)`);
+  if (!forfeitIds) console.log('      \u26a0 data/forfeit-games.json unreadable - F is 0 for everyone and the cross-check will over-report.');
   console.log(`    fetched BEFORE the diff shipped : ${R.preDiff.toLocaleString()}  (no c/x by design, out of cross-check scope)`);
   if (R.preDiff > 0) console.log('      \u2192 a forced re-fetch is what brings these into scope.');
 
   if (R.crosscheck_examples.length) {
     console.log('\n  cross-check failures — each is a player whose c/x do not describe their own games:');
     for (const e of R.crosscheck_examples) {
-      console.log(`    ${e.uuid}  gp=${e.gp} games=${e.games} c=${e.c} x=${e.x}  gp-games=${e.gp - e.games} but c-x=${e.c - e.x}  ${(e.name || '').slice(0, 22)}`);
+      console.log(`    ${e.uuid}  gp=${e.gp} games=${e.games} c=${e.c} x=${e.x} forfeits=${e.F}  gp-games=${e.gp - e.games} but c-x-F=${e.c - e.x - e.F}  ${(e.name || '').slice(0, 22)}`);
     }
   }
   if (R.merged_gp0_examples.length) {
