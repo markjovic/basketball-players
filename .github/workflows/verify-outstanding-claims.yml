@@ -1,0 +1,86 @@
+# .github/workflows/verify-outstanding-claims.yml
+name: Verify outstanding claims
+
+# READ-ONLY. No PlayHQ calls, no writes. One pass over players/. Prints every
+# measurable claim in OUTSTANDING_TASKS.md beside what the database says today.
+#
+# WHY. The docs carry numbers, numbers go stale the moment anything runs, and a
+# stale number reads exactly like a current one. Worse, several figures those
+# documents were built on turned out to be artefacts: player.u sat at 1,115,172
+# for weeks and 96.5% of it was a wrong field name, and the conclusion drawn from
+# it - "nothing to fix, stop treating the 4.2% as a fault" - was wrong because the
+# number was.
+#
+# So every claim is DECLARED with its source and date, then re-measured. Drift is
+# printed as drift. A claim that cannot be measured from files SAYS SO rather than
+# being left out, because an omitted claim looks verified.
+#
+# THE CROSS-CHECK HAS A SCOPE AND IT MATTERS. gp - games[] == c - x only holds for
+# a player fetched since the diff shipped on 2026-09-05. A file last fetched before
+# that has no c/x at all, so its gp-games difference is compared against zero and
+# any real gap reads as a failure. Those players are counted separately, not
+# reported as broken. Withheld players are excluded too - markNotObtainable never
+# reaches finishOk, so the diff never runs for them.
+#
+# Run it after anything that changes player files: a fold, an alias repoint, a
+# build-player-games rebuild, a matrix sweep.
+
+on:
+  workflow_dispatch:
+    inputs:
+      format:
+        description: 'human = readable tables. json = the full measurement object, for diffing between runs.'
+        required: false
+        default: human
+        type: choice
+        options:
+          - human
+          - json
+
+concurrency:
+  group: verify-outstanding-claims
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout (full, never sparse)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Syntax check
+        run: node --check scripts/verify-outstanding-claims.js
+
+      # Inputs go through env, never straight into the command line. An input
+      # interpolated into a run: block is substituted by GitHub BEFORE bash sees
+      # it, so anything in it becomes shell source text.
+      - name: Verify
+        env:
+          IN_FORMAT: ${{ inputs.format }}
+        run: |
+          set -euo pipefail
+          FLAG=""
+          if [ "$IN_FORMAT" = "json" ]; then FLAG="--json"; fi
+          node scripts/verify-outstanding-claims.js $FLAG
+
+      - name: How to read it
+        if: always()
+        run: |
+          echo "MATCHES  the documented figure still holds."
+          echo "DRIFT    it does not. Either the database moved and the doc needs"
+          echo "         updating, or something regressed. The direction and size"
+          echo "         say which."
+          echo ""
+          echo "Nothing here is authoritative about the misroute report - that file"
+          echo "reflects the state when it was written. Re-run find-misrouted-"
+          echo "appearances in report-only mode to refresh it."
+          echo ""
+          echo "Two claims cannot be checked from files and are listed as such:"
+          echo "the x entries with no stored box score, and whether leaderboards"
+          echo "reflect the corrected win/loss records."
