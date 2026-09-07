@@ -45,6 +45,20 @@ on:
   # schedule trigger — that is what makes the weekly sweep 'all+backfill' rather
   # than silently degrading to 'current' mode. The retrigger passes the RESOLVED
   # values on, so run 2 onward is a normal dispatch that behaves identically.
+  # ⚠️ 2026-09-07: THE WEEKLY SWEEP WAS A NO-OP FOR AT LEAST A MONTH.
+  # generate-shards treated `done` as permanent for a mode, and the cron always
+  # resolves to the same mode. So the first sweep finished, marked all 256 shards
+  # done, and every scheduled run after it selected ZERO shards: empty map matrix,
+  # no artifacts, download-artifact never created /tmp/discoveries, reduce died on
+  # its own `--in` guard - and the run showed GREEN, because `node ... | tee` reports
+  # tee's exit code. 30 seconds a week, doing nothing, while data/sports-index.json
+  # sat unchanged for a month and new competitions went undiscovered.
+  #
+  # fresh-start-reset could never have fixed it: its gate is `inputs.fresh_start`,
+  # and scheduled runs receive no inputs. Manual dispatch only.
+  #
+  # Fixed by making `done` EXPIRE against the updatedAt already on every progress
+  # entry, plus `set -o pipefail` on the reduce so it can never again fail silently.
   schedule:
     - cron: '0 20 * * 0'
   workflow_dispatch:
@@ -158,12 +172,15 @@ jobs:
 
       - id: gen
         env:
+          # 6, not 7: the cron is weekly, so a 7-day threshold would race the
+          # schedule and skip a week whenever a run started a few minutes late.
+          STALE_DAYS: '6'
           INPUT_SHARDS: ${{ inputs.shards || '[]' }}
           ALL_PLAYERS: ${{ inputs.all_players || false }}
           BACKFILL_TEAMS: ${{ (github.event_name == 'schedule' && 'true') || inputs.backfill_teams }}
         run: |
           targets=$(python3 - << 'PYEOF'
-          import json, os, re, sys
+          import json, os, re, sys, datetime
           raw = (os.environ.get('INPUT_SHARDS') or '').strip()
           toks = [t.strip().strip('"').strip("'") for t in (raw[1:-1] if raw.startswith('[') else raw).split(',')]
           toks = [t.lower() for t in toks if re.fullmatch(r'[0-9a-fA-F]{2}', t or '')]
@@ -172,12 +189,48 @@ jobs:
           mode = ('all+backfill' if backfill else 'all') if all_players else 'current'
           progress = json.load(open('data/discover-progress.json')) if os.path.exists('data/discover-progress.json') else {}
           targets = []
+          # ── done EXPIRES ──────────────────────────────────────────────────────
+          # Until 2026-09-07 `done` was permanent for a mode. The weekly cron always
+          # resolves to the same mode (backfill_teams is true on a schedule), so once
+          # the first sweep finished, every later run selected ZERO shards: the map
+          # matrix was empty, no artifacts were uploaded, download-artifact never
+          # created /tmp/discoveries, and the reduce died on its own --in guard while
+          # the run still showed green. Observed weekly from at least 2026-08-17 to
+          # 2026-09-07 — 30-second no-ops — and data/sports-index.json had not moved
+          # in a month as a result.
+          #
+          # fresh-start-reset cannot fix this on a schedule: its gate is
+          # `inputs.fresh_start == true`, and SCHEDULED RUNS RECEIVE NO INPUTS (see
+          # the header). It only ever fires on a manual dispatch.
+          #
+          # So a completed shard goes stale instead. updatedAt is already written on
+          # every progress entry (discover-seasons.js L681); anything older than the
+          # cron interval is re-selected, and the sweep rolls forward on its own.
+          # An unparseable or missing updatedAt is treated as STALE - a shard that
+          # cannot prove it ran recently must run.
+          STALE_DAYS = int(os.environ.get('STALE_DAYS') or '6')
+          now = datetime.datetime.now(datetime.timezone.utc)
+          def fresh(p):
+              ts = p.get('updatedAt')
+              if not ts: return False
+              try:
+                  d = datetime.datetime.fromisoformat(str(ts).replace('Z', '+00:00'))
+                  if d.tzinfo is None: d = d.replace(tzinfo=datetime.timezone.utc)
+              except Exception:
+                  return False
+              return (now - d).days < STALE_DAYS
+
+          stale = 0
           for shard in (toks if toks else [format(i, '02x') for i in range(256)]):
               p = progress.get(shard, {})
-              if not (p.get('done') == True and p.get('mode') == mode and not toks):
+              done_here = p.get('done') == True and p.get('mode') == mode and not toks
+              if done_here and not fresh(p):
+                  stale += 1
+                  done_here = False
+              if not done_here:
                   targets.append(shard)   # shard string only; map job reads cursor from progress file
           # Diagnostics to STDERR so they don't pollute the stdout that bash captures.
-          print(f'generate-shards: {len(targets)} targets for mode={mode}', file=sys.stderr)
+          print(f'generate-shards: {len(targets)} targets for mode={mode} ({stale} re-selected as stale, >{STALE_DAYS}d)', file=sys.stderr)
           # ONLY the JSON array goes to stdout — this is what bash captures.
           print(json.dumps(targets))
           PYEOF
@@ -299,6 +352,11 @@ jobs:
         run: |
           ARGS="--reduce --in=/tmp/discoveries --concurrency=${{ inputs.concurrency || '25' }}"
           if [ "${{ inputs.dry_run || false }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          # pipefail, or `tee` reports success and a reduce that aborted on its own
+          # --in guard shows GREEN. That is how this workflow ran weekly for a month
+          # doing nothing: `--reduce needs --in=<dir>` printed, exit 1, and the run
+          # was recorded as a success.
+          set -o pipefail
           node scripts/discover-seasons.js $ARGS | tee /tmp/reduce.log
           undone=$(grep -o 'UNDONE_SHARDS_JSON=.*' /tmp/reduce.log | sed 's/UNDONE_SHARDS_JSON=//')
           if [ -z "$undone" ]; then undone='[]'; fi
