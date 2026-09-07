@@ -1,39 +1,35 @@
 {
   "advisory": "ADVISORY ONLY. This file is a single path overwritten by EVERY fold run, including a 1-player one, so it is not a durable record. Do not build any repair, check or audit on it — reconstruct from the player data instead (spectatorIds[] is the source of truth). See claude_context.md trap T6.",
-  "generatedAt": "2026-09-06T19:58:51.854Z",
+  "generatedAt": "2026-09-07T21:33:06.408Z",
   "dryRun": false,
-  "filesScanned": 417944,
-  "folded": 2,
-  "promotes": 1,
-  "merges": 1,
-  "statsRefetchQueued": 1,
-  "refetchShards": [
-    "37"
-  ],
+  "filesScanned": 417971,
+  "folded": 3,
+  "promotes": 3,
+  "merges": 0,
+  "statsRefetchQueued": 0,
+  "refetchShards": [],
   "stubWouldHaveWonUnderOldComparator": 0,
   "apiWouldHaveWonUnderOldComparator": 0,
   "keeperChangedTotal": 0,
-  "indexShardsTouched": 4,
-  "aliasEntriesScanned": 499132,
-  "aliasValuesRepointed": 0,
-  "aliasShardsTouched": 0,
+  "indexShardsTouched": 6,
+  "aliasEntriesScanned": 499160,
+  "aliasValuesRepointed": 1,
+  "aliasShardsTouched": 1,
   "entries": [
     {
-      "apiId": "34ffaeef-1fa8-4385-9ddf-f5b1fdce78a5",
+      "apiId": "daeef3af-ce01-4cee-af3f-7f63f14001e3",
       "action": "promote",
-      "oldKey": "a99eff4d-b697-4878-ad2d-e682f7239e6c"
+      "oldKey": "4d3e4c54-e45e-42b2-9ae6-a8865bb49fd7"
     },
     {
-      "apiId": "3787310e-e04d-408b-a421-233fbf5b1e2f",
-      "action": "merge",
-      "oldKey": "f06a5f4c-bb49-4d28-94db-ced7bef0f51f",
-      "keeper": "f06a5f4c-bb49-4d28-94db-ced7bef0f51f",
-      "sourceRank": 3,
-      "targetRank": 3,
-      "sourceGames": 448,
-      "targetGames": 3,
-      "oldComparatorKeeper": "f06a5f4c-bb49-4d28-94db-ced7bef0f51f",
-      "statsRefetchQueued": true
+      "apiId": "d61ab398-c5c5-4296-b5a5-9f387495db60",
+      "action": "promote",
+      "oldKey": "7a7fbf16-7e69-4902-b08f-a29304f1536c"
+    },
+    {
+      "apiId": "4fda0f39-b42b-4821-a10a-a824a97e3330",
+      "action": "promote",
+      "oldKey": "f7ca54bf-60a7-4fa0-bb76-ae74d458b0aa"
     }
   ]
 }
