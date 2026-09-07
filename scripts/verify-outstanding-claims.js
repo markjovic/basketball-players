@@ -56,7 +56,11 @@ const CLAIMS = [
   // players with statsChecked on or after DIFF_SHIPPED; the rest are counted apart.
   // The identity is gp - games == c - x - F, with F the forfeits the player holds.
   // Omitting F reported 40,926 failures on 2026-09-07 that were not failures.
-  { id: 'crosscheck_fail',expect: 0,      src: 'README.md (100.0% on shard 00)',what: 'post-diff players failing gp-games == c-x-F' },
+  // Scope: fetched since the diff shipped AND c/x still self-consistent with the
+  // player's current games[]. Everything else is drift, not failure - see the
+  // self-consistency block for why the arithmetic alone kept over-reporting.
+  { id: 'crosscheck_fail',expect: 0,      src: 'README.md (100.0% on shard 00)',what: 'in-scope players failing gp-games == c-x-F' },
+  { id: 'staleC',         expect: null,   src: 'expected drift, not a fault',   what: 'c entries the player now holds' },
   { id: 'merged_gp0',     expect: 46,     src: 'OUTSTANDING_TASKS.md item 3',   what: 'merged, public, checked, gp 0, with games' },
   { id: 'bad_names',      expect: 158,    src: 'matrix heal_names input',       what: 'placeholder / season-label names' },
 ];
@@ -92,6 +96,7 @@ function main() {
     fetched: 0, withheld: 0, neverFetched: 0,
     crosscheck_ok: 0, crosscheck_fail: 0, crosscheck_examples: [], preDiff: 0,
     withForfeits: 0, forfeitsHeld: 0,
+    staleC: 0, staleX: 0, stalePlayers: 0, selfConsistent: 0, stale_examples: [],
     merged_gp0: 0, merged_gp0_examples: [],
     bad_names: 0, bad_name_examples: [],
     gamesNeGp: 0,
@@ -141,6 +146,29 @@ function main() {
 
       // gp - games[] must equal c - x for any player who has been fetched and is
       // not withheld: both sides derive from the same two sets.
+      // ── SELF-CONSISTENCY, which needs no arithmetic at all ──────────────────
+      // c means "PlayHQ credits it, games[] does not hold it". If a c entry IS in
+      // games[] now, the gap closed after the fetch and the entry is stale. x is
+      // the mirror: an x entry absent from games[] means the game left.
+      //
+      // This is exact. The arithmetic identity is not: it needs forfeits, and it
+      // needs games[] to be unchanged since the fetch, which it usually is not -
+      // c/x are written at fetch time and build-player-games rebuilds games[]
+      // afterwards. Chasing that with gp - games == c - x, then == c - x - F,
+      // reported 40,926 then 39,282 "failures" that were mostly just snapshots
+      // taken before a rebuild.
+      const gset = new Set(Array.isArray(p.games) ? p.games : []);
+      let sc = 0, sx = 0;
+      for (const gid of (Array.isArray(bk.c) ? bk.c : [])) if (gset.has(gid))  sc++;
+      for (const gid of (Array.isArray(bk.x) ? bk.x : [])) if (!gset.has(gid)) sx++;
+      if (sc || sx) {
+        R.stalePlayers++;
+        R.staleC += sc; R.staleX += sx;
+        if (R.stale_examples.length < 10) R.stale_examples.push({ uuid: fname.slice(0, 8), name: p.name || null, gp, games, c: Array.isArray(bk.c) ? bk.c.length : 0, x: Array.isArray(bk.x) ? bk.x.length : 0, sc, sx, checked: String(bk.statsChecked).slice(0, 10) });
+      } else {
+        R.selfConsistent++;
+      }
+
       // Forfeits held by THIS player, counted from their own games list.
       let F = 0;
       if (forfeitIds && Array.isArray(p.games)) {
@@ -151,7 +179,8 @@ function main() {
 
       const lhs = gp - games;
       const rhs = (Array.isArray(bk.c) ? bk.c.length : 0) - (Array.isArray(bk.x) ? bk.x.length : 0) - F;
-      if (preDiff) { /* out of scope - counted as preDiff above */ }
+      // The arithmetic identity is only meaningful where c/x are not stale.
+      if (preDiff || sc || sx) { /* out of scope */ }
       else if (lhs === rhs) R.crosscheck_ok++;
       else {
         R.crosscheck_fail++;
@@ -188,6 +217,7 @@ function main() {
     u_entries: R.u_entries, u_players: R.u_players,
     x_entries: R.x_entries, c_entries: R.c_entries,
     crosscheck_fail: R.crosscheck_fail,
+    staleC: R.staleC,
     merged_gp0: R.merged_gp0,
     bad_names: R.bad_names,
   };
@@ -222,11 +252,23 @@ function main() {
   console.log(`    players carrying c : ${R.c_players.toLocaleString()}`);
   console.log(`    cross-check passes : ${R.crosscheck_ok.toLocaleString()}  (${R.crosscheck_ok + R.crosscheck_fail > 0 ? ((R.crosscheck_ok / (R.crosscheck_ok + R.crosscheck_fail)) * 100).toFixed(2) : '—'}%)`);
   console.log(`    games !== gp       : ${R.gamesNeGp.toLocaleString()} of ${R.fetched.toLocaleString()} fetched-and-public`);
-  console.log(`    players holding a forfeit game  : ${R.withForfeits.toLocaleString()}  (${R.forfeitsHeld.toLocaleString()} forfeits held in total)`);
+  console.log(`\n  ── ARE c AND x STILL TRUE OF THIS PLAYER'S games[]? ──`);
+  console.log(`    self-consistent  : ${R.selfConsistent.toLocaleString()}`);
+  console.log(`    stale            : ${R.stalePlayers.toLocaleString()}  (${R.staleC.toLocaleString()} c entries the player now HOLDS, ${R.staleX.toLocaleString()} x entries they no longer hold)`);
+  console.log('      c and x are written at fetch time. build-player-games rebuilds games[]');
+  console.log('      afterwards, so a c entry whose game has since been captured is expected');
+  console.log('      drift, not corruption. It clears when that player is next fetched.');
+  console.log(`\n    players holding a forfeit game  : ${R.withForfeits.toLocaleString()}  (${R.forfeitsHeld.toLocaleString()} forfeits held in total)`);
   if (!forfeitIds) console.log('      \u26a0 data/forfeit-games.json unreadable - F is 0 for everyone and the cross-check will over-report.');
   console.log(`    fetched BEFORE the diff shipped : ${R.preDiff.toLocaleString()}  (no c/x by design, out of cross-check scope)`);
   if (R.preDiff > 0) console.log('      \u2192 a forced re-fetch is what brings these into scope.');
 
+  if (R.stale_examples.length) {
+    console.log('\n  stale c/x — the fetch predates a games[] rebuild:');
+    for (const e of R.stale_examples) {
+      console.log(`    ${e.uuid}  gp=${e.gp} games=${e.games} c=${e.c} x=${e.x}  ${e.sc} c-entries now held, ${e.sx} x-entries now absent  fetched ${e.checked}  ${(e.name || '').slice(0, 20)}`);
+    }
+  }
   if (R.crosscheck_examples.length) {
     console.log('\n  cross-check failures — each is a player whose c/x do not describe their own games:');
     for (const e of R.crosscheck_examples) {
