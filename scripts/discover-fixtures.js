@@ -466,6 +466,7 @@ function gitCommitPush(message) {
     path.basename(PROGRESS_FILE),          // mode-keyed checkpoint
     'discover-fixtures-progress.json',     // legacy unkeyed name — stages its one-time deletion
     'zero-team-seasons.json',
+    'data/stale-grade-seasons.json',       // consumed by discover-seasons.js grade-refresh
   ];
   // A pathspec that matches nothing is BENIGN here (team-lookup/ is gone; the progress and
   // zero-team files only exist sometimes) — git says "did not match any files" and that must
@@ -814,8 +815,12 @@ async function main() {
       const unseen = [...gradesFromTeams.keys()].filter(g => !known.has(String(g)));
       if (unseen.length) {
         console.log(`  ⚠ sports-index holds ${grades.length} grades for this season; discoverTeams reports ${gradesFromTeams.size} (${unseen.length} the index lacks)`);
+        // The IDS, not just the count. discover-seasons.js's grade-refresh needs to
+        // know which seasons to re-resolve, and a bare number cannot tell it.
         staleGradeSeasons.push({ id: seasonId, name: season.fullName || season.name,
-                                 indexGrades: grades.length, liveGrades: gradesFromTeams.size, missing: unseen.length });
+                                 indexGrades: grades.length, liveGrades: gradesFromTeams.size,
+                                 missing: unseen.length, missingIds: unseen.slice(0, 50),
+                                 seenAt: new Date().toISOString() });
       }
     }
 
@@ -913,11 +918,33 @@ async function main() {
     console.log('      Harmless for THIS sweep — a team returns its whole fixture regardless of grade —');
     console.log('      but discover-seasons.js will not correct the index by itself (L542 only refreshes');
     console.log('      seasons at grades:[]).');
+    console.log(`      Written to data/stale-grade-seasons.json — discover-seasons.js`);
+    console.log('      grade-refresh reads it and re-resolves these seasons.');
   }
   console.log(`  Transient:     ${stillTransient.length} (null on every call, survived retry — run goes RED)`);
 
   if (zeroTeamSeasons.length > 0 && !DRY_RUN) {
     fs.writeFileSync(path.join(ROOT, 'zero-team-seasons.json'), JSON.stringify(zeroTeamSeasons, null, 2));
+  }
+
+  // ── PERSIST THE STALE-GRADE LIST ──────────────────────────────────────────
+  // Until 2026-09-08 this was printed and thrown away. The 29 seasons the
+  // 2026-09-07 run found - EDJBA holding 55 grades against 263 live - vanished
+  // with the run log, and nothing downstream could act on them. The comment at the
+  // detection site says discover-seasons.js "will not correct the index by itself
+  // (L542 only refreshes seasons at grades:[])", which is true and was the end of
+  // it: a season captured mid-grading kept its grading grades forever.
+  //
+  // Written even when EMPTY, deliberately. An absent file is indistinguishable
+  // from "this run found none", and the consumer must be able to tell the
+  // difference between nothing stale and never checked.
+  if (!DRY_RUN) {
+    fs.writeFileSync(path.join(ROOT, 'data', 'stale-grade-seasons.json'), JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      seasonsScanned: seasonsProcessed,
+      count: staleGradeSeasons.length,
+      seasons: staleGradeSeasons,
+    }, null, 2));
   }
 
   clearProgress();
