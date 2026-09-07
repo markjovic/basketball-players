@@ -15,7 +15,19 @@ name: Verify outstanding claims
 # printed as drift. A claim that cannot be measured from files SAYS SO rather than
 # being left out, because an omitted claim looks verified.
 #
-# THE CROSS-CHECK IDENTITY IS gp - games[] == c - x - F, where F is the forfeits
+# THE HONEST TEST IS SELF-CONSISTENCY, NOT ARITHMETIC. c means "PlayHQ credits it,
+# games[] does not hold it" - so if a c entry IS in games[] now, the gap closed
+# after the fetch and the entry is stale. x is the mirror. That test needs no
+# forfeit list and no dates, and it is exact.
+#
+# The arithmetic identity was chased twice and over-reported both times: gp - games
+# == c - x gave 40,926 "failures" on 2026-09-07, and adding the forfeit term gave
+# 39,282. Neither was the data. c and x are written at FETCH time and
+# build-player-games rebuilds games[] afterwards, so most of those players were
+# simply holding a snapshot taken before a rebuild. The arithmetic is now applied
+# only where c/x are still self-consistent, and the drift is reported as drift.
+#
+# The arithmetic identity, for the record, is gp - games[] == c - x - F, F being the forfeits
 # the player holds. gp counts CREDITED games and seenGameKeys skips forfeits at the
 # parse; games[] is built from rosters and includes any forfeit that has one; x is
 # captured-minus-credited with forfeits removed. The first version omitted F and
