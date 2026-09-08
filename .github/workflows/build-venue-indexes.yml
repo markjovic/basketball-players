@@ -2,8 +2,64 @@
 
 name: Build Venue Indexes
 
+# Writes four index files, all derived from venue-lookup/ and games/bv/:
+#   venue-lookup/{vid}/dates.json
+#   date-venue-index/{YYYY-MM-DD}.json
+#   data/season-venue-index.json
+#   data/venue-index.json      ← added 2026-09-08; had NO writer before that
+#
+# ⚠️ data/venue-index.json HAD NEVER BEEN UPDATED. It was created once, on
+# 2026-06-13, by the Phase 1 migration — 532 entries against the 532 venue
+# directories that existed that day. No ongoing writer was ever built.
+# REPO_MANIFEST's writer→reader graph recorded it as "(venue build)", a placeholder
+# nobody resolved. By 2026-09-08 it held 532 entries against 537 venue directories
+# and StatTrack reads it to name venues, so five venues existed in the data and
+# could not be named. The script now rebuilds it in the pass that already opens
+# every games file — every game carries both `vid` and `vn`.
+#
+# ⚠️ NO CONCURRENCY LOCK, AND THAT IS DELIBERATE. DO NOT ADD ONE.
+# This job writes paths nothing else touches, so it cannot conflict on FILES — its
+# only contention is push serialisation against the matrix storm (~150
+# lockless-by-design runs pushing player shards for the best part of an hour).
+# On 2026-08-07 that was killing it: ~17 seconds of real work, then 40 minutes of
+# losing push races until the clock killed the job.
+#
+# The obvious fix is `concurrency: data-write`. That is a TRAP here (T19). On
+# 2026-08-06 the same reasoning was applied to Build Leaderboards, Search Index and
+# Single-Game Records: GitHub allows exactly ONE waiter per group, the matrix
+# terminal dispatches them in a burst, each arrival evicts the previous waiter
+# ("Canceling since a higher priority waiting request for data-write exists"), and
+# only the last-dispatched survived. All three effectively stopped running.
+#
+# The correct answer for a lockless writer is a push-retry loop that outlasts the
+# contention, and the script now has one: 60 attempts, random 1-91s jitter, and it
+# THROWS on exhaustion. The loop decides the outcome — it wins, or the job goes red
+# with the real push error. Never the clock.
+#
+# NO actions/setup-node. Removed 2026-09-08. This job makes no network calls at all,
+# so it cannot hit the CloudFront fingerprint problem, but preinstalled node is what
+# every other script in this repo runs on and there is nothing to gain by differing.
+#
+# FULL CHECKOUT, NOT SPARSE. It reads every directory under venue-lookup/ (537
+# directories, ~106,000 date files) and every file in games/bv/ (2,939 files,
+# 1.94 GB). Sparse checkout creates a blobless clone that fetches roughly one object
+# per second on demand — unusable at that count. A full checkout of this repository
+# takes about seven minutes on a runner.
+
 on:
+  # Dispatch, plus whatever dispatches it. Per REPO_MANIFEST it also runs from
+  # post-drain-chain, which is where it was moved on 2026-08-07 to get it out of the
+  # nightly's contention window.
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run = report what would change, write nothing. apply = write and commit.'
+        required: true
+        default: apply
+        type: choice
+        options:
+          - apply
+          - dry-run
 
 permissions:
   contents: write
@@ -11,6 +67,11 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # A BACKSTOP ABOVE THE PUSH LOOP, NOT A BUDGET FOR IT. The script's retry is
+    # self-bounding: 60 attempts × up to 91s jitter, plus a fetch/merge cycle each
+    # time, is roughly 3 hours worst case. 45 and 120 were both tried in August and
+    # both sat INSIDE that, so the clock kept killing the job mid-retry and hiding
+    # the real outcome. Anything above ~180 lets the loop terminate the job instead.
     timeout-minutes: 350
 
     steps:
@@ -20,15 +81,41 @@ jobs:
           fetch-depth: 1
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Syntax check
+        run: node --check scripts/build-venue-indexes.js
 
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      # Input read through an explicit fallback: a scheduled or dispatched run that
+      # supplies nothing must still do the real thing, not silently dry-run. That is
+      # the fault that made the weekly season sweep a no-op for a month.
       - name: Run build-venue-indexes
-        run: node scripts/build-venue-indexes.js
+        env:
+          IN_MODE: ${{ inputs.mode || 'apply' }}
+        run: |
+          set -euo pipefail
+          if [ "$IN_MODE" = "dry-run" ]; then
+            node scripts/build-venue-indexes.js --dry-run
+          else
+            node scripts/build-venue-indexes.js
+          fi
+
+      - name: What to check in the output
+        if: always()
+        run: |
+          echo "The venue-index.json block is new. On its FIRST apply run expect a"
+          echo "non-zero 'added' count — that file has not been updated since"
+          echo "2026-06-13 and held 532 entries against 537 venue directories."
+          echo ""
+          echo "'kept, named by no game' are entries no game mentions. They are NOT"
+          echo "dropped. Either the venue exists only in venue-lookup, or every game"
+          echo "there predates the vn field."
+          echo ""
+          echo "An ABORT on 'venue-index shrank' means the merge lost entries. That"
+          echo "should be impossible by construction, so treat it as a real bug."
+          echo ""
+          echo "If the job goes red on 'push failed after 60 attempts', that is the"
+          echo "retry loop terminating correctly with the real cause. Re-run it."
