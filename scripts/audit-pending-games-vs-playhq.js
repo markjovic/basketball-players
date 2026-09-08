@@ -232,15 +232,17 @@ async function main() {
   // Totals, kept apart on purpose. "still pending at PlayHQ" and "we never asked"
   // are different answers and collapsing them is the whole failure mode.
   let stillPending = 0, nowFinished = 0, notAtPlayHQ = 0, blocked = 0, transient = 0;
+  let partialCoverage = 0;
   const examples = [];
 
   for (const x of seasons) {
+    const gradesTotal = (x.s.grades || []).length;
     const grades = (x.s.grades || []).slice(0, MAX_GRADES);
     if (!grades.length) { console.log(`  ${x.s.id}: no grades in the index — cannot ask`); continue; }
 
     // Our stored status for every game, by game id.
     const ours = new Map(x.pending.map(([gid, g]) => [gid, g]));
-    let sPending = 0, sFinished = 0, sAbsent = 0, sFail = 0, asked = 0;
+    let sPending = 0, sFinished = 0, sAbsent = 0, sFail = 0, asked = 0, gradesOk = 0;
 
     for (const gr of grades) {
       const r1 = await gqlMain('gradeRounds', Q_GRADE_ROUNDS, { gradeID: gr.id });
@@ -248,10 +250,11 @@ async function main() {
       if (r1.kind !== 'ok')        { transient++; sFail++; console.log(`    ⚠ ${x.s.id}/${gr.id}: ${r1.kind} — not an answer`); continue; }
       const rounds = (r1.data && r1.data.discoverGrade && r1.data.discoverGrade.rounds) || [];
 
+      let roundsOk = true;
       for (const rd of rounds) {
         const r2 = await gqlMain('discoverFixtureByRound', Q_FIXTURE_BY_ROUND, { roundID: rd.id });
-        if (r2.kind === 'blocked')   { blocked++;   sFail++; continue; }
-        if (r2.kind !== 'ok')        { transient++; sFail++; continue; }
+        if (r2.kind === 'blocked')   { blocked++;   sFail++; roundsOk = false; continue; }
+        if (r2.kind !== 'ok')        { transient++; sFail++; roundsOk = false; continue; }
         const games = (r2.data && r2.data.discoverFixtureByRound && r2.data.discoverFixtureByRound.games) || [];
 
         for (const g of games) {
@@ -269,18 +272,44 @@ async function main() {
           ours.delete(g.id);
         }
       }
+      if (roundsOk) gradesOk++;
       await sleep(200);
     }
 
-    // Anything we hold that PlayHQ's own fixture never returned.
-    sAbsent = ours.size; notAtPlayHQ += sAbsent;
-    console.log(`  ${x.s.id}  asked ${String(asked).padStart(4)}  →  still pending ${String(sPending).padStart(4)}   finished at PlayHQ ${String(sFinished).padStart(4)}   not returned ${String(sAbsent).padStart(4)}   failures ${sFail}`);
+    // ⚠️ THE NOT-RETURNED COUNT ONLY EXISTS UNDER FULL COVERAGE, AND THIS IS WHY.
+    // The first version did `sAbsent = ours.size` unconditionally and printed it as
+    // "the fixture no longer exists at PlayHQ". `ours` starts as EVERY unresolved
+    // game in the season and only shrinks when PlayHQ returns one — so every game in
+    // a grade we never queried, and every game in a grade whose call was refused,
+    // was counted as a fixture PlayHQ had dropped.
+    //
+    // Measured 2026-09-08: a9fcd2a0 has 16 grades against MAX_GRADES=4, so 12 were
+    // never asked about — it reported 315 "not returned" against 72 asked. 64bbf12f,
+    // 39965012 and f5d8954a each had every grade call blocked, asked NOTHING, and
+    // still reported 109, 104 and 74. Of 632 reported across the run, almost all was
+    // artefact. That is a failure to ASK printed as an ANSWER, in the very tool
+    // built to keep those two apart.
+    //
+    // The fix is not a cleverer sum. A number that is only correct under conditions
+    // the run does not check is worse than no number, because it gets quoted later.
+    // So: report it ONLY when every grade in the season was queried and every one of
+    // their rounds came back. Otherwise say what coverage was achieved and print no
+    // count at all.
+    const fullCoverage = (gradesOk === gradesTotal);
+    if (fullCoverage) {
+      sAbsent = ours.size; notAtPlayHQ += sAbsent;
+      console.log(`  ${x.s.id}  asked ${String(asked).padStart(4)}  →  still pending ${String(sPending).padStart(4)}   finished at PlayHQ ${String(sFinished).padStart(4)}   not returned ${String(sAbsent).padStart(4)}   failures ${sFail}`);
+    } else {
+      partialCoverage++;
+      console.log(`  ${x.s.id}  asked ${String(asked).padStart(4)}  →  still pending ${String(sPending).padStart(4)}   finished at PlayHQ ${String(sFinished).padStart(4)}   not returned    —   failures ${sFail}   [COVERAGE ${gradesOk}/${gradesTotal} grades — no count produced]`);
+    }
   }
 
   console.log(`\n${'═'.repeat(86)}`);
   console.log(`  still PENDING at PlayHQ too : ${stillPending}   → world A: the result does not exist`);
   console.log(`  FINISHED at PlayHQ          : ${nowFinished}   → world B: we failed to capture it`);
-  console.log(`  not returned by PlayHQ      : ${notAtPlayHQ}   → the fixture no longer exists there`);
+  console.log(`  not returned by PlayHQ      : ${notAtPlayHQ}   → the fixture no longer exists there (FULLY COVERED seasons only)`);
+  console.log(`  seasons with partial cover  : ${partialCoverage}   ← no not-returned count produced for these`);
   console.log(`  CloudFront blocked          : ${blocked}   ← NOT an answer`);
   console.log(`  transient failures          : ${transient}   ← NOT an answer`);
   console.log(`${'═'.repeat(86)}`);
@@ -290,6 +319,12 @@ async function main() {
     for (const e of examples) console.log(`    season ${e.sid}  game ${e.gid}   ours=${e.ours}  playhq=${e.theirs}  result=${e.hasResult ? 'yes' : 'no'}`);
   }
 
+  if (partialCoverage) {
+    console.log(`\n  ${partialCoverage} season(s) had only some of their grades queried — either capped by`);
+    console.log(`  --max-grades or refused mid-run. No "not returned" figure is produced for those,`);
+    console.log(`  because a game in a grade we never asked about is not a game PlayHQ dropped.`);
+    console.log(`  Raise --max-grades to cover them, at the cost of many more calls.`);
+  }
   if (blocked || transient) {
     console.log(`\n  \u26a0 ${blocked + transient} call(s) got no answer. This reading is INCOMPLETE — re-run before deciding.`);
   }
