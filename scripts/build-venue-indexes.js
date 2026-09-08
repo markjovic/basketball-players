@@ -1,6 +1,19 @@
 // scripts/build-venue-indexes.js
 //
-// Generates three new index files from the venue-lookup directory structure:
+// ⚠️ data/venue-index.json HAD NO WRITER AT ALL UNTIL 2026-09-08.
+// It was created once, on 2026-06-13, by the Phase 1 migration — 532 entries against
+// the 532 venue directories that existed that day. Nothing updated it since, because
+// no ongoing writer was ever built. REPO_MANIFEST's writer→reader graph recorded it
+// as "(venue build)", a placeholder nobody resolved, and this script — the obvious
+// candidate — never touched it. By 2026-09-08 it held 532 entries against 537 venue
+// directories, and StatTrack reads it to name venues. Five venues existed in the data
+// and could not be named.
+//
+// It is rebuilt here because this script ALREADY opens every file in games/bv for
+// part 3, and every game carries BOTH `vid` and `vn`. The name was one field away
+// from the id already being collected.
+//
+// Generates four index files from venue-lookup/ and games/bv/:
 //
 //   1. venue-lookup/{vid}/dates.json
 //      Array of YYYY-MM-DD strings for every date with at least one game at this venue.
@@ -8,9 +21,18 @@
 //   2. date-venue-index/{YYYY-MM-DD}.json
 //      Array of venue IDs active on that date (at least one game).
 //
-//   3. season-venue-index.json
+//   3. data/season-venue-index.json
 //      { seasonId: [venueId, ...] } — venues used in each season.
 //      Derived from games/bv/{sid}.json (vid field on game entries).
+//
+//   4. data/venue-index.json
+//      [{ id, n }] — venue id and display name, read by StatTrack.
+//      Derived from games/bv/{sid}.json (vid + vn). A renamed venue takes the name
+//      from its MOST RECENT game.
+//
+//      IT MERGES, IT DOES NOT REPLACE. Entries already present that no game mentions
+//      are KEPT and reported as orphans, never dropped. A rebuild that silently
+//      deletes rows StatTrack may still reference is worse than a stale file.
 //
 // Run: node scripts/build-venue-indexes.js
 // Dry run: node scripts/build-venue-indexes.js --dry-run
@@ -33,17 +55,58 @@ function writeJson(p, data) {
   fs.writeFileSync(p, JSON.stringify(data), 'utf8');
 }
 
-function gitCommit(message, dirs) {
-  try {
-    execSync(`git add ${dirs.join(' ')}`, { cwd: ROOT, stdio: 'pipe' });
-    const diff = execSync('git diff --staged --stat', { cwd: ROOT, stdio: 'pipe' }).toString().trim();
-    if (!diff) return;
-    execSync(`git commit -m "${message}"`, { cwd: ROOT, stdio: 'pipe' });
-    execSync('git pull --rebase=false --no-edit -X ours', { cwd: ROOT, stdio: 'pipe' });
-    execSync('git push', { cwd: ROOT, stdio: 'pipe' });
-    console.log(`  ✔ committed: ${message}`);
-  } catch (e) {
-    console.error(`  ✗ git error: ${e.message}`);
+// ⚠️ REWRITTEN 2026-09-08. THE PREVIOUS VERSION HAD TWO FAULTS, BOTH DOCUMENTED
+// ELSEWHERE IN THIS REPO AS ALREADY-FIXED BUGS.
+//
+// 1. ONE COMBINED `git add` ACROSS THREE PATHSPECS. If any single pathspec matches
+//    nothing, git stages NOTHING — atomically, silently, exit 0. This is the exact
+//    failure that discarded a green run of 30,426 games from `discover-fixtures.js`
+//    on 2026-07-19 (REPO_MANIFEST §2.2). That script was fixed with per-path adds on
+//    2026-07-21. This one was never touched.
+//
+// 2. THE WHOLE THING WAS WRAPPED IN A try/catch THAT PRINTED AND RETURNED.
+//    A failed add, commit, merge or push printed "✗ git error" and the process
+//    exited ZERO. The job showed green having written nothing. That is the same class
+//    as the weekly sweep reporting success for a month while doing nothing.
+//
+// Now on the house pattern: per-path `git add`, staged shortstat printed before the
+// commit, commit before merge, 60-attempt push retry with random jitter, and it
+// THROWS when attempts are exhausted. A lost run must show red.
+const GIT_OPTS      = { cwd: ROOT, stdio: 'pipe', timeout: 10 * 60 * 1000, maxBuffer: 512 * 1024 * 1024 };
+const PUSH_ATTEMPTS = 60;
+
+function gitCommit(message, paths) {
+  let staged = 0;
+  for (const p of paths) {
+    // Per path, so one unmatched pathspec cannot silently discard the others.
+    try { execSync(`git add -- ${p}`, GIT_OPTS); staged++; }
+    catch (e) {
+      const detail = (e.stderr || e.stdout || '').toString().trim() || e.message;
+      console.error(`  ⚠ git add FAILED "${p}": ${detail}`);
+    }
+  }
+  if (!staged) throw new Error('git add staged NOTHING for every path — refusing to continue');
+
+  const shortstat = execSync('git diff --staged --shortstat', GIT_OPTS).toString().trim();
+  if (!shortstat) { console.log('  staging: no changes — nothing to commit'); return; }
+  console.log(`  staging: ${shortstat}`);
+
+  execSync(`git commit -m "${message.replace(/"/g, "'")}"`, GIT_OPTS);
+
+  for (let attempt = 1; attempt <= PUSH_ATTEMPTS; attempt++) {
+    try {
+      execSync('git fetch origin main', GIT_OPTS);
+      execSync('git merge -X ours FETCH_HEAD --no-edit --no-stat', GIT_OPTS);
+      execSync('git push origin main', GIT_OPTS);
+      console.log(`  ✔ pushed (attempt ${attempt}): ${message}`);
+      return;
+    } catch (e) {
+      const detail = (e.stderr || e.stdout || '').toString().trim() || e.message;
+      if (attempt === PUSH_ATTEMPTS) throw new Error(`push failed after ${PUSH_ATTEMPTS} attempts: ${detail}`);
+      const wait = 1000 + Math.floor(Math.random() * 90000);
+      console.log(`  … push contention (attempt ${attempt}) — retry in ${Math.round(wait / 1000)}s`);
+      execSync(`sleep ${Math.round(wait / 1000)}`, { stdio: 'ignore' });
+    }
   }
 }
 
@@ -123,6 +186,11 @@ const gameFiles = fs.readdirSync(gamesDir).filter(f => f.endsWith('.json'));
 
 // sid → Set<vid>
 const seasonVenues = new Map();
+// vid → { n, d }  — the name from the venue's MOST RECENT game. A venue that has
+// been renamed should read as whatever it is called now, not whatever it was
+// called the first time a game landed there.
+const venueNames = new Map();
+let gamesWithVid = 0, gamesWithVn = 0;
 
 for (const fname of gameFiles) {
   const sid = fname.replace('.json', '');
@@ -131,7 +199,14 @@ for (const fname of gameFiles) {
 
   const vids = new Set();
   for (const g of Object.values(gf.games || {})) {
-    if (g.vid) vids.add(g.vid);
+    if (!g.vid) continue;
+    vids.add(g.vid);
+    gamesWithVid++;
+    if (!g.vn) continue;
+    gamesWithVn++;
+    const prev = venueNames.get(g.vid);
+    const d = g.d || '';
+    if (!prev || d > prev.d) venueNames.set(g.vid, { n: g.vn, d });
   }
   if (vids.size > 0) {
     seasonVenues.set(sid, vids);
@@ -148,12 +223,57 @@ const svPath = path.join(ROOT, 'data', 'season-venue-index.json');
 if (!DRY_RUN) writeJson(svPath, seasonVenueIndex);
 console.log(`  ${Object.keys(seasonVenueIndex).length} seasons in season-venue-index.json`);
 
+// ─── part 4: venue-index.json ───────────────────────────────────────────────
+// MERGE, never replace. Anything already in the file that no game mentions is kept
+// and reported as an orphan. A rebuild that silently deletes rows StatTrack may
+// still reference is worse than a stale file — and this file has been stale since
+// the day it was created, so the first run of this will move a lot at once.
+
+console.log('\nBuilding data/venue-index.json...');
+const viPath = path.join(ROOT, 'data', 'venue-index.json');
+
+let existing = [];
+if (fs.existsSync(viPath)) {
+  try { existing = readJson(viPath); } catch { existing = []; }
+}
+if (!Array.isArray(existing)) existing = [];
+const byId = new Map(existing.filter(e => e && e.id).map(e => [e.id, e]));
+const beforeCount = byId.size;
+
+let added = 0, renamed = 0, unchanged = 0;
+const renames = [];
+for (const [vid, { n }] of venueNames) {
+  const prev = byId.get(vid);
+  if (!prev)            { byId.set(vid, { id: vid, n }); added++; continue; }
+  if (prev.n === n)     { unchanged++; continue; }
+  if (renames.length < 20) renames.push(`    ${vid}  ${JSON.stringify(prev.n)} → ${JSON.stringify(n)}`);
+  prev.n = n; renamed++;
+}
+
+// Named by no game: either the venue only appears in venue-lookup, or every game
+// there predates the vn field. Kept, and stated, so the number is visible.
+const orphans = [...byId.keys()].filter(id => !venueNames.has(id));
+
+const venueIndex = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+if (!DRY_RUN) writeJson(viPath, venueIndex);
+
+console.log(`  games with vid: ${gamesWithVid}, of which ${gamesWithVn} also carry vn`);
+console.log(`  venues named by games   : ${venueNames.size}`);
+console.log(`  entries before          : ${beforeCount}`);
+console.log(`  added                   : ${added}`);
+console.log(`  renamed                 : ${renamed}`);
+console.log(`  unchanged               : ${unchanged}`);
+console.log(`  kept, named by no game  : ${orphans.length}   ← never dropped`);
+console.log(`  entries after           : ${venueIndex.length}`);
+if (renames.length) { console.log('  renames:'); renames.forEach(r => console.log(r)); if (renamed > renames.length) console.log(`    … and ${renamed - renames.length} more`); }
+if (venueIndex.length < beforeCount) throw new Error(`ABORT: venue-index shrank ${beforeCount} → ${venueIndex.length}. This file must never lose entries.`);
+
 // ─── commit ─────────────────────────────────────────────────────────────────
 
 if (!DRY_RUN) {
   gitCommit(
-    `build-venue-indexes: dates.json per venue, date-venue-index, season-venue-index`,
-    ['venue-lookup/', 'date-venue-index/', 'data/season-venue-index.json']
+    `build-venue-indexes: dates.json per venue, date-venue-index, season-venue-index, venue-index`,
+    ['venue-lookup/', 'date-venue-index/', 'data/season-venue-index.json', 'data/venue-index.json']
   );
 }
 
@@ -163,4 +283,5 @@ console.log('\n─── Summary ───────────────�
 console.log(`  venue dates.json files   : ${venueIndexCount}`);
 console.log(`  date-venue-index files   : ${dateIndexCount}`);
 console.log(`  season-venue-index.json  : ${Object.keys(seasonVenueIndex).length} seasons`);
+console.log(`  venue-index.json         : ${venueIndex.length} venues (+${added} new, ${renamed} renamed)`);
 console.log(`  Mode                     : ${DRY_RUN ? 'DRY RUN (no writes)' : 'LIVE'}`);
