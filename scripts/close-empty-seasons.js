@@ -279,6 +279,51 @@ if (LIST_PATHS) {
   process.exit(0);
 }
 
+// ─── Pacing ──────────────────────────────────────────────────────────────────
+// ⚠️ THE FIRST VERSION OF THIS TOOL HAD NONE, AND WAS WALLED. On 2026-09-08 it
+// fired 165 grade lookups plus their rounds in 80 seconds behind a fixed 150ms
+// sleep with no retry: 5 seasons answered, then every remaining call came back
+// CloudFront-blocked. 22 of 27 seasons went unanswered. Same shape as the
+// discover-org-seasons run the day before - 14 through, then 164 refused.
+//
+// This caller is SEQUENTIAL, so the AIMD concurrency ladder used elsewhere does
+// not apply; the lever is the gap between calls, not how many run at once. Same
+// principles though: back off hard on a block, retry the same call rather than
+// discarding it, widen the base gap when blocks cluster, decay it when they stop.
+//
+// A call that exhausts its retries returns blocked, and the season it belongs to
+// is reported as unanswered and left alone. A failure to ask is never an answer.
+const PACE_MIN_MS = 150, PACE_MAX_MS = 4000;
+const BLOCK_RETRIES = 6, BLOCK_BACKOFF_MS = 5000, BLOCK_BACKOFF_CAP_MS = 60000;
+let paceMs = PACE_MIN_MS, consecutiveBlocks = 0, cleanRun = 0;
+let totalBlocks = 0, totalRetries = 0;
+
+async function gqlPaced(operationName, query, variables) {
+  for (let attempt = 1; attempt <= BLOCK_RETRIES; attempt++) {
+    const r = await gqlMain(operationName, query, variables);
+    if (r.kind !== 'blocked') {
+      consecutiveBlocks = 0;
+      if (++cleanRun >= 25 && paceMs > PACE_MIN_MS) {   // earned back slowly
+        paceMs = Math.max(PACE_MIN_MS, Math.floor(paceMs * 0.75));
+        cleanRun = 0;
+        console.log(`    · ${totalBlocks} block(s) so far; pace eased to ${paceMs}ms`);
+      }
+      await sleep(paceMs);
+      return r;
+    }
+    totalBlocks++; consecutiveBlocks++; cleanRun = 0;
+    // Widen the base gap for everything that follows, not just this retry.
+    if (consecutiveBlocks >= 2) paceMs = Math.min(PACE_MAX_MS, Math.max(PACE_MIN_MS * 2, paceMs * 2));
+    if (attempt < BLOCK_RETRIES) {
+      totalRetries++;
+      const backoff = Math.min(BLOCK_BACKOFF_CAP_MS, attempt * BLOCK_BACKOFF_MS);
+      console.log(`    ⚠ blocked (${operationName}) — retry ${attempt}/${BLOCK_RETRIES - 1} in ${backoff / 1000}s, pace now ${paceMs}ms`);
+      await sleep(backoff);
+    }
+  }
+  return { kind: 'blocked', data: null };
+}
+
 // ─── Ask PlayHQ ──────────────────────────────────────────────────────────────
 // Returns { answered, games, gradesAsked, why }. `answered` false means we never
 // learned anything and the season MUST be left alone.
@@ -288,20 +333,19 @@ async function askPlayHQ(season) {
 
   let games = 0, asked = 0;
   for (const gr of grades) {
-    const r1 = await gqlMain('gradeRounds', Q_GRADE_ROUNDS, { gradeID: gr.id });
-    if (r1.kind === 'blocked') return { answered: false, games, gradesAsked: asked, why: 'CloudFront blocked' };
+    const r1 = await gqlPaced('gradeRounds', Q_GRADE_ROUNDS, { gradeID: gr.id });
+    if (r1.kind === 'blocked') return { answered: false, games, gradesAsked: asked, why: `CloudFront blocked after ${BLOCK_RETRIES} attempts` };
     if (r1.kind !== 'ok')      return { answered: false, games, gradesAsked: asked, why: `grade lookup ${r1.kind}` };
     asked++;
     const rounds = (r1.data && r1.data.discoverGrade && r1.data.discoverGrade.rounds) || [];
     for (const rd of rounds) {
-      const r2 = await gqlMain('discoverFixtureByRound', Q_FIXTURE_BY_ROUND, { roundID: rd.id });
-      if (r2.kind === 'blocked') return { answered: false, games, gradesAsked: asked, why: 'CloudFront blocked mid-round' };
+      const r2 = await gqlPaced('discoverFixtureByRound', Q_FIXTURE_BY_ROUND, { roundID: rd.id });
+      if (r2.kind === 'blocked') return { answered: false, games, gradesAsked: asked, why: `CloudFront blocked mid-round after ${BLOCK_RETRIES} attempts` };
       if (r2.kind !== 'ok')      return { answered: false, games, gradesAsked: asked, why: `round lookup ${r2.kind}` };
       games += ((r2.data && r2.data.discoverFixtureByRound && r2.data.discoverFixtureByRound.games) || []).length;
       // One game is enough to prove the season is not empty. Stop asking.
       if (games > 0) return { answered: true, games, gradesAsked: asked, why: null };
     }
-    await sleep(150);
   }
   return { answered: true, games: 0, gradesAsked: asked, why: null };
 }
@@ -355,6 +399,7 @@ async function main() {
   console.log(`  CLOSED (PlayHQ has nothing) : ${close.length}   ${close.reduce((t, x) => t + (x.s.grades || []).length, 0)} grades off the nightly`);
   console.log(`  HAS GAMES AT PLAYHQ         : ${hasGames.length}   ← capture gap, NOT closed`);
   console.log(`  no answer                   : ${noAnswer.length}   ← left alone, re-run`);
+  console.log(`  CloudFront blocks absorbed  : ${totalBlocks}   (${totalRetries} retried, final pace ${paceMs}ms)`);
   console.log(`  skipped as too recent       : ${tooRecent.length}`);
   console.log(`  ${'-'.repeat(82)}`);
   console.log(`  locked                      : ${lockedBefore} → ${lockedAfter}`);
