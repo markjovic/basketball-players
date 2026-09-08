@@ -1,7 +1,11 @@
 // scripts/update-team-index.js
 //
-// Adds new team entries to team-index.json, AND corrects existing ones, by
-// scanning recently-updated
+// Adds new team entries to team-index.json, and corrects the NAME and COMPETITION
+// of existing ones. It does NOT correct `grade` — a team legitimately holds several
+// grades in a season (Decision A, 2026-08-01: a reg is a (team, grade) pair), and
+// the current one cannot be derived from registrations. See the note in the loop.
+//
+// Scans recently-updated
 // player files (default: last 2 days). Sources team data from
 // seasons[].regs[] which includes pre-graded teams not yet in game files.
 //
@@ -184,9 +188,35 @@ async function main() {
             // Known team — CORRECT it if PlayHQ now says something different.
             // Only ever overwrite with a real value: a registration carrying no team
             // name must not blank a name we already hold.
-            const want = { n: reg.tn || '', comp: meta.compName || '', grade: reg.gn || '' };
+            // ⚠️ `grade` IS DELIBERATELY NOT CORRECTED. DO NOT ADD IT BACK.
+            //
+            // Decision A (Mark, 2026-08-01): a reg IS a (team, grade) registration.
+            // A team under two grades in one season is a REGRADE and is CORRECT
+            // data — 1,296,352 regs are that. The identity of a reg is (tid, gid),
+            // never tid alone.
+            //
+            // The first version of this correction keyed on tid and overwrote
+            // `grade` from whichever reg it met. A --all dry run on 2026-09-08
+            // reported 2,175,659 "corrections" across 360,777 teams — six per team
+            // — because the same tid was being rewritten again and again by
+            // different players' registrations, last writer winning. That is T14
+            // rebuilt: discover-seasons.js collapsed a regrade to the latest grade,
+            // the nightly met a game in the older grade and appended it back, and
+            // the loop produced 27,666 duplicate regs.
+            //
+            // Nor can the CURRENT grade be recovered here. Measured on Toby Jovic
+            // (0afc7690), four regrades: the RES grade is reg[1] twice and reg[0]
+            // twice. Array order carries no chronology, and a reg has no date. The
+            // current grade is the gid of the team's most recent GAME, which lives
+            // in games/bv or team-stats/bv fixtures — neither of which this script
+            // reads. That is separate work; see OUTSTANDING_TASKS.
+            //
+            // `n` and `comp` ARE safe: the team name is identical across every reg
+            // of every regrade on that player (MMB66, MMB74, MMB70, MMB71), and
+            // `comp` comes from sports-index, not from the reg.
+            const want = { n: reg.tn || '', comp: meta.compName || '' };
             const diffs = [];
-            for (const k of ['n', 'comp', 'grade']) {
+            for (const k of ['n', 'comp']) {
               if (!want[k]) continue;
               if (prev[k] === want[k]) continue;
               diffs.push(`${k} ${JSON.stringify(prev[k] === undefined ? null : prev[k])} -> ${JSON.stringify(want[k])}`);
@@ -220,7 +250,7 @@ async function main() {
   console.log(`Players checked: ${playersChecked.toLocaleString()}`);
   console.log(`Players scanned: ${playersScanned.toLocaleString()}`);
   console.log(`New teams added:    ${newTeams}`);
-  console.log(`Existing corrected: ${updatedTeams}   <- renamed or regraded; previously never updated`);
+  console.log(`Existing corrected: ${updatedTeams}   <- name/comp only; grade is NEVER corrected (see the note in the loop)`);
   if (updates.length) {
     console.log('  corrections:');
     updates.forEach(u => console.log(u));
