@@ -1,0 +1,103 @@
+# .github/workflows/audit-removed-org-seasons.yml
+name: Audit Removed Org Seasons (read-only sizing)
+
+# READ-ONLY. Sizes the repair of the 80 seasons that discover-org-seasons.js wrote
+# as removed:true on 2026-09-07 because their grade lookup was CloudFront-blocked,
+# not because PlayHQ has no grades for them.
+#
+# WRITES NOTHING AND COMMITS NOTHING. There is no git configuration step and no
+# write permission, so a bug in the script cannot change the repository. Safe to
+# run twice, and safe to run while anything else is running.
+#
+# WHY IT EXISTS. buildEntry treats "no grades came back" as "this season has no
+# grades". For a COMPLETED season that writes { grades: [], locked: true,
+# removed: true }, which is permanent — discover-seasons.js's grade-refresh only
+# selects locked:false, so nothing re-asks. 80 seasons are in that state. This
+# finds out how many of them actually have grades before anything is repaired.
+#
+# WHAT THE ANSWER IS FOR. The grade total across the repairable seasons is the
+# cost of the repair, and it is a RECURRING cost, not a one-off: nightly-crawl.js
+# builds its work list from the grades of every season at locked:false and never
+# writes sports-index.json, so nothing locks a COMPLETED season after crawling it.
+# 86 seasons are already in that state. Decide with the number in hand.
+#
+# NO actions/setup-node ANYWHERE. This job fetches api.playhq.com and setup-node's
+# fingerprint change makes CloudFront 403 every request including session
+# acquisition (proven 2026-07-20 on the instrumented matrix shard 00). Preinstalled
+# node only.
+#
+# Sparse checkout is correct here: it reads data/sports-index.json and nothing
+# else. The blobless-clone cost that makes sparse unusable across 418k player files
+# does not apply.
+
+on:
+  # Dispatch only. No cron — this is a one-off measurement, not a routine.
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Ask only the first N seasons (smoke test). 0 or blank = all of them.'
+        required: false
+        default: '0'
+        type: string
+      concurrency:
+        description: 'Parallel lookups (default 8 — this is ~80 calls, do not raise it far)'
+        required: false
+        default: '8'
+        type: string
+
+# Its own group, NOT data-write. This writes nothing, so it does not need the data
+# lock and must not block the nightly or the weekly sweep by taking it.
+concurrency:
+  group: audit-removed-org-seasons
+  cancel-in-progress: false
+
+# Read-only by construction. The script cannot commit even if it tried.
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            data
+          sparse-checkout-cone-mode: true
+
+      - name: Syntax check
+        run: node --check scripts/audit-removed-org-seasons.js
+
+      # Inputs go through env, never straight into the command line — GitHub
+      # substitutes them before bash sees them, so anything in one becomes shell
+      # source text. Every input is read through an explicit fallback.
+      - name: Size the repair
+        env:
+          IN_LIMIT: ${{ inputs.limit || '0' }}
+          IN_CONC:  ${{ inputs.concurrency || '8' }}
+        run: |
+          set -euo pipefail
+          node scripts/audit-removed-org-seasons.js --limit="$IN_LIMIT" --concurrency="$IN_CONC"
+
+      - name: How to read the result
+        if: always()
+        run: |
+          echo "REPAIRABLE  = PlayHQ served the season and it has grades."
+          echo "              The removed:true flag on these is wrong."
+          echo ""
+          echo "TRULY EMPTY = PlayHQ served the season and it genuinely has no grades."
+          echo "              The removed:true flag on these is correct. Leave them."
+          echo ""
+          echo "NOT SERVED  = PlayHQ answered but returned nothing for that season id."
+          echo ""
+          echo "NO ANSWER   = blocked, forbidden or errored. NOT a finding either way."
+          echo "              If any appear, the sizing is incomplete — re-run it."
+          echo ""
+          echo "GRADES TO BE ADDED is the number that decides the repair. It is what"
+          echo "every nightly run would carry from then on, not a one-off cost,"
+          echo "because nothing currently locks a COMPLETED season after crawling it."
