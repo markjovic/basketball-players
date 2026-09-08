@@ -1,0 +1,144 @@
+# .github/workflows/close-empty-seasons.yml
+name: Close Empty Seasons (asks PlayHQ first)
+
+# Closes seasons that are finished, still unlocked, hold no games on disk, and
+# which PlayHQ confirms have no games either.
+#
+# IT ASKS BEFORE IT CLOSES. A season with no games file is NOT evidence that no
+# games exist - it is equally consistent with a capture failure, and closing one of
+# those buries recoverable data permanently. That is the same mistake as writing
+# removed:true off a CloudFront block, from the other direction. So this makes the
+# nightly's own two calls per grade rather than reading a date and deciding.
+#
+# WHAT IT WRITES. locked:true (stops the crawl), closedAt and closedReason.
+# NOT removed:true - that means a grades:[] stub that must never be re-examined,
+# and these hold real grade lists. Not bare locked:true either: closedAt and
+# closedReason are the selector if this ever has to be reversed, exactly as
+# discoveredBy:'org' made the 2026-09-08 repair of 80 seasons possible.
+#
+# MEASURED FIRST (2026-09-08). 138 COMPLETED seasons sat unlocked; 78 held no games
+# file at all, carrying 531 grades - 6a36400d with 65 grades and d0543eab with 32,
+# both finished in 2020 with hundreds of nightly runs behind them.
+#
+# RECENT SEASONS ARE SKIPPED, NOT CLOSED. min_age_days defaults to 3. The repair on
+# 2026-09-08 unlocked 52 seasons hours before the first nightly that could fill
+# them; those are empty for timing reasons and closing them would be wrong by
+# hours, not by judgement.
+#
+# NO actions/setup-node ANYWHERE. This job fetches api.playhq.com and setup-node's
+# fingerprint change makes CloudFront 403 every request including session
+# acquisition (proven 2026-07-20 on the instrumented matrix shard 00).
+#
+# TWO-PHASE CHECKOUT. games/bv is 1.94 GB across 2,939 files and sparse checkout
+# fetches roughly one blob per second, so a cone pattern on `games` is unusable.
+# Phase 1 takes data/ only and emits the candidate paths; phase 2 takes those by
+# name in non-cone mode. A file absent after that is genuinely absent.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run = ask PlayHQ and report, write nothing. apply = close the confirmed-empty ones and commit.'
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+      min_age_days:
+        description: 'Skip seasons added or repaired more recently than this many days (default 3). They are empty because no nightly has reached them yet.'
+        required: false
+        default: '3'
+        type: string
+      seasons:
+        description: 'Comma-separated season ids to consider. Blank = every candidate. Naming ids overrides the age skip.'
+        required: false
+        default: ''
+        type: string
+      max_seasons:
+        description: 'Cap on how many to ask about in one run (default 200)'
+        required: false
+        default: '200'
+        type: string
+
+# Writes sports-index.json, which the nightly and both sweeps also write.
+concurrency:
+  group: data-write
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            data
+          sparse-checkout-cone-mode: true
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Syntax check
+        run: node --check scripts/close-empty-seasons.js
+
+      - name: Emit candidate game-file paths
+        id: select
+        run: node scripts/close-empty-seasons.js --list-paths
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            data
+            ${{ steps.select.outputs.game_files }}
+          sparse-checkout-cone-mode: false
+
+      # Inputs go through env, never straight onto the command line - GitHub
+      # substitutes them before bash sees them, so anything in one becomes shell
+      # source text. Every input is read through an explicit fallback, because a
+      # scheduled run would receive none (this one is dispatch-only, but the habit
+      # is what stopped the weekly sweep silently defaulting for a month).
+      - name: Ask PlayHQ, then close what it confirms is empty
+        env:
+          IN_MODE:    ${{ inputs.mode || 'dry-run' }}
+          IN_AGE:     ${{ inputs.min_age_days || '3' }}
+          IN_SEASONS: ${{ inputs.seasons }}
+          IN_MAX:     ${{ inputs.max_seasons || '200' }}
+        run: |
+          set -euo pipefail
+          ARGS="--min-age-days=$IN_AGE --max-seasons=$IN_MAX"
+          if [ "$IN_MODE" = "dry-run" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ -n "$IN_SEASONS" ]; then ARGS="$ARGS --seasons=$IN_SEASONS"; fi
+          node scripts/close-empty-seasons.js $ARGS
+
+      - name: How to read the result
+        if: always()
+        run: |
+          echo "CLOSED         = every grade asked, PlayHQ returned no games at all."
+          echo "                 locked:true, closedAt, closedReason. Reversible by"
+          echo "                 clearing those three fields on the affected ids."
+          echo ""
+          echo "HAS GAMES AT PLAYHQ = PlayHQ holds games we never captured. NOT closed."
+          echo "                 This is the valuable finding, not a failure. It is a"
+          echo "                 backfill job: the season is real and the data exists."
+          echo ""
+          echo "NO ANSWER      = blocked, errored, or no grades in the index to ask"
+          echo "                 about. Left untouched. Re-run - a failure to ask is"
+          echo "                 not an answer, which is what put 80 seasons at"
+          echo "                 removed:true on 2026-09-07."
+          echo ""
+          echo "SKIPPED AS TOO RECENT = no nightly has reached them yet."
