@@ -19,6 +19,18 @@ name: Discover Org Seasons (top-down)
 # recovers grades from registrations. This only finds seasons - earlier, and for a
 # tiny fraction of the requests.
 #
+# THE GUARD (2026-09-08). The first live run wrote 80 COMPLETED seasons as
+# removed:true because their grade lookup was CloudFront-blocked, not because
+# PlayHQ has no grades. lookupSeason now returns a tagged outcome and a season we
+# got NO ANSWER about is not written at all - it is left for the next daily run.
+# removed:true is now reachable only when PlayHQ actually answered "no grades".
+#
+# THE REPAIR (task: repair-removed). Re-asks those 80 and fixes only the ones that
+# come back with grades. Sized live on 2026-09-08 by audit-removed-org-seasons.js:
+# 52 have grades (239 total), 28 genuinely have none and are left alone, 0
+# unanswered. The 274 removed:true stubs from other sources are outside the
+# selector and are asserted untouched before anything commits. Dispatch only.
+#
 # GRADE RESOLUTION USES AIMD, NOT A FIXED SLEEP. The first live run (2026-09-07)
 # found 178 seasons in 53 seconds, then resolved grades in a plain loop with a
 # 120ms sleep and no backoff: 14 got through, CloudFront walled, and it asked 164
@@ -57,6 +69,14 @@ on:
     - cron: '0 19 * * *'
   workflow_dispatch:
     inputs:
+      task:
+        description: 'discover = normal sweep. repair-removed = re-ask the seasons this tool wrongly marked removed:true and fix the ones that do have grades.'
+        required: true
+        default: discover
+        type: choice
+        options:
+          - discover
+          - repair-removed
       mode:
         description: 'dry-run = report what would be added, write nothing. apply = write and commit.'
         required: true
@@ -124,6 +144,7 @@ jobs:
       # source text.
       - name: Discover
         env:
+          IN_TASK:   ${{ inputs.task || 'discover' }}
           IN_MODE:   ${{ inputs.mode || 'apply' }}
           IN_SEASON: ${{ inputs.season }}
           IN_ORG:    ${{ inputs.org }}
@@ -132,8 +153,15 @@ jobs:
           set -euo pipefail
           ARGS="--concurrency=$IN_CONC"
           if [ "$IN_MODE" = "dry-run" ]; then ARGS="$ARGS --dry-run"; fi
-          if [ -n "$IN_SEASON" ]; then ARGS="$ARGS --season=$IN_SEASON"; fi
-          if [ -n "$IN_ORG" ]; then ARGS="$ARGS --org=$IN_ORG"; fi
+          if [ "$IN_TASK" = "repair-removed" ]; then
+            # Dispatch only. A scheduled run receives no inputs, so IN_TASK falls
+            # back to 'discover' and cron can never reach this branch.
+            echo "TASK: repair-removed  (season and org inputs are ignored here)"
+            ARGS="$ARGS --repair-removed"
+          else
+            if [ -n "$IN_SEASON" ]; then ARGS="$ARGS --season=$IN_SEASON"; fi
+            if [ -n "$IN_ORG" ]; then ARGS="$ARGS --org=$IN_ORG"; fi
+          fi
           node scripts/discover-org-seasons.js $ARGS
 
       - name: What happens next
