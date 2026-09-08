@@ -1,0 +1,123 @@
+# .github/workflows/audit-pending-games-vs-playhq.yml
+name: Audit Pending Games vs PlayHQ (read-only)
+
+# READ-ONLY. Answers the one question the season-lifecycle rule depends on: games
+# we hold as PENDING in seasons PlayHQ calls COMPLETED - does PlayHQ still call
+# them pending too, or does it have finished games with scores we never captured?
+#
+# WRITES NOTHING AND COMMITS NOTHING. No git configuration step and no write
+# permission, so a bug in the script cannot change the repository.
+#
+# WHY IT MATTERS. audit-finished-unlocked-seasons.js measured 2026-09-08: across
+# the 138 COMPLETED-but-unlocked seasons, 2,503 of 7,086 games read PENDING. Some
+# seasons are wholly unresolved - a9fcd2a0 is 387 of 387 and ended 2020-09-20.
+#
+#   If PlayHQ still says pending, the results do not exist and a rule that locks a
+#   season a few weeks after its last fixture is safe.
+#   If PlayHQ says finished, locking on age buries recoverable data and the real
+#   job is a backfill, not a lifecycle rule.
+#
+# IT MAKES THE NIGHTLY'S OWN CALLS. gradeRounds then discoverFixtureByRound, in
+# that order, with nightly-crawl.js's headers, session and failure handling copied
+# verbatim. The question is "what would the nightly get today", so a different
+# query would answer a different question.
+#
+# NO actions/setup-node ANYWHERE. This job fetches api.playhq.com and setup-node's
+# fingerprint change makes CloudFront 403 every request including session
+# acquisition (proven 2026-07-20 on the instrumented matrix shard 00).
+#
+# TWO-PHASE CHECKOUT. games/bv is 1.94 GB across 2,939 files and sparse checkout
+# fetches roughly one blob per second, so a cone pattern on `games` is unusable.
+# Phase 1 takes data/ only and emits the candidate file paths; phase 2 takes those
+# by name in non-cone mode. Same shape the reduce job in discover-seasons-matrix.yml
+# uses.
+
+on:
+  # Dispatch only. This is a question, asked once, not a routine.
+  workflow_dispatch:
+    inputs:
+      seasons:
+        description: 'Comma-separated season ids to ask about. Blank = the worst-affected ones automatically.'
+        required: false
+        default: ''
+        type: string
+      max_seasons:
+        description: 'How many seasons to ask about when none are named (default 8)'
+        required: false
+        default: '8'
+        type: string
+      max_grades:
+        description: 'Grades per season (default 4 — every round of every grade is fetched, so keep this small)'
+        required: false
+        default: '4'
+        type: string
+
+# Its own group, NOT data-write: it writes nothing and must not hold the data lock.
+concurrency:
+  group: audit-pending-games-vs-playhq
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            data
+          sparse-checkout-cone-mode: true
+
+      - name: Syntax check
+        run: node --check scripts/audit-pending-games-vs-playhq.js
+
+      - name: Emit candidate game-file paths
+        id: select
+        run: node scripts/audit-pending-games-vs-playhq.js --list-paths
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            data
+            ${{ steps.select.outputs.game_files }}
+          sparse-checkout-cone-mode: false
+
+      # Inputs go through env, never straight onto the command line - GitHub
+      # substitutes them before bash sees them, so anything in one becomes shell
+      # source text. Every input is read through an explicit fallback.
+      - name: Ask PlayHQ
+        env:
+          IN_SEASONS: ${{ inputs.seasons }}
+          IN_MAXS:    ${{ inputs.max_seasons || '8' }}
+          IN_MAXG:    ${{ inputs.max_grades || '4' }}
+        run: |
+          set -euo pipefail
+          ARGS="--max-seasons=$IN_MAXS --max-grades=$IN_MAXG"
+          if [ -n "$IN_SEASONS" ]; then ARGS="$ARGS --seasons=$IN_SEASONS"; fi
+          node scripts/audit-pending-games-vs-playhq.js $ARGS
+
+      - name: How to read the result
+        if: always()
+        run: |
+          echo "STILL PENDING AT PLAYHQ = the result does not exist and never will."
+          echo "  A season is genuinely over shortly after its last fixture, and a"
+          echo "  lifecycle rule can lock on age without losing anything."
+          echo ""
+          echo "FINISHED AT PLAYHQ = the result is sitting there and we never took it."
+          echo "  Locking on age would bury it permanently. The job is a backfill."
+          echo ""
+          echo "NOT RETURNED = PlayHQ's own fixture no longer lists the game at all."
+          echo ""
+          echo "BLOCKED / TRANSIENT are NOT answers. If either is non-zero the reading"
+          echo "is incomplete and must be re-run before anything is decided on it."
