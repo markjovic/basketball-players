@@ -68,6 +68,8 @@
 //   node scripts/discover-org-seasons.js --org=5433b0e3        (one organisation)
 //   node scripts/discover-org-seasons.js --repair-removed --dry-run
 //   node scripts/discover-org-seasons.js --repair-removed
+//   node scripts/discover-org-seasons.js --backfill-dates --dry-run
+//   node scripts/discover-org-seasons.js --backfill-dates
 
 'use strict';
 
@@ -86,6 +88,7 @@ const args   = process.argv.slice(2);
 const argVal = (n, d) => { const a = args.find(x => x.startsWith(`--${n}=`)); return a ? a.slice(n.length + 3) : d; };
 const DRY_RUN     = args.includes('--dry-run');
 const REPAIR      = args.includes('--repair-removed');
+const BACKFILL    = args.includes('--backfill-dates');
 const ONE_SEASON  = argVal('season', '');
 const ONE_ORG     = argVal('org', '');
 const CONCURRENCY = Math.max(1, parseInt(argVal('concurrency', '8'), 10) || 8);
@@ -428,6 +431,143 @@ function buildEntry(sid, meta, outcome) {
   return { entry: { ...base, grades: [], locked: false, addedAt: new Date().toISOString() }, kind: 'pre-allocated' };
 }
 
+// ─── BACKFILL MODE ────────────────────────────────────────────────────────────
+// Fills status / startDate / endDate on seasons ALREADY in the index.
+//
+// WHY THIS EXISTS. The sweep in main() asks all 183 organisations for every season
+// they have ever run, and discoverCompetitions returns status, startDate and
+// endDate for every one of them - confirmed on Kilsyth 2026-09-08, with seasons
+// going back to Summer 2020/21. Line 483 then throws all of that away for any
+// season id already known. Measured the same day: only 639 of 3,431 seasons carry
+// an endDate, and 418 of the 703 UNLOCKED seasons have never had their status
+// asked at all - between them holding 8,106 grades, 85% of what the nightly
+// fetches every night.
+//
+// So the dates were never missing from PlayHQ. They were being fetched daily and
+// discarded. This costs no extra requests: the same 183 calls, read properly.
+//
+// METADATA ONLY. It writes status, startDate and endDate and NOTHING else.
+// It does not lock, unlock, add, remove, or touch grades - even when PlayHQ says a
+// season is COMPLETED and we hold it unlocked. Acting on that is the season
+// lifecycle rule, which is a separate deliberate piece. Four assertions below
+// enforce that before anything commits.
+async function backfillDates() {
+  log(`backfill-dates${DRY_RUN ? '  (DRY RUN)' : ''}${ONE_ORG ? `  org=${ONE_ORG}` : ''}`);
+  console.log('─'.repeat(70));
+
+  const index = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf8'));
+  index.seasons = index.seasons || {};
+  const before = Object.values(index.seasons);
+  const countBefore   = before.length;
+  const lockedBefore  = before.filter(s => s.locked === true).length;
+  const removedBefore = before.filter(s => s.removed === true).length;
+  const gradesBefore  = before.reduce((t, s) => t + (s.grades || []).length, 0);
+  const missingBefore = before.filter(s => !s.endDate).length;
+
+  console.log(`  seasons in index          : ${countBefore}`);
+  console.log(`  already carrying endDate  : ${countBefore - missingBefore}`);
+  console.log(`  MISSING endDate           : ${missingBefore}`);
+
+  const orgs = new Map();
+  for (const se of before) if (se.orgId && !orgs.has(se.orgId)) orgs.set(se.orgId, se.orgName || se.orgId);
+  const orgList = ONE_ORG ? [[ONE_ORG, orgs.get(ONE_ORG) || ONE_ORG]] : [...orgs];
+  log(`organisations to ask: ${orgList.length}`);
+
+  // Captured BEFORE the sweep. `before` holds the SAME object references as
+  // index.seasons, so mutating an entry mutates it in `before` too — reading
+  // "did this have an endDate?" from there after the fact always says yes, and
+  // the filled counter could never fire. Verified 2026-09-08: it reported 0
+  // filled while filling five.
+  const hadEndDate = new Set(before.filter(s => s.endDate).map(s => s.id));
+
+  const seen = new Set();
+  let filled = 0, changed = 0, same = 0, newSeen = 0, blocked = 0, errors = 0, done = 0;
+  const changes = [];
+
+  for (let i = 0; i < orgList.length; i += CONCURRENCY) {
+    const batch = orgList.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(batch.map(async ([orgId, orgName]) => {
+      const r = await gql({ ...Q_ORG_COMPETITIONS, variables: { organisationID: orgId } }, 'discoverCompetitions');
+      return { orgId, orgName, r };
+    }));
+    for (const { orgId, orgName, r } of results) {
+      done++;
+      if (r.kind === 'blocked')   { blocked++; continue; }
+      if (r.kind === 'forbidden') { continue; }
+      if (r.kind !== 'ok')        { errors++; console.log(`  ⚠ ${orgId} ${orgName}: ${r.err?.message}`); continue; }
+
+      for (const comp of (r.data.discoverCompetitions || [])) {
+        for (const se of (comp.seasons || [])) {
+          if (!se?.id) continue;
+          const e = index.seasons[se.id];
+          // A season this sweep returns that we do not hold is NEW. Counted and
+          // reported, never added here - adding is the discover task's job, and
+          // it resolves grades before writing. Adding one here would create an
+          // entry with no grades and no lookup behind it.
+          if (!e) { newSeen++; continue; }
+          seen.add(se.id);
+
+          const want = { status: se.status?.value || null, startDate: se.startDate || null, endDate: se.endDate || null };
+          const diffs = [];
+          for (const k of ['status', 'startDate', 'endDate']) {
+            if (want[k] == null) continue;                      // never overwrite with nothing
+            if (e[k] === want[k]) continue;
+            diffs.push(`${k} ${e[k] === undefined ? '(absent)' : JSON.stringify(e[k])} → ${JSON.stringify(want[k])}`);
+            e[k] = want[k];
+          }
+          if (!diffs.length) { same++; continue; }
+          if (e.endDate && !hadEndDate.has(se.id)) filled++; else changed++;
+          if (changes.length < 40) changes.push(`  ↻ ${se.id}  ${(e.fullName || e.name || '').slice(0, 46).padEnd(46)}  ${diffs.join('; ')}`);
+        }
+      }
+    }
+    if (done % 50 === 0 || done === orgList.length) log(`asked ${done}/${orgList.length} organisations`);
+    if (i + CONCURRENCY < orgList.length) await sleep(300);
+  }
+
+  const neverSeen = before.filter(s => !seen.has(s.id));
+  const neverSeenNoDate = neverSeen.filter(s => !s.endDate);
+
+  if (changes.length) { console.log(''); for (const c of changes) console.log(c); if (filled + changed > changes.length) console.log(`  … and ${filled + changed - changes.length} more`); }
+
+  // ── Assertions. This is a metadata backfill. If it has altered lifecycle state
+  //    in any way, that is a bug and nothing may be committed.
+  const after = Object.values(index.seasons);
+  if (after.length !== countBefore)                                        throw new Error(`ABORT: season count changed ${countBefore} → ${after.length}. Nothing committed.`);
+  if (after.filter(s => s.locked === true).length !== lockedBefore)         throw new Error(`ABORT: locked count changed. This mode must never lock or unlock. Nothing committed.`);
+  if (after.filter(s => s.removed === true).length !== removedBefore)       throw new Error(`ABORT: removed count changed. Nothing committed.`);
+  if (after.reduce((t, s) => t + (s.grades || []).length, 0) !== gradesBefore) throw new Error(`ABORT: grade total changed. This mode must never touch grades. Nothing committed.`);
+
+  const missingAfter = after.filter(s => !s.endDate).length;
+  console.log(`\n${'═'.repeat(70)}`);
+  console.log(`  endDate filled in        : ${filled}`);
+  console.log(`  values corrected         : ${changed}`);
+  console.log(`  already correct          : ${same}`);
+  console.log(`  seasons PlayHQ returned  : ${seen.size} of ${countBefore}`);
+  console.log(`  NEVER RETURNED by any org: ${neverSeen.length}   (${neverSeenNoDate.length} of them still have no endDate)`);
+  console.log(`  new seasons seen, NOT added: ${newSeen}   ← run task=discover for these`);
+  console.log(`  blocked organisations    : ${blocked}   ← NOT an answer`);
+  console.log(`  errored organisations    : ${errors}`);
+  console.log(`  ${'-'.repeat(66)}`);
+  console.log(`  MISSING endDate          : ${missingBefore} → ${missingAfter}`);
+  console.log(`  assertions               : PASSED — locked, removed, grades and count all unchanged`);
+  console.log(`${'═'.repeat(70)}`);
+
+  if (neverSeenNoDate.length) {
+    console.log(`\n  ${neverSeenNoDate.length} season(s) no organisation returned and that still have no endDate.`);
+    console.log(`  discoverCompetitions may not reach far enough back, or the competition is`);
+    console.log(`  archived at PlayHQ. Oldest few by season name:`);
+    for (const s of neverSeenNoDate.slice(0, 8)) console.log(`    ${s.id}  ${(s.fullName || s.name || '').slice(0, 54)}`);
+  }
+  if (blocked) console.log(`\n  \u26a0 ${blocked} organisation(s) blocked — this backfill is INCOMPLETE. Re-run.`);
+
+  if (!(filled + changed)) { log('nothing to write.'); return; }
+  if (DRY_RUN) { log('dry run — sports-index.json not written.'); return; }
+  fs.writeFileSync(INDEX_FILE, JSON.stringify(index));
+  gitCommit(`discover-org-seasons: backfilled dates on ${filled + changed} season(s)`, [INDEX_FILE_REL]);
+  log('metadata only — no season was locked, unlocked, added or removed.');
+}
+
 async function main() {
   log(`discover-org-seasons${DRY_RUN ? '  (DRY RUN)' : ''}${ONE_SEASON ? `  season=${ONE_SEASON}` : ''}${ONE_ORG ? `  org=${ONE_ORG}` : ''}`);
   console.log('─'.repeat(70));
@@ -642,5 +782,5 @@ async function repairRemoved() {
   log(`the nightly picks these up on its next run — ${gradesAdded} extra grades on a 9,516 baseline.`);
 }
 
-const entry = REPAIR ? repairRemoved : main;
+const entry = REPAIR ? repairRemoved : (BACKFILL ? backfillDates : main);
 entry().catch(err => { console.error(`FATAL: ${err.stack || err.message}`); process.exit(1); });
