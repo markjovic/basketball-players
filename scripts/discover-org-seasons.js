@@ -39,11 +39,35 @@
 // 403/429 ladder, and gitCommit. Those run against the real API on a schedule, so
 // a wrong shape fails loudly there; a hand-written one fails quietly here.
 //
+// THE GUARD, ADDED 2026-09-08
+// ───────────────────────────
+// The first live run wrote 80 COMPLETED seasons as removed:true because their
+// grade lookup was CloudFront-blocked, not because PlayHQ has no grades. The old
+// discoverSeason returned null for "answered with nothing", "forbidden" and
+// "errored" alike, so buildEntry could not tell an answer from the absence of one
+// and recorded the failure as a fact. removed:true is permanent — the grade
+// refresh in discover-seasons.js selects locked:false only, so nothing re-asks.
+//
+// lookupSeason now returns a tagged outcome and buildEntry refuses to write a
+// season it got no answer about. Those are left out and re-found by the next daily
+// run, which is exactly what discover-seasons.js does. A run with unanswered
+// seasons reports itself INCOMPLETE rather than clean.
+//
+// THE REPAIR, --repair-removed
+// ────────────────────────────
+// Undoes the 80. Re-asks each and repairs only those that come back with grades.
+// Sized first by audit-removed-org-seasons.js, live on 2026-09-08: 52 have grades
+// (239 total), 28 genuinely have none, 0 unanswered. The 28 are correctly flagged
+// and are left alone. The 274 removed:true stubs from other sources are outside
+// the selector and asserted untouched before anything commits.
+//
 // Run:
 //   node scripts/discover-org-seasons.js --dry-run
 //   node scripts/discover-org-seasons.js
 //   node scripts/discover-org-seasons.js --season=5e26f10f     (one season, direct)
 //   node scripts/discover-org-seasons.js --org=5433b0e3        (one organisation)
+//   node scripts/discover-org-seasons.js --repair-removed --dry-run
+//   node scripts/discover-org-seasons.js --repair-removed
 
 'use strict';
 
@@ -61,6 +85,7 @@ const API_URL        = 'https://api.playhq.com/graphql';
 const args   = process.argv.slice(2);
 const argVal = (n, d) => { const a = args.find(x => x.startsWith(`--${n}=`)); return a ? a.slice(n.length + 3) : d; };
 const DRY_RUN     = args.includes('--dry-run');
+const REPAIR      = args.includes('--repair-removed');
 const ONE_SEASON  = argVal('season', '');
 const ONE_ORG     = argVal('org', '');
 const CONCURRENCY = Math.max(1, parseInt(argVal('concurrency', '8'), 10) || 8);
@@ -300,10 +325,29 @@ async function gql(body, label) {
   return { kind: 'ok', data: json.data || json };
 }
 
-const discoverSeason = async (id) => {
+// ─── THE GUARD. Returns a TAGGED outcome, never a bare null. ─────────────────
+// The previous version returned null for THREE different things — PlayHQ answered
+// with nothing, the request was forbidden, and the request errored — so the caller
+// could not tell an answer from the absence of one. buildEntry then read "no
+// grades came back" as "this season has no grades", and on 2026-09-07 that wrote
+// 80 COMPLETED seasons as removed:true off the back of a CloudFront block. That
+// state is permanent: discover-seasons.js's grade-refresh selects locked:false
+// only, so nothing ever re-asks.
+//
+// `answered` is the field that decides whether a result may be written at all.
+// A season we never got an answer about is left out of the index entirely and
+// re-found by the next daily run — which is what discover-seasons.js does.
+//
+// Verified live 2026-09-08 by audit-removed-org-seasons.js: 80 lookups, 0 blocked,
+// 0 unanswered, and it split the 80 cleanly into 52 with grades and 28 without.
+async function lookupSeason(id) {
   const r = await gql({ ...Q_DISCOVER_SEASON, variables: { id } }, 'discoverSeason');
-  return r.kind === 'ok' ? (r.data.discoverSeason || null) : (r.kind === 'blocked' ? { blocked: true } : null);
-};
+  if (r.kind === 'blocked')   return { answered: false, blocked: true,  reason: 'cloudfront-block' };
+  if (r.kind === 'forbidden') return { answered: false, blocked: false, reason: 'forbidden (application 403)' };
+  if (r.kind === 'error')     return { answered: false, blocked: false, reason: `error: ${(r.err && r.err.message) || '?'}` };
+  // ok with a null season IS an answer: PlayHQ was asked and served nothing.
+  return { answered: true, blocked: false, season: (r.data && r.data.discoverSeason) || null };
+}
 
 // ─── git: copied from discover-seasons.js L465 ────────────────────────────────
 const GIT_OPTS = { cwd: ROOT, stdio: 'pipe', timeout: 10 * 60 * 1000, maxBuffer: 512 * 1024 * 1024 };
@@ -348,7 +392,14 @@ function gitCommit(msg, paths = []) {
 // ─── Build a season entry ─────────────────────────────────────────────────────
 // Same shape and the same locked/removed rules as discover-seasons.js L562-587,
 // so an entry created here is indistinguishable from one created there.
-function buildEntry(sid, meta, ds) {
+//
+// THE GUARD APPLIES HERE. `outcome.answered === false` means we never learned
+// anything about this season's grades, and an entry must NOT be built from that.
+// Writing one turns a transport failure into a recorded answer — for a COMPLETED
+// season, permanently. The season is left out and the next daily run re-finds it.
+function buildEntry(sid, meta, outcome) {
+  if (!outcome || outcome.answered !== true) return { entry: null, kind: 'unresolved' };
+  const ds = outcome.season || null;
   const grades  = (ds?.grades || []).map(g => ({ id: g.id, name: g.name, age: g.age?.name, gender: g.gender?.name }));
   const compName = ds?.competition?.name || meta.compName || '';
   const orgName  = ds?.competition?.organisation?.name || meta.orgName || '';
@@ -367,6 +418,9 @@ function buildEntry(sid, meta, ds) {
     discoveredBy: 'org',        // provenance: which route found it
   };
   if (grades.length > 0) return { entry: { ...base, grades, locked: false, addedAt: new Date().toISOString() }, kind: 'created' };
+  // Everything below is a real ANSWER of "no grades" - PlayHQ was asked and told
+  // us. That is now the only way to reach removed:true.
+  //
   // COMPLETED with no grades is not crawlable - record existence only. Anything
   // else with no grades is a pre-allocation: live, awaiting grades. That is the
   // normal state of an UPCOMING season and exactly what this tool is for.
@@ -394,10 +448,14 @@ async function main() {
       log('nothing to do. If the nightly is not crawling it, locked/grades is where to look.');
       return;
     }
-    const ds = await discoverSeason(ONE_SEASON);
-    if (ds && ds.blocked) { console.error('BLOCKED by CloudFront — try again from a fresh runner.'); process.exit(1); }
-    if (!ds) { console.error(`discoverSeason returned nothing for ${ONE_SEASON}. Wrong id, or PlayHQ will not serve it.`); process.exit(1); }
-    found.push({ sid: ONE_SEASON, meta: { name: ds.name, compName: ds.competition?.name, compId: ds.competition?.id, orgName: ds.competition?.organisation?.name, orgId: ds.competition?.organisation?.id, status: null, startDate: null, endDate: null }, ds });
+    const o = await lookupSeason(ONE_SEASON);
+    if (!o.answered) { console.error(`NO ANSWER for ${ONE_SEASON}: ${o.reason}. Nothing written — try again from a fresh runner.`); process.exit(1); }
+    const ds = o.season;
+    if (!ds) { console.error(`PlayHQ served nothing for ${ONE_SEASON}. Wrong id, or it will not serve that season.`); process.exit(1); }
+    // status stays null here: discoverSeason does not return it, and guessing
+    // COMPLETED would risk writing removed:true off an assumption. A null status
+    // falls to the pre-allocated branch, which is recoverable either way.
+    found.push({ sid: ONE_SEASON, meta: { name: ds.name, compName: ds.competition?.name, compId: ds.competition?.id, orgName: ds.competition?.organisation?.name, orgId: ds.competition?.organisation?.id, status: null, startDate: null, endDate: null }, outcome: o });
     log(`found ${ONE_SEASON}  "${ds.name}"  ${ds.competition?.organisation?.name || ''}  ${(ds.grades || []).length} grades`);
   } else {
     // ── Org sweep ────────────────────────────────────────────────────────────
@@ -445,48 +503,144 @@ async function main() {
   }
 
   // ── Resolve grades for each new season ─────────────────────────────────────
-  const needGrades = found.filter(f => !f.ds);
+  const needGrades = found.filter(f => !f.outcome);
   if (needGrades.length) {
     log(`\nresolving grades for ${needGrades.length} new season(s) (AIMD, cap ${CONCURRENCY})…`);
     const r = await aimdRun(needGrades, 'grades', async (f) => {
-      const ds = await discoverSeason(f.sid);
-      if (ds && ds.blocked) return { blocked: true };   // requeued, not discarded
-      f.ds = ds;
+      const o = await lookupSeason(f.sid);
+      if (o.blocked) return { blocked: true };          // requeued, not discarded
+      f.outcome = o;                                    // tagged: answered or not
       return { blocked: false };
     }, { cap: CONCURRENCY, key: (f) => f.sid, maxAttempts: 4 });
-    const stillNone = needGrades.filter(f => !f.ds).length;
+    const stillNone = needGrades.filter(f => !f.outcome || f.outcome.answered !== true).length;
     log(`grades resolved for ${needGrades.length - stillNone}/${needGrades.length}  (${r.blockedEvents} block events, ${r.givenUp} gave up after 4 attempts)`);
     if (stillNone) {
-      // Stated, not buried. A season written with grades:[] because we were refused
-      // looks identical on disk to one PlayHQ genuinely has no grades for, and the
-      // difference decides whether anyone should go looking.
-      log(`⚠ ${stillNone} season(s) will be written with grades:[] because the lookup was BLOCKED, not because PlayHQ has none.`);
-      log('  discover-seasons.js grade-refresh fills these on the weekly sweep; they are live either way.');
+      // These are now LEFT OUT, not written blind. Previously they were written
+      // with grades:[], and for a COMPLETED season that meant removed:true - a
+      // transport failure recorded as an answer, permanently.
+      log(`⚠ ${stillNone} season(s) got NO ANSWER and will NOT be written. The next daily run re-finds them.`);
     }
   }
 
-  let created = 0, removedN = 0, prealloc = 0;
+  let created = 0, removedN = 0, prealloc = 0, unresolved = 0;
   const byStatus = new Map();
   for (const f of found) {
-    const { entry, kind } = buildEntry(f.sid, f.meta, f.ds);
+    const { entry, kind } = buildEntry(f.sid, f.meta, f.outcome);
+    if (kind === 'unresolved') {
+      unresolved++;
+      const why = (f.outcome && f.outcome.reason) || 'blocked out after 4 attempts';
+      console.log(`  · ${'NOT WRITTEN'.padEnd(14)} ${f.sid}  ${f.meta.compName || ''} — ${f.meta.name || ''}  (${f.meta.status || '?'})  [${why}]`);
+      continue;
+    }
     index.seasons[f.sid] = entry;
     if (kind === 'created') created++; else if (kind === 'removed') removedN++; else prealloc++;
     byStatus.set(f.meta.status || '?', (byStatus.get(f.meta.status || '?') || 0) + 1);
     console.log(`  ${kind === 'removed' ? '~' : '+'} ${kind.padEnd(14)} ${f.sid}  ${entry.fullName}  (${(entry.grades || []).length} grades, ${entry.status || '?'})`);
   }
 
-  console.log(`\n  new seasons      : ${found.length}`);
+  console.log(`\n  seasons found    : ${found.length}`);
   console.log(`    with grades    : ${created}`);
   console.log(`    pre-allocated  : ${prealloc}  (live, awaiting grades — the UPCOMING case)`);
-  console.log(`    recorded only  : ${removedN}  (COMPLETED, 0 grades, not crawlable)`);
-  console.log(`  by status        : ${[...byStatus].map(([k, v]) => `${k}=${v}`).join('  ')}`);
-  const blockedGradeless = found.filter(f => !f.ds && (f.meta.status !== 'COMPLETED')).length;
-  if (blockedGradeless) console.log(`  \u26a0 of the pre-allocated, ${blockedGradeless} have grades:[] from a BLOCKED lookup, not from having none`);
+  console.log(`    recorded only  : ${removedN}  (COMPLETED, PlayHQ ANSWERED "no grades", not crawlable)`);
+  console.log(`    NOT WRITTEN    : ${unresolved}  (no answer — left for the next daily run)`);
+  console.log(`  by status        : ${[...byStatus].map(([k, v]) => `${k}=${v}`).join('  ') || '(none written)'}`);
+  if (unresolved) {
+    console.log(`\n  \u26a0 ${unresolved} season(s) went unanswered. This run is INCOMPLETE by design —`);
+    console.log(`    writing them blind is what put 80 seasons at removed:true on 2026-09-07.`);
+  }
 
+  const written = created + removedN + prealloc;
+  if (!written) { log('nothing written.'); return; }
   if (DRY_RUN) { log('dry run — sports-index.json not written.'); return; }
   fs.writeFileSync(INDEX_FILE, JSON.stringify(index));
-  gitCommit(`discover-org-seasons: ${found.length} new season(s) (${prealloc} pre-allocated)`, [INDEX_FILE_REL]);
+  gitCommit(`discover-org-seasons: ${written} new season(s) (${prealloc} pre-allocated, ${unresolved} unanswered)`, [INDEX_FILE_REL]);
   log('the nightly crawl picks up anything with locked:false on its next run.');
 }
 
-main().catch(err => { console.error(`FATAL: ${err.stack || err.message}`); process.exit(1); });
+// ─── REPAIR MODE ──────────────────────────────────────────────────────────────
+// Undoes the damage the missing guard caused on 2026-09-07. Selects seasons this
+// tool wrote as removed:true, re-asks PlayHQ, and repairs only the ones that come
+// back WITH grades. Everything else is left exactly as it is.
+//
+// SIZED BEFORE BUILT. audit-removed-org-seasons.js ran live on 2026-09-08 against
+// all 80: 52 have grades (239 in total), 28 genuinely have none, 0 unanswered.
+// The 28 are correctly flagged and this must not touch them. Repairing all 80
+// would have been as wrong as leaving all 80.
+//
+// The 274 removed:true stubs that did NOT come from this tool are outside the
+// selector and are asserted untouched before anything is committed.
+async function repairRemoved() {
+  log(`repair-removed${DRY_RUN ? '  (DRY RUN)' : ''}`);
+  console.log('─'.repeat(70));
+
+  const index = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf8'));
+  const all = Object.values(index.seasons || {});
+  const targets = all.filter(s => s.discoveredBy === 'org' && s.removed === true);
+
+  const removedBefore = all.filter(s => s.removed === true).length;
+  const foreignBefore = removedBefore - targets.length;
+  console.log(`  seasons in index          : ${all.length}`);
+  console.log(`  removed:true (all)        : ${removedBefore}`);
+  console.log(`  removed:true NOT from org : ${foreignBefore}   ← must be unchanged at the end`);
+  console.log(`  SELECTED                  : ${targets.length}`);
+  if (!targets.length) { log('nothing selected — nothing to repair.'); return; }
+
+  const outcome = new Map();
+  const r = await aimdRun(targets, 'repair-lookup', async (s) => {
+    const o = await lookupSeason(s.id);
+    if (o.blocked) return { blocked: true };            // requeued, not recorded
+    outcome.set(s.id, o);
+    return { blocked: false };
+  }, { cap: CONCURRENCY, key: (s) => s.id, maxAttempts: 6 });
+
+  let repaired = 0, correctlyEmpty = 0, servedNothing = 0, noAnswer = 0, gradesAdded = 0;
+  for (const s of targets) {
+    const o = outcome.get(s.id);
+    if (!o || o.answered !== true) {
+      noAnswer++;
+      console.log(`  · no answer     ${s.id}  ${s.fullName}  [${(o && o.reason) || 'blocked out after 6 attempts'}]`);
+      continue;
+    }
+    if (!o.season) { servedNothing++; console.log(`  · not served    ${s.id}  ${s.fullName}  (left as removed:true)`); continue; }
+    const grades = (o.season.grades || []).map(g => ({ id: g.id, name: g.name, age: g.age?.name, gender: g.gender?.name }));
+    if (!grades.length) { correctlyEmpty++; console.log(`  = correct       ${s.id}  ${s.fullName}  (PlayHQ has no grades — left alone)`); continue; }
+
+    // Repair in place. addedAt is preserved because the season really was
+    // discovered then; repairedAt records the correction, and is the selector if
+    // this ever needs unwinding.
+    const e = index.seasons[s.id];
+    e.grades = grades;
+    e.locked = false;
+    delete e.removed;
+    e.repairedAt = new Date().toISOString();
+    repaired++; gradesAdded += grades.length;
+    console.log(`  ↻ repaired      ${s.id}  ${s.fullName}  (${grades.length} grades, now locked:false)`);
+  }
+
+  // ── Assertions. A repair that silently hits the wrong rows is worse than none.
+  const after = Object.values(index.seasons);
+  const removedAfter = after.filter(s => s.removed === true).length;
+  const foreignAfter = after.filter(s => s.removed === true && s.discoveredBy !== 'org').length;
+  if (foreignAfter !== foreignBefore) throw new Error(`ABORT: removed:true stubs not from this tool changed ${foreignBefore} → ${foreignAfter}. Nothing committed.`);
+  if (removedBefore - removedAfter !== repaired) throw new Error(`ABORT: removed:true fell by ${removedBefore - removedAfter} but ${repaired} were repaired. Nothing committed.`);
+  if (after.length !== all.length) throw new Error(`ABORT: season count changed ${all.length} → ${after.length}. Nothing committed.`);
+
+  console.log(`\n  repaired        : ${repaired}   (+${gradesAdded} grades, now crawlable)`);
+  console.log(`  correctly empty : ${correctlyEmpty}   (left as removed:true)`);
+  console.log(`  not served      : ${servedNothing}   (left as removed:true)`);
+  console.log(`  no answer       : ${noAnswer}   (left untouched — re-run for these)`);
+  console.log(`  ${'-'.repeat(66)}`);
+  console.log(`  removed:true    : ${removedBefore} → ${removedAfter}   (foreign stubs ${foreignBefore} → ${foreignAfter}, unchanged)`);
+  console.log(`  assertions      : PASSED — count, selector and blast radius all hold`);
+  console.log(`  block events    : ${r.blockedEvents}, gave up ${r.givenUp}`);
+  if (noAnswer) console.log(`\n  \u26a0 ${noAnswer} unanswered — this repair is INCOMPLETE. Re-run it.`);
+
+  if (!repaired) { log('nothing repaired — index not written.'); return; }
+  if (DRY_RUN) { log('dry run — sports-index.json not written.'); return; }
+  fs.writeFileSync(INDEX_FILE, JSON.stringify(index));
+  gitCommit(`discover-org-seasons: repaired ${repaired} removed:true season(s), +${gradesAdded} grades`, [INDEX_FILE_REL]);
+  log(`the nightly picks these up on its next run — ${gradesAdded} extra grades on a 9,516 baseline.`);
+}
+
+const entry = REPAIR ? repairRemoved : main;
+entry().catch(err => { console.error(`FATAL: ${err.stack || err.message}`); process.exit(1); });
