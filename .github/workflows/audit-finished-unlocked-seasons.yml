@@ -1,0 +1,116 @@
+# .github/workflows/audit-finished-unlocked-seasons.yml
+name: Audit Finished Unlocked Seasons (read-only)
+
+# READ-ONLY. Measures every COMPLETED season still sitting at locked:false against
+# the game data actually on disk, so a locking rule can be written from a measured
+# picture rather than an assumption.
+#
+# WRITES NOTHING AND COMMITS NOTHING. No git configuration step, no write
+# permission, no network. Safe to run twice and safe alongside anything else.
+#
+# WHY IT EXISTS. nightly-crawl.js selects seasons at locked:false and builds its
+# work list from their grades. It reads data/sports-index.json and never writes it,
+# so nothing locks a season after crawling it. Measured 2026-09-08: 138 COMPLETED
+# seasons are unlocked, holding ~850 of the ~9,755 grades the nightly fetches -
+# about nine percent of every run spent re-reading finished history.
+#
+# WHY IT MUST BE MEASURED FIRST. Locking a finished season whose games were never
+# fetched buries it permanently. That is the same failure as writing removed:true
+# off a CloudFront block, from the other direction. The locking rule needs a
+# "genuinely captured" test, and that test has to be checked against real files.
+#
+# TWO-PHASE CHECKOUT, AND WHY. games/bv is 1.94 GB across 2,939 files. A cone-mode
+# sparse pattern on `games` pulls all of it, and sparse checkout fetches roughly one
+# blob per second - unusable at that count. Phase 1 checks out data/ only and emits
+# the ~138 explicit file paths; phase 2 checks those out by name in NON-cone mode,
+# roughly 90 MB. Same shape the reduce job in discover-seasons-matrix.yml uses.
+#
+# No actions/setup-node: this job makes no request to api.playhq.com, but the rule
+# is absolute in this repo and there is nothing to gain by deviating. Preinstalled
+# node only.
+
+on:
+  # Dispatch only. No cron - this is a measurement, not a routine.
+  workflow_dispatch:
+
+# Its own group, NOT data-write. It writes nothing, so it must not take the data
+# lock and block the nightly or the weekly sweep by holding it.
+concurrency:
+  group: audit-finished-unlocked-seasons
+  cancel-in-progress: false
+
+# Read-only by construction.
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # ── Phase 1: index only ─────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            data
+          sparse-checkout-cone-mode: true
+
+      - name: Syntax check
+        run: node --check scripts/audit-finished-unlocked-seasons.js
+
+      - name: Select seasons and emit their game-file paths
+        id: select
+        run: node scripts/audit-finished-unlocked-seasons.js --list-paths
+
+      - name: How many
+        run: |
+          echo "Seasons selected: ${{ steps.select.outputs.season_count }}"
+
+      # ── Phase 2: those game files by name ───────────────────────────────────
+      # NON-cone mode: the patterns are explicit file paths, not directories. Cone
+      # mode cannot express "these 138 files out of 2,939".
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            data
+            ${{ steps.select.outputs.game_files }}
+          sparse-checkout-cone-mode: false
+
+      - name: Confirm the game files actually arrived
+        run: |
+          set -euo pipefail
+          n=$(find games/bv -name '*.json' 2>/dev/null | wc -l)
+          echo "games/bv files present after sparse checkout: $n"
+          echo "(expected: ${{ steps.select.outputs.season_count }} — a season with no file on"
+          echo " disk is a real finding, so a shortfall here is not automatically an error;"
+          echo " the audit distinguishes 'no file' from 'not checked out' by design.)"
+
+      - name: Measure
+        run: node scripts/audit-finished-unlocked-seasons.js
+
+      - name: How to read the result
+        if: always()
+        run: |
+          echo "CAPTURED = every grade in the index is represented in the games file and"
+          echo "           nothing remains UPCOMING. Only these are safe to lock."
+          echo ""
+          echo "PARTIAL  = a grade has no games, or games are still UPCOMING. Locking one"
+          echo "           of these would freeze a season that is still missing data."
+          echo ""
+          echo "EMPTY    = no games file, or a file with zero games. Locking one of these"
+          echo "           would bury a season that was never fetched at all."
+          echo ""
+          echo "NO GRADES IN INDEX = grade coverage cannot be checked, so these are"
+          echo "           reported on their own rather than assumed captured."
+          echo ""
+          echo "NIGHTLY SAVING is what a locking rule acting on CAPTURED alone would"
+          echo "recover. The other three buckets are why the rule cannot just be"
+          echo "'COMPLETED means lock'."
