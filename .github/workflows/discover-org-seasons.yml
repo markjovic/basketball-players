@@ -31,6 +31,19 @@ name: Discover Org Seasons (top-down)
 # unanswered. The 274 removed:true stubs from other sources are outside the
 # selector and are asserted untouched before anything commits. Dispatch only.
 #
+# THE BACKFILL (task: backfill-dates). discoverCompetitions returns status,
+# startDate and endDate for EVERY season an organisation has ever run - Kilsyth's
+# reply on 2026-09-08 reached back to Summer 2020/21. The discover sweep already
+# receives all of that and discards it for any season id already known. Measured
+# the same day: only 639 of 3,431 seasons carry an endDate, and 418 of the 703
+# UNLOCKED seasons have never had their status asked at all, between them holding
+# 8,106 grades - 85% of what the nightly fetches nightly. The dates were never
+# missing from PlayHQ; they were being thrown away. Same 183 calls, read properly.
+#
+# It writes status, startDate and endDate and NOTHING else. It does not lock a
+# season even when PlayHQ says COMPLETED - that is the lifecycle rule, a separate
+# piece. Assertions on count, locked, removed and grade totals abort before commit.
+#
 # GRADE RESOLUTION USES AIMD, NOT A FIXED SLEEP. The first live run (2026-09-07)
 # found 178 seasons in 53 seconds, then resolved grades in a plain loop with a
 # 120ms sleep and no backoff: 14 got through, CloudFront walled, and it asked 164
@@ -70,13 +83,14 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: 'discover = normal sweep. repair-removed = re-ask the seasons this tool wrongly marked removed:true and fix the ones that do have grades.'
+        description: 'discover = find new seasons. repair-removed = fix seasons wrongly marked removed:true. backfill-dates = fill status/startDate/endDate on seasons already in the index.'
         required: true
         default: discover
         type: choice
         options:
           - discover
           - repair-removed
+          - backfill-dates
       mode:
         description: 'dry-run = report what would be added, write nothing. apply = write and commit.'
         required: true
@@ -153,7 +167,13 @@ jobs:
           set -euo pipefail
           ARGS="--concurrency=$IN_CONC"
           if [ "$IN_MODE" = "dry-run" ]; then ARGS="$ARGS --dry-run"; fi
-          if [ "$IN_TASK" = "repair-removed" ]; then
+          if [ "$IN_TASK" = "backfill-dates" ]; then
+            # Metadata only. Never locks, unlocks, adds or removes a season -
+            # four assertions in the script enforce that before it commits.
+            echo "TASK: backfill-dates  (season input ignored; org input honoured)"
+            ARGS="$ARGS --backfill-dates"
+            if [ -n "$IN_ORG" ]; then ARGS="$ARGS --org=$IN_ORG"; fi
+          elif [ "$IN_TASK" = "repair-removed" ]; then
             # Dispatch only. A scheduled run receives no inputs, so IN_TASK falls
             # back to 'discover' and cron can never reach this branch.
             echo "TASK: repair-removed  (season and org inputs are ignored here)"
