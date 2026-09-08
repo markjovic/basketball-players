@@ -3,11 +3,19 @@ name: Discover Seasons (Matrix)
 
 # Rebuilt from the proven-working base that fanned out 256 map jobs. The matrix
 # output mechanism (bare shard strings via steps.gen.outputs.targets, Python
-# printing ONLY the JSON array to stdout, bash writing $GITHUB_OUTPUT, no custom
-# if: on map) matches the reference self-triggering matrix
-# (fetch-profile-stats-matrix.yml) — it is not the place to experiment. Added on
-# top: fresh_start progress reset, a data-write lock on the single writer, and
-# the delta-based roster backfill.
+# printing ONLY the JSON array to stdout, bash writing $GITHUB_OUTPUT) matches the
+# reference self-triggering matrix (fetch-profile-stats-matrix.yml). Added on top:
+# fresh_start progress reset, a data-write lock on the single writer, and the
+# delta-based roster backfill.
+#
+# ⚠️ 2026-09-08: THE LINE ABOVE USED TO SAY "no custom if: on map" MATCHED THE
+# REFERENCE. IT DOES NOT. The reference's matrix job carries
+#   if: always() && !cancelled() && needs.clear-stats-checked.result != 'failure'
+# and it needs clear-stats-checked — a job gated on inputs.force, skipped on nearly
+# every run, structurally identical to fresh-start-reset here. The reference hit
+# this exact problem and solved it with a condition on the matrix job. That wrong
+# sentence is why the fault below survived: anyone reading this file was told the
+# missing condition was deliberate.
 #
 # 2026-08-03: debug scaffolding stripped (gen-step VERBOSE block + the
 # verify-output job — the 2026-07-09 fan-out diagnosis they existed for is long
@@ -57,8 +65,17 @@ on:
   # fresh-start-reset could never have fixed it: its gate is `inputs.fresh_start`,
   # and scheduled runs receive no inputs. Manual dispatch only.
   #
-  # Fixed by making `done` EXPIRE against the updatedAt already on every progress
-  # entry, plus `set -o pipefail` on the reduce so it can never again fail silently.
+  # ⚠️ 2026-09-08: THE DIAGNOSIS ABOVE IS WRONG, OR AT BEST INCOMPLETE. It requires a
+  # progress file recording shards as done — and data/discover-progress.json DOES NOT
+  # EXIST in the repo. Run #162 confirms it: generate-shards reported "256 targets
+  # (0 re-selected as stale)", which is what an absent progress file produces, and map
+  # was skipped anyway. The real cause is the missing condition on map (see that job).
+  #
+  # The two fixes that were made are still worth keeping and neither is the cure:
+  #   - `done` EXPIRES against updatedAt. Correct in itself; cannot bite until a
+  #     progress file exists again, since the reduce is its only writer (L789).
+  #   - `set -o pipefail` on the reduce. This one WORKED: run #162 failed RED in 28s
+  #     with the reason printed, where the same failure used to report green.
   schedule:
     - cron: '0 20 * * 0'
   workflow_dispatch:
@@ -242,6 +259,25 @@ jobs:
 
   map:
     needs: generate-shards
+    # ⚠️ ADDED 2026-09-08 — WITHOUT THIS THE MATRIX NEVER FANS OUT.
+    # GitHub applies a skip to every job onward through the dependency chain, and a
+    # condition on one job does NOT clear it for the jobs behind it. fresh-start-reset
+    # is skipped whenever fresh_start is false, which is nearly every run.
+    # generate-shards survives that on !cancelled() and goes green; map had nothing to
+    # survive it with, so it was skipped UNEXPANDED and the reduce then died on its own
+    # --in guard with no artifacts to read.
+    #
+    # Observed run #162 (2026-09-08, manual dispatch, mode=current): generate-shards
+    # printed "Shards selected: 256" and went green in 8s; map showed a single bare
+    # "map" job, skipped; reduce failed in 9s on "--reduce needs --in=<dir>"; whole run
+    # 28s. The gen step was replayed offline with no progress file and wrote a valid
+    # 256-element array to GITHUB_OUTPUT, so the matrix value carried fine — the skip
+    # was inherited, not an empty matrix.
+    #
+    # fresh-start-reset was split into its own job on 2026-08-10. The no-op sweeps were
+    # observed from 2026-08-17. That split is what introduced a permanently-skipped
+    # ancestor. Form copied from the reference's fetch job, which guards the same way.
+    if: ${{ always() && !cancelled() && needs.generate-shards.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
