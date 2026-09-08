@@ -1,11 +1,61 @@
 # .github/workflows/update-team-index.yml
 name: Update Team Index
 
+# Adds new teams to data/team-index.json AND corrects existing ones. Sources team
+# data from players' seasons[].regs[], which includes pre-graded teams that have no
+# game files yet.
+#
+# ⚠️ 2026-09-08: THE SCRIPT USED TO ONLY EVER ADD. It did
+# `if (existingTids.has(tid)) continue;` BEFORE comparing anything, so a team that
+# was renamed or regraded kept its original name and grade permanently and nothing
+# in the pipeline ever corrected it. It now compares and updates, and a registration
+# carrying a blank team name will not overwrite a name already held.
+#
+# ⚠️ ITS gitCommit BROKE FOUR OF THIS REPO'S OWN RULES and all four are fixed:
+# `git add -A` (forbidden - 418k files, ENOBUFS risk, and it stages whatever a
+# concurrent job has in flight), `--stat` instead of `--shortstat`, `merge` without
+# `--no-stat`, and a try/catch that printed the error and exited ZERO so a failed
+# push showed green. There is now a 60-attempt push retry that THROWS on exhaustion.
+#
+# ⚠️ TIMEOUT RAISED 15 -> 150, AND IT MUST STAY ABOVE THE RETRY BUDGET.
+# The push loop is self-bounding: 60 attempts x up to 90s jitter is ~45 minutes of
+# sleeping alone, plus a fetch/merge/push cycle each time against a multi-GB repo.
+# A timeout sized INSIDE that budget kills the job mid-retry and hides the real
+# outcome - exactly what happened to build-venue-indexes at 45 and again at 120 in
+# August 2026 before it was given a proper backstop. The loop must decide the
+# outcome: it wins, or the job goes red carrying the actual push error. Never the
+# clock. If the retry count or jitter ever changes, re-check this number.
+#
+# It also reads every player file. The 2-day filter cannot use mtime on a runner -
+# a fresh checkout stamps every file with the checkout time, so nothing is ever
+# older than the cutoff. The real filter is the `updatedAt` FIELD inside each file,
+# which means all 418,000 files are opened and parsed on every run regardless.
+# Budget for that on top of the push loop.
+#
+# NO CONCURRENCY LOCK, DELIBERATELY. This writes exactly one file that nothing else
+# writes, so it cannot conflict. Giving it `data-write` would put it in the same
+# group as the nightly and both sweeps, and GitHub allows only ONE waiter per group
+# - the trap (T19) that silently stopped Build Leaderboards, Search Index and
+# Single-Game Records running in August. Push contention is handled by the retry
+# loop, which is the correct answer for a lockless writer.
+#
+# No actions/setup-node: preinstalled node only, matching every other script here.
+
 on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry run — no writes or commits'
+        description: 'Dry run — scan and report, no writes or commits'
+        required: false
+        default: false
+        type: boolean
+      days:
+        description: 'Only consider players updated in the last N days (default 2). Ignored when scan_all is ticked.'
+        required: false
+        default: '2'
+        type: string
+      scan_all:
+        description: 'Scan every player file regardless of updatedAt. Slower, and the only way to pick up corrections on dormant teams.'
         required: false
         default: false
         type: boolean
@@ -16,18 +66,51 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # See the note above before changing this. It is a backstop ABOVE the push
+    # retry's worst case, not a budget for it.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Syntax check
+        run: node --check scripts/update-team-index.js
+
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Inputs go through env, never straight onto the command line — GitHub
+      # substitutes them before bash sees them, so anything in one becomes shell
+      # source text. Every input is read through an explicit fallback: a run that
+      # supplies nothing must still do the real thing, not silently dry-run.
       - name: Update team index
+        env:
+          IN_DRY:  ${{ inputs.dry_run }}
+          IN_DAYS: ${{ inputs.days || '2' }}
+          IN_ALL:  ${{ inputs.scan_all }}
         run: |
-          ARGS=""
-          if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          set -euo pipefail
+          ARGS="--days=$IN_DAYS"
+          if [ "$IN_DRY" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ "$IN_ALL" = "true" ]; then ARGS="$ARGS --all"; fi
           node scripts/update-team-index.js $ARGS
+
+      - name: What to check in the output
+        if: always()
+        run: |
+          echo "'Existing corrected' is new. Before 2026-09-08 it was always"
+          echo "effectively zero, because known teams were skipped without being"
+          echo "compared. A non-zero count here is a rename or regrade that had been"
+          echo "wrong in the index and is now right."
+          echo ""
+          echo "A blank team name from PlayHQ never overwrites a name already held."
+          echo ""
+          echo "'Total entries' must never fall. The script aborts before writing if"
+          echo "it does."
+          echo ""
+          echo "Red on 'push failed after 60 attempts' is the retry loop terminating"
+          echo "correctly with the real cause. Re-run when contention has passed."
