@@ -122,7 +122,20 @@ jobs:
   team-index:
     needs: crawl
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # ⚠️ RAISED 15 -> 150 on 2026-09-08. IT MUST STAY ABOVE THE PUSH RETRY BUDGET.
+    # update-team-index.js had no push retry and a try/catch that printed the error
+    # and exited ZERO, so a lost push showed green. It now retries 60 times with up
+    # to 90s jitter and THROWS on exhaustion — roughly 114 minutes worst case, plus
+    # ~10 minutes to scan 418k player files. A timeout of 15 sits INSIDE that and
+    # would kill the job mid-retry, hiding the real cause. That is exactly what
+    # happened to build-venue-indexes at 45 and again at 120 in August 2026.
+    #
+    # The cost: this job can now hold the run's data-write lock for longer under
+    # heavy contention. That is the right trade — a slow correct run beats a fast
+    # green one that wrote nothing. `crawl` already reserves 300 for the same reason.
+    #
+    # If the retry count or the jitter range ever changes, re-check this number.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
         with:
