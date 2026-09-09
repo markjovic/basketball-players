@@ -1,0 +1,164 @@
+# .github/workflows/lock-quiet-seasons.yml
+name: Lock Quiet Seasons (season lifecycle)
+
+# Locks finished seasons that have provably stopped changing, so the nightly stops
+# re-fetching answers that cannot move.
+#
+# WHY: NOTHING HAS EVER LOCKED A SEASON. nightly-crawl.js reads
+# data/sports-index.json and never writes it, so no tool has ever set the flag.
+# Measured 2026-09-08, after the date backfill made the scale visible: 419 COMPLETED
+# seasons still unlocked holding 5,873 grades — 59% of the 9,950 the nightly fetches
+# every night. 334 of them ended more than three months ago; 41 more than three years
+# ago; one in December 2019.
+#
+# WHY NOT A TIMER. Age does not predict completeness. a9fcd2a0 ended 2020-09-20 and
+# 387 of its 387 games are still unresolved — a date-only rule would have sealed it
+# years ago with everything missing. Age is necessary, never sufficient.
+#
+# THE RULE. Four conditions, all required: PlayHQ says COMPLETED; not already locked;
+# ended more than min_age_months ago; and its games fingerprint (sha1 over every
+# game's id, status and both scores) unchanged for quiet_checks consecutive runs.
+# On the daily cron that is three straight days of stillness on top of the age gate.
+#
+# THE FLOOR, NOT NEGOTIABLE. A season with ZERO games is NEVER locked here. Locking
+# one would bury it permanently — the same failure as writing removed:true off a
+# CloudFront block. Proving an empty season is truly empty means ASKING PlayHQ, which
+# is close-empty-seasons.yml's job; it did exactly that for 26 seasons on 2026-09-08
+# and refused the rest. A season with no endDate is skipped and counted, never guessed
+# at from its name.
+#
+# FIRST RUNS DO NOTHING. data/season-activity.json does not exist yet, so every streak
+# starts at 1 and nothing can reach 3 until the third daily run. That is the design
+# working, not a fault. Expect "LOCKED: 0" on days one and two.
+#
+# NO CONCURRENCY LOCK, DELIBERATELY. It writes sports-index.json, which the nightly
+# and both sweeps also write — but `data-write` is a trap here (T19): GitHub allows
+# ONE waiter per group, and adding three build workflows to that group in August 2026
+# made each new arrival evict the previous waiter until all three stopped running.
+# Push contention is handled by the script's 60-attempt retry with jitter, which
+# THROWS on exhaustion. The loop decides the outcome, never the clock.
+#
+# NO actions/setup-node. This job makes no network calls, and preinstalled node is
+# what every other script here runs on.
+#
+# TWO-PHASE CHECKOUT. games/bv is 1.94 GB across 2,939 files and sparse checkout
+# fetches roughly one blob per second, so a cone pattern on `games` is unusable.
+# Phase 1 takes data/ only and emits the ~419 candidate paths; phase 2 takes those by
+# name in non-cone mode.
+
+on:
+  # 20:30 UTC = 06:30 AEST. After the nightly has finished writing games, so the
+  # fingerprints reflect the day's crawl rather than racing it.
+  schedule:
+    - cron: '30 20 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run = report only. record-only = update streaks, lock nothing. apply = record and lock.'
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - record-only
+          - apply
+      min_age_months:
+        description: 'A season must have ended at least this many months ago (default 3 — the summer break means a season can have deferred finals well after its last home-and-away round).'
+        required: false
+        default: '3'
+        type: string
+      quiet_checks:
+        description: 'Consecutive runs with an unchanged fingerprint before locking (default 3)'
+        required: false
+        default: '3'
+        type: string
+      max_lock:
+        description: 'Cap how many are locked in one run, largest first. 0 = no cap. Useful for the first apply.'
+        required: false
+        default: '0'
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    # A BACKSTOP ABOVE THE PUSH RETRY, NOT A BUDGET FOR IT (T55). The loop is
+    # self-bounding: 60 attempts x up to 90s jitter plus a git cycle each time is
+    # roughly 2 hours worst case. A timeout inside that kills the job mid-retry and
+    # hides the real cause — what happened to build-venue-indexes at 45 and again at
+    # 120 in August 2026. If the retry count or jitter changes, re-check this.
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            data
+          sparse-checkout-cone-mode: true
+
+      - name: Syntax check
+        run: node --check scripts/lock-quiet-seasons.js
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Emit candidate game-file paths
+        id: select
+        run: node scripts/lock-quiet-seasons.js --list-paths
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            data
+            ${{ steps.select.outputs.game_files }}
+          sparse-checkout-cone-mode: false
+
+      # Inputs go through env, never straight onto the command line. Every one is read
+      # through an explicit fallback — and mode resolves to RECORD-ONLY on a schedule,
+      # not apply. A cron that locks without anyone having read a dry run is how a
+      # quiet mistake becomes 400 sealed seasons. Streaks still advance daily, so
+      # switching to apply later locks immediately.
+      - name: Record activity, and lock what has settled
+        env:
+          IN_MODE:   ${{ inputs.mode || 'record-only' }}
+          IN_AGE:    ${{ inputs.min_age_months || '3' }}
+          IN_QUIET:  ${{ inputs.quiet_checks || '3' }}
+          IN_MAX:    ${{ inputs.max_lock || '0' }}
+        run: |
+          set -euo pipefail
+          ARGS="--min-age-months=$IN_AGE --quiet-checks=$IN_QUIET --max-lock=$IN_MAX"
+          if [ "$IN_MODE" = "dry-run" ];     then ARGS="$ARGS --dry-run"; fi
+          if [ "$IN_MODE" = "record-only" ]; then ARGS="$ARGS --record-only"; fi
+          echo "MODE: $IN_MODE"
+          node scripts/lock-quiet-seasons.js $ARGS
+
+      - name: How to read the result
+        if: always()
+        run: |
+          echo "LOCKED           = COMPLETED, old enough, and its games fingerprint has"
+          echo "                   not moved for the required number of runs. Reversible"
+          echo "                   by clearing locked/lockedAt/lockedReason."
+          echo ""
+          echo "still settling   = old enough but not yet quiet for long enough."
+          echo "changed this run = the season is still receiving data. Streak reset to 1."
+          echo ""
+          echo "no games on disk = NEVER locked here. Proving an empty season is truly"
+          echo "                   empty means asking PlayHQ — run close-empty-seasons."
+          echo ""
+          echo "no endDate       = age cannot be judged and is never guessed from the"
+          echo "                   season name."
+          echo ""
+          echo "On the first two runs LOCKED will be 0 — every streak starts at 1. That"
+          echo "is the design, not a fault."
