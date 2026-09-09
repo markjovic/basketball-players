@@ -27,9 +27,12 @@ name: Lock Quiet Seasons (season lifecycle)
 # and refused the rest. A season with no endDate is skipped and counted, never guessed
 # at from its name.
 #
-# FIRST RUNS DO NOTHING. data/season-activity.json does not exist yet, so every streak
-# starts at 1 and nothing can reach 3 until the third daily run. That is the design
-# working, not a fault. Expect "LOCKED: 0" on days one and two.
+# TWO RULES, NOT ONE. Between min_age_months and lock_after_months a season must also
+# prove it has stopped changing. Above lock_after_months (default 12) it locks on
+# sight, because the streak exists to catch late results and a season finished a year
+# ago is not receiving any. Measured 2026-09-08: 93 seasons / 574 grades are 12 months
+# or older and lock on the first run; 241 seasons / 4,447 grades sit in the 3-12 month
+# band where the streak does real work and they lock three days later.
 #
 # NO CONCURRENCY LOCK, DELIBERATELY. It writes sports-index.json, which the nightly
 # and both sweeps also write — but `data-write` is a trap here (T19): GitHub allows
@@ -62,6 +65,11 @@ on:
           - dry-run
           - record-only
           - apply
+      lock_after_months:
+        description: 'Above this age the quiet streak is skipped and the season locks on sight (default 12). The streak catches late finals results; a season finished a year ago is not getting any. 0 disables.'
+        required: false
+        default: '12'
+        type: string
       min_age_months:
         description: 'A season must have ended at least this many months ago (default 3 — the summer break means a season can have deferred finals well after its last home-and-away round).'
         required: false
@@ -126,19 +134,27 @@ jobs:
           sparse-checkout-cone-mode: false
 
       # Inputs go through env, never straight onto the command line. Every one is read
-      # through an explicit fallback — and mode resolves to RECORD-ONLY on a schedule,
-      # not apply. A cron that locks without anyone having read a dry run is how a
-      # quiet mistake becomes 400 sealed seasons. Streaks still advance daily, so
-      # switching to apply later locks immediately.
+      # through an explicit fallback, and mode resolves to APPLY on a schedule.
+      #
+      # It was record-only in revision a, and that was wrong. A rule that only fires
+      # when someone remembers to press a button is not a lifecycle rule — it is a
+      # report with extra steps. The safety here is not a human in the loop; it is the
+      # four conditions, every one of which is evidence rather than assumption: PlayHQ
+      # says COMPLETED, games exist on disk, the season is old enough, and either its
+      # fingerprint has not moved for three runs or it is old enough that the streak
+      # proves nothing. And it is reversible — lockedAt and lockedReason are the
+      # selector, exactly as discoveredBy:'org' made the repair of 80 damaged seasons
+      # possible on 2026-09-08. Use max_lock if a first run needs taking in stages.
       - name: Record activity, and lock what has settled
         env:
-          IN_MODE:   ${{ inputs.mode || 'record-only' }}
+          IN_MODE:   ${{ inputs.mode || 'apply' }}
           IN_AGE:    ${{ inputs.min_age_months || '3' }}
           IN_QUIET:  ${{ inputs.quiet_checks || '3' }}
           IN_MAX:    ${{ inputs.max_lock || '0' }}
+          IN_AFTER:  ${{ inputs.lock_after_months || '12' }}
         run: |
           set -euo pipefail
-          ARGS="--min-age-months=$IN_AGE --quiet-checks=$IN_QUIET --max-lock=$IN_MAX"
+          ARGS="--min-age-months=$IN_AGE --quiet-checks=$IN_QUIET --max-lock=$IN_MAX --lock-after-months=$IN_AFTER"
           if [ "$IN_MODE" = "dry-run" ];     then ARGS="$ARGS --dry-run"; fi
           if [ "$IN_MODE" = "record-only" ]; then ARGS="$ARGS --record-only"; fi
           echo "MODE: $IN_MODE"

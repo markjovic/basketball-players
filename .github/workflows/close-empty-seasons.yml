@@ -35,10 +35,29 @@ name: Close Empty Seasons (asks PlayHQ first)
 # name in non-cone mode. A file absent after that is genuinely absent.
 
 on:
+  # Weekly, 21:30 UTC Sunday = 07:30 AEST Monday. Added 2026-09-08.
+  #
+  # It was dispatch-only, and that was a gap. lock-quiet-seasons.yml deliberately
+  # never locks a season with zero games — proving one is truly empty means ASKING
+  # PlayHQ, which is this workflow's job. With no cron, empty seasons would pile up
+  # exactly as finished ones had, and closing them would depend on somebody
+  # remembering. 28 were already waiting when the lifecycle rule first ran.
+  #
+  # Weekly rather than daily because this makes two API calls per GRADE, not per
+  # season: 27 seasons took three and a half minutes and hit the CloudFront wall
+  # three times. Empty seasons appear rarely, and min_age_days keeps new ones out of
+  # reach anyway, so weekly is ample.
+  #
+  # A scheduled run resolves to APPLY. The safety is the evidence, not a human in the
+  # loop: it closes a season only when PlayHQ has been asked about every one of its
+  # grades and returned no games at all. Anything blocked, errored, or holding games
+  # is left alone and reported.
+  schedule:
+    - cron: '30 21 * * 0'
   workflow_dispatch:
     inputs:
       mode:
-        description: 'dry-run = ask PlayHQ and report, write nothing. apply = close the confirmed-empty ones and commit.'
+        description: 'dry-run = ask PlayHQ and report, write nothing. apply = close the confirmed-empty ones and commit. Scheduled runs receive no inputs and resolve to apply.'
         required: true
         default: dry-run
         type: choice
@@ -114,7 +133,10 @@ jobs:
       # is what stopped the weekly sweep silently defaulting for a month).
       - name: Ask PlayHQ, then close what it confirms is empty
         env:
-          IN_MODE:    ${{ inputs.mode || 'dry-run' }}
+          # A scheduled run receives NO inputs, so this fallback is what the cron
+          # uses. It must be apply — a weekly dry run that nobody reads is the same
+          # as no cron at all.
+          IN_MODE:    ${{ inputs.mode || 'apply' }}
           IN_AGE:     ${{ inputs.min_age_days || '3' }}
           IN_SEASONS: ${{ inputs.seasons }}
           IN_MAX:     ${{ inputs.max_seasons || '200' }}
