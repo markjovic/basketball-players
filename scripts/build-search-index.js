@@ -39,6 +39,7 @@ const DRY_RUN    = process.argv.includes('--dry-run');
 const INDEX_DIR  = path.join(ROOT, 'players', 'indexes');
 const PLAYER_DIR = path.join(ROOT, 'players');
 const SEARCH_DIR = path.join(ROOT, 'search', 'players');
+const SPORTS_INDEX = path.join(ROOT, 'data', 'sports-index.json');
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -62,11 +63,87 @@ async function gitCommit(message) {
     execSync('git merge -X ours FETCH_HEAD --no-edit --no-stat', { stdio: 'pipe', cwd: ROOT });
     execSync('git push origin main', { stdio: 'pipe', cwd: ROOT });
     console.log(`  ✓ ${message}`);
-  } catch (e) { console.error(`  git error: ${e.message}`); }
+    return;
+  } catch (e) {
+    // ⚠️ 2026-09-08: this used to print and return, so a failed add, commit, merge
+    // or push exited ZERO and the job showed green having written nothing — the
+    // same fault found the same day in build-venue-indexes.js and
+    // update-team-index.js. A lost run must show red.
+    const detail = (e.stderr || e.stdout || '').toString().trim() || e.message;
+    console.error(`  git error on the first attempt: ${detail}`);
+  }
+
+  // Push contention against the matrix storm is normal and is not a failure until
+  // the loop gives up. 60 attempts with random jitter, then THROW.
+  for (let attempt = 2; attempt <= 60; attempt++) {
+    try {
+      execSync('git fetch origin main', { stdio: 'pipe', cwd: ROOT });
+      execSync('git merge -X ours FETCH_HEAD --no-edit --no-stat', { stdio: 'pipe', cwd: ROOT });
+      execSync('git push origin main', { stdio: 'pipe', cwd: ROOT });
+      console.log(`  ✓ pushed (attempt ${attempt}): ${message}`);
+      return;
+    } catch (e) {
+      const detail = (e.stderr || e.stdout || '').toString().trim() || e.message;
+      if (attempt === 60) throw new Error(`push failed after 60 attempts: ${detail}`);
+      const wait = 1 + Math.floor(Math.random() * 90);
+      console.log(`  … push contention (attempt ${attempt}) — retry in ${wait}s`);
+      execSync(`sleep ${wait}`, { stdio: 'ignore' });
+    }
+  }
 }
 
-// Extract most recent club and team from a player detail file.
-function extractClubTeam(player) {
+// Extract the most recent club and team from a player detail file.
+//
+// ⚠️ REWRITTEN 2026-09-08. THE PREVIOUS VERSION LEFT MOST PLAYERS WITH NO CLUB.
+// StatTrack renders `${h.c||'—'} · ${h.t||''}` (index.html L935), so a null `c` is
+// the em-dash in player search. It was walking seasons backwards and returning at
+// the FIRST season holding a team name — with THAT season's club, even when the
+// field was absent — and never looking further back for one.
+//
+// Measured on Toby Jovic (0afc7690): 9 seasons, 6 of them carrying a club. The last
+// array entry is Spring 2026, which has a team ("Coyotes") and NO club field, so the
+// function returned {c: null, t: "Coyotes"} and StatTrack showed "— · Coyotes" —
+// exactly the row in the screenshot — while "Spirit Magic Basketball Club" sat in
+// seasons[0].
+//
+// Second fault: "most recent" meant "last in the array". That order is not
+// chronological. Toby's seasons run newest-first for entries 0-6 and then have two
+// appended on the end. Same assumption that made the update-team-index rewrite treat
+// reg order as chronology (T57) — array position is not a date.
+//
+// The rule now: order by the season's real endDate (from sports-index, present on
+// ~77% of seasons after the 2026-09-08 backfill), newest first, with array order as
+// the tie-break for seasons that have no date. Then PREFER THE MOST RECENT SEASON
+// HOLDING BOTH a club and a team, so the pair stays coherent — a club from one
+// season stitched onto a team from another reads as a real pairing and is not one.
+// Only if no season has both does it fall back to taking each independently.
+function extractClubTeam(player, endDates) {
+  const seasons = (player.seasons || []).map((s, i) => {
+    const regs = s.regs || [];
+    const last = regs[regs.length - 1];
+    return { club: s.club || null, team: (last && last.tn) || null, end: (endDates && endDates[s.sid]) || null, i };
+  });
+
+  // Newest first. Seasons with no endDate sort last, keeping their array order
+  // among themselves — never guessed at from the season name.
+  seasons.sort((a, b) => {
+    if (a.end && b.end) return a.end < b.end ? 1 : a.end > b.end ? -1 : b.i - a.i;
+    if (a.end) return -1;
+    if (b.end) return 1;
+    return b.i - a.i;
+  });
+
+  const both = seasons.find(s => s.club && s.team);
+  if (both) return { c: both.club, t: both.team, paired: true };
+
+  const withTeam = seasons.find(s => s.team);
+  const withClub = seasons.find(s => s.club);
+  return { c: (withClub && withClub.club) || null, t: (withTeam && withTeam.team) || null, paired: false };
+}
+
+// The previous behaviour, kept ONLY so a run can report how many players actually
+// gain a club. A counter without a before-and-after is a number nobody can check.
+function extractClubTeamOld(player) {
   const seasons = player.seasons || [];
   for (let i = seasons.length - 1; i >= 0; i--) {
     const s    = seasons[i];
@@ -98,6 +175,22 @@ async function main() {
 
   if (!DRY_RUN) fs.mkdirSync(SEARCH_DIR, { recursive: true });
 
+  // Season end dates, for ordering a player's seasons by when they actually
+  // finished rather than by array position. Present on ~77% of seasons after the
+  // 2026-09-08 backfill; the rest fall back to array order and are never guessed
+  // at from the season name.
+  const endDates = {};
+  let datedSeasons = 0;
+  try {
+    const si = JSON.parse(fs.readFileSync(SPORTS_INDEX, 'utf8'));
+    for (const [sid, s] of Object.entries(si.seasons || {})) {
+      if (s.endDate) { endDates[sid] = s.endDate; datedSeasons++; }
+    }
+    console.log(`  Season end dates loaded: ${datedSeasons} of ${Object.keys(si.seasons || {}).length}`);
+  } catch (e) {
+    console.log(`  ⚠ could not read sports-index.json (${e.message}) — falling back to array order for every season`);
+  }
+
   // Build the full shard map in memory — keyed by 2-char name prefix
   // Memory: ~369k players × ~150 bytes/entry = ~55MB, manageable
   const shards = new Map();  // "sa" → { "Sam Burdan": [{id, c, t}], "Burdan, Sam": [...] }
@@ -114,6 +207,10 @@ async function main() {
 
   // Read all UUID prefix shards (00-ff) from the player index
   let totalPlayers = 0;
+  // Before-and-after on the club fix. A counter without a comparison is a number
+  // nobody can check.
+  let hadClubBefore = 0, hasClubAfter = 0, gainedClub = 0, pairedFromBoth = 0, stillNoClub = 0;
+  const gainedSamples = [];
 
   for (let i = 0; i < 256; i++) {
     const prefix    = i.toString(16).padStart(2, '0');
@@ -140,8 +237,17 @@ async function main() {
       if (fs.existsSync(playerFile)) {
         try {
           player = JSON.parse(fs.readFileSync(playerFile, 'utf8'));
-          const ct = extractClubTeam(player);
+          const ct  = extractClubTeam(player, endDates);
+          const old = extractClubTeamOld(player);
           c = ct.c; t = ct.t;
+          if (old.c) hadClubBefore++;
+          if (ct.c)  hasClubAfter++;
+          if (ct.paired) pairedFromBoth++;
+          if (!old.c && ct.c) {
+            gainedClub++;
+            if (gainedSamples.length < 15) gainedSamples.push(`    ${playerName.slice(0, 26).padEnd(26)} — · ${old.t || ''}   ->   ${ct.c} · ${ct.t || ''}`);
+          }
+          if (!ct.c) stillNoClub++;
         } catch (_) { player = null; }
       }
 
@@ -168,6 +274,13 @@ async function main() {
   }
 
   console.log(`\n  Players indexed: ${totalPlayers}`);
+  console.log(`  ── club coverage in player search ──`);
+  console.log(`    had a club before : ${hadClubBefore}`);
+  console.log(`    have one now      : ${hasClubAfter}`);
+  console.log(`    GAINED a club     : ${gainedClub}   ← these showed "—" in StatTrack`);
+  console.log(`    club+team from one season : ${pairedFromBoth}   (a coherent pairing)`);
+  console.log(`    still no club     : ${stillNoClub}   (no season on record carries one)`);
+  if (gainedSamples.length) { console.log(`    examples:`); gainedSamples.forEach(x => console.log(x)); }
   console.log(`  Name-prefix shards to write: ${shards.size}`);
 
   // Write shards
