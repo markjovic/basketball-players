@@ -1,5 +1,5 @@
 // scripts/lock-quiet-seasons.js
-// REVISION 2026-09-08b — adds --lock-after-months (no streak for old seasons).
+// REVISION 2026-09-08d — lock-after-months default 3, plus the still-changing canary.
 //
 // The season lifecycle rule. Locks finished seasons that have provably stopped
 // changing, so the nightly stops re-fetching answers that cannot move.
@@ -42,9 +42,11 @@
 //   2. locked === false              not already locked
 //   3. endDate older than --min-age-months (default 3)
 //   4. games on disk, AND EITHER the fingerprint unchanged for --quiet-checks runs
-//      OR the season ended more than --lock-after-months ago (default 12), where the
-//      streak proves nothing — a season finished a year ago is not receiving late
-//      results, and making it wait three days to demonstrate that helps nobody.
+//      OR the season ended more than --lock-after-months ago (default 3). Since that
+//      default equals --min-age-months, the streak does not gate anything as shipped:
+//      three months already covers deferred finals, late corrections and the summer
+//      break. The fingerprint is still recorded for every candidate, so the evidence
+//      needed to justify a shorter window keeps accruing.
 //
 // AND ONE FLOOR THAT IS NOT NEGOTIABLE: a season with ZERO games is never locked
 // here. Locking one would bury it permanently, which is the same failure as writing
@@ -93,14 +95,23 @@ const RECORD_ONLY = args.includes('--record-only');
 const LIST_PATHS  = args.includes('--list-paths');
 const MIN_AGE_MONTHS = Math.max(0, parseInt(argVal('min-age-months', '3'), 10) || 0);
 const QUIET_CHECKS   = Math.max(1, parseInt(argVal('quiet-checks', '3'), 10) || 3);
-// Beyond this age the quiet streak is pointless ceremony. The streak exists to
-// catch a season still receiving late results — a deferred final, a corrected
-// score. A season that finished a year ago is not receiving anything, and making
-// it wait three days to prove that helps nobody. Measured 2026-09-08: 93 seasons
-// (574 grades) are 12 months or older, while 241 seasons (4,447 grades) sit in the
-// 3-12 month band where late data is genuinely plausible and the streak does real
-// work. 0 disables the escalation.
-const LOCK_AFTER_MONTHS = Math.max(0, parseInt(argVal('lock-after-months', '12'), 10) || 0);
+// Beyond this age the quiet streak is skipped and the season locks on sight.
+//
+// DEFAULT IS 3, WHICH EQUALS MIN_AGE_MONTHS, SO THE STREAK NEVER GATES ANYTHING.
+// That is deliberate (Mark, 2026-09-08). Seasons are over within a week or two of
+// the final fixture; three months already allows for deferred finals, late score
+// corrections and the summer break. Waiting a further three days to re-prove it
+// buys nothing. It shipped at 12, then 6 was considered, and both were caution
+// rather than evidence — no measurement supported either.
+//
+// THE STREAK MACHINERY STAYS, AND STILL RUNS. Fingerprints are recorded for every
+// candidate BEFORE the age gate, so "changed this run" keeps accruing evidence on
+// whether a finished season ever moves. That is exactly what would be needed to
+// justify going BELOW three months, and it is the only way that number will ever
+// be set from data rather than instinct. Do not delete it to tidy up.
+//
+// Set to 0 to disable the escalation and require the streak again.
+const LOCK_AFTER_MONTHS = Math.max(0, parseInt(argVal('lock-after-months', '3'), 10) || 0);
 const MAX_LOCK       = Math.max(0, parseInt(argVal('max-lock', '0'), 10) || 0);   // 0 = no cap
 
 const GIT_OPTS      = { cwd: ROOT, stdio: 'pipe', timeout: 10 * 60 * 1000, maxBuffer: 512 * 1024 * 1024 };
@@ -234,7 +245,12 @@ function main() {
     const aged = LOCK_AFTER_MONTHS > 0 && age >= LOCK_AFTER_MONTHS;
     if (!aged && streak < QUIET_CHECKS) { notQuiet.push({ s, streak }); continue; }
 
-    lock.push({ s, streak, games: games.length, age, aged });
+    // THE CANARY. This season is being locked on age, but its games changed since the
+    // last run — it was still receiving data at the moment we sealed it. With
+    // LOCK_AFTER_MONTHS equal to MIN_AGE_MONTHS the streak cannot catch that, which
+    // is exactly why it is counted and shouted about rather than passing silently.
+    const wasChanging = !!(prev && prev.fp !== fp);
+    lock.push({ s, streak, games: games.length, age, aged, wasChanging });
   }
 
   lock.sort((a, b) => (b.s.grades || []).length - (a.s.grades || []).length);
@@ -272,10 +288,12 @@ function main() {
   }
 
   console.log(`\n${'═'.repeat(92)}`);
-  const agedN = toLock.filter(x => x.aged).length;
+  const agedN    = toLock.filter(x => x.aged).length;
+  const canaries = toLock.filter(x => x.wasChanging);
   console.log(`  LOCKED               : ${String(toLock.length).padStart(4)}   ${g(toLock)} grades off the nightly`);
   console.log(`    by age (>=${LOCK_AFTER_MONTHS}mo)   : ${String(agedN).padStart(4)}   no streak required`);
   console.log(`    by quiet streak    : ${String(toLock.length - agedN).padStart(4)}   unchanged for ${QUIET_CHECKS} checks`);
+  console.log(`    \u26a0 STILL CHANGING   : ${String(canaries.length).padStart(4)}   locked on age while their games moved this run — MUST be 0`);
   console.log(`  still settling       : ${String(notQuiet.length).padStart(4)}   ${g(notQuiet)} grades — old enough, not yet quiet for ${QUIET_CHECKS} checks`);
   console.log(`  too young            : ${String(tooYoung.length).padStart(4)}   ${g(tooYoung)} grades — ended less than ${MIN_AGE_MONTHS} months ago`);
   console.log(`  changed this run     : ${String(changed.length).padStart(4)}   still active, streak reset`);
@@ -287,7 +305,20 @@ function main() {
   console.log(`  assertions           : PASSED — count, removed and grades all unchanged`);
   console.log(`${'═'.repeat(92)}`);
 
-  if (firstRun) console.log(`\n  First run: streaks start at 1, so only the age rule (>=${LOCK_AFTER_MONTHS} months) can fire\n  today. The rest lock once they have been quiet for ${QUIET_CHECKS} runs — ${QUIET_CHECKS - 1} more days.`);
+  if (canaries.length) {
+    console.log(`\n  \u26a0 ${canaries.length} season(s) were locked on age WHILE THEIR GAMES WERE STILL CHANGING.`);
+    console.log(`    ${LOCK_AFTER_MONTHS} months is too short: data was still arriving when these were sealed.`);
+    console.log(`    Raise --lock-after-months, and reopen them by clearing locked, lockedAt`);
+    console.log(`    and lockedReason on:`);
+    for (const x of canaries.slice(0, 20)) console.log(`      ${x.s.id}  ended ${x.s.endDate}  ${Math.round(x.age)}mo  ${(x.s.fullName || '').slice(0, 50)}`);
+    if (canaries.length > 20) console.log(`      … and ${canaries.length - 20} more`);
+  }
+  if (firstRun) console.log(`\n  First run: no fingerprints existed to compare against, so nothing can be reported\n  as changed and the age rule (>=${LOCK_AFTER_MONTHS} months) is doing all the work today.`);
+  if (LOCK_AFTER_MONTHS > 0 && LOCK_AFTER_MONTHS <= MIN_AGE_MONTHS) {
+    console.log(`\n  Note: --lock-after-months (${LOCK_AFTER_MONTHS}) is at or below --min-age-months (${MIN_AGE_MONTHS}), so the`);
+    console.log(`  quiet streak never gates anything. Fingerprints are still recorded, and the`);
+    console.log(`  "STILL CHANGING" count above is what tells you whether that is safe.`);
+  }
   if (noGames.length) console.log(`\n  ${noGames.length} season(s) hold no games. They are NOT locked here — proving an empty\n  season is truly empty means asking PlayHQ. Run close-empty-seasons.yml for those.`);
 
   if (DRY_RUN) { log('dry run — nothing written.'); return; }
