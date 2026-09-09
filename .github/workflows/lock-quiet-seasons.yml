@@ -27,12 +27,17 @@ name: Lock Quiet Seasons (season lifecycle)
 # and refused the rest. A season with no endDate is skipped and counted, never guessed
 # at from its name.
 #
-# TWO RULES, NOT ONE. Between min_age_months and lock_after_months a season must also
-# prove it has stopped changing. Above lock_after_months (default 12) it locks on
-# sight, because the streak exists to catch late results and a season finished a year
-# ago is not receiving any. Measured 2026-09-08: 93 seasons / 574 grades are 12 months
-# or older and lock on the first run; 241 seasons / 4,447 grades sit in the 3-12 month
-# band where the streak does real work and they lock three days later.
+# AS SHIPPED, AGE ALONE DECIDES. lock_after_months defaults to 3, the same as
+# min_age_months, so a season three months past its end date locks on sight and the
+# quiet streak never gates anything. That is deliberate (Mark, 2026-09-08): seasons
+# are over within a week or two of the final fixture, and three months already allows
+# for deferred finals, late corrections and the summer break. It shipped at 12 and 6
+# was considered; both were caution rather than evidence.
+#
+# THE STREAK STILL RUNS, AND MUST NOT BE DELETED. Fingerprints are recorded for every
+# candidate before the age gate, so "changed this run" keeps measuring whether a
+# finished season ever moves — the only evidence that could ever justify a window
+# shorter than three months. Raise lock_after_months to make the streak gate again.
 #
 # NO CONCURRENCY LOCK, DELIBERATELY. It writes sports-index.json, which the nightly
 # and both sweeps also write — but `data-write` is a trap here (T19): GitHub allows
@@ -66,9 +71,9 @@ on:
           - record-only
           - apply
       lock_after_months:
-        description: 'Above this age the quiet streak is skipped and the season locks on sight (default 12). The streak catches late finals results; a season finished a year ago is not getting any. 0 disables.'
+        description: 'Above this age the quiet streak is skipped and the season locks on sight (default 3 — equal to min_age_months, so the streak does not gate anything). Raise it to require the streak again; 0 disables the escalation entirely.'
         required: false
-        default: '12'
+        default: '3'
         type: string
       min_age_months:
         description: 'A season must have ended at least this many months ago (default 3 — the summer break means a season can have deferred finals well after its last home-and-away round).'
@@ -151,7 +156,7 @@ jobs:
           IN_AGE:    ${{ inputs.min_age_months || '3' }}
           IN_QUIET:  ${{ inputs.quiet_checks || '3' }}
           IN_MAX:    ${{ inputs.max_lock || '0' }}
-          IN_AFTER:  ${{ inputs.lock_after_months || '12' }}
+          IN_AFTER:  ${{ inputs.lock_after_months || '3' }}
         run: |
           set -euo pipefail
           ARGS="--min-age-months=$IN_AGE --quiet-checks=$IN_QUIET --max-lock=$IN_MAX --lock-after-months=$IN_AFTER"
@@ -176,5 +181,9 @@ jobs:
           echo "no endDate       = age cannot be judged and is never guessed from the"
           echo "                   season name."
           echo ""
-          echo "On the first two runs LOCKED will be 0 — every streak starts at 1. That"
-          echo "is the design, not a fault."
+          echo "STILL CHANGING   = locked on age while its games moved in the same run."
+          echo "                   This MUST be zero. Anything listed there was sealed"
+          echo "                   while data was still arriving, which means"
+          echo "                   lock_after_months is too short. The log names every"
+          echo "                   one so they can be reopened by clearing locked,"
+          echo "                   lockedAt and lockedReason."
