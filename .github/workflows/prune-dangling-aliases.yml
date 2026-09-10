@@ -1,0 +1,111 @@
+# .github/workflows/prune-dangling-aliases.yml
+name: Prune Dangling Aliases
+
+# Removes alias entries whose target player file no longer exists.
+#
+# db-audit.js §3b reports these as a failed invariant: "dangling targets MUST equal
+# apiId-field count (0)". Two have been outstanding since a fold merged a player away
+# without repointing the aliases that pointed at it.
+#
+# REPOINTING WAS TRIED FIRST AND CANNOT WORK. fold-diverged-players.js
+# --repoint-only ran on 2026-09-08: 417,971 player files scanned, 499,914 spectator
+# ids mapped, and BOTH entries came back UNRESOLVABLE — no player file anywhere
+# claims either id, so there is no target to derive. That tool deliberately will not
+# delete, which is right for a repair tool. Hence this one.
+#
+#   005c9694-d2a1 -> 3f310c9f-0352-4c3c-b9fc-b24a292ff9b8
+#   9d69fac4-2d40 -> 3f310c9f-0352-4c3c-b9fc-b24a292ff9b8
+#
+# Neither appears in reports/alias-repoint-log.json or manual-alias-decisions.json,
+# so neither was part of a deliberate attribution decision. And a pointer to a file
+# that does not exist cannot be serving anyone: a lookup resolves to a missing file
+# rather than a clean miss. Absence is the honest answer.
+#
+# IT IS GENERAL, NOT A ONE-OFF. It selects whatever is dangling at the time, so it
+# stays useful if a future fold leaves more behind. Keep it.
+#
+# SPARSE CHECKOUT OF players/indexes AND players/aliases ONLY — 155 MB and 26 MB
+# against the 2.2 GB of player files. Existence is checked against the indexes, which
+# db-audit confirms are equivalent to the detail files (index keys total equals detail
+# file count, zero keys without a file, zero files without a key). The script ABORTS
+# if it reads fewer than 256 index shards, because a partial checkout would make
+# every alias look dangling.
+#
+# No actions/setup-node: no network calls.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run = list what would be removed, write nothing. apply = remove and commit.'
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+      ids:
+        description: 'Comma-separated alias keys to remove. Blank = every dangling entry found. Naming an id that is not dangling aborts.'
+        required: false
+        default: ''
+        type: string
+
+# It writes players/aliases/, which the fold also writes. data-write is the group the
+# fold uses, and both use merge -X ours — so two concurrent writers would not
+# conflict, the second would silently keep its own copy and discard the other's.
+concurrency:
+  group: data-write
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    # Backstop ABOVE the push retry's worst case (60 attempts x up to 91s plus a git
+    # cycle each), never a budget for it — T55.
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            players/indexes
+            players/aliases
+          sparse-checkout-cone-mode: true
+
+      - name: Syntax check
+        run: node --check scripts/prune-dangling-aliases.js
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Inputs through env, never straight onto the command line, each with an
+      # explicit fallback.
+      - name: Prune
+        env:
+          IN_MODE: ${{ inputs.mode || 'dry-run' }}
+          IN_IDS:  ${{ inputs.ids }}
+        run: |
+          set -euo pipefail
+          ARGS=""
+          if [ "$IN_MODE" = "dry-run" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ -n "$IN_IDS" ]; then ARGS="$ARGS --ids=$IN_IDS"; fi
+          node scripts/prune-dangling-aliases.js $ARGS
+
+      - name: Afterwards
+        if: always()
+        run: |
+          echo "Re-run db-audit and check section 3b: 'dangling targets (no file)'"
+          echo "should read 0 with a green tick instead of the red cross."
+          echo ""
+          echo "If the count comes back non-zero LATER, a fold has deleted player files"
+          echo "without repointing their aliases again. Run fold-diverged-players.yml"
+          echo "with mode=repoint-only-dry FIRST — repointing is always preferable to"
+          echo "deleting, and this tool is only for entries that cannot be resolved."
