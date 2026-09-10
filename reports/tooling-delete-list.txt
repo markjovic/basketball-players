@@ -1,5 +1,5 @@
 # reports/tooling-delete-list.txt
-# generated 2026-09-10T13:36:02.876Z by scripts/audit-tooling-inventory.js
+# generated 2026-09-10T13:50:42.732Z by scripts/audit-tooling-inventory.js
 #
 # Paste into the SCRIPTS=( ) / WORKFLOWS=( ) arrays in cleanup-repo.yml.
 # Run cleanup-repo with dry_run=true FIRST and read the list it prints.

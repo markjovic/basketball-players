@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T13:36:02.908Z",
+  "generatedAt": "2026-09-10T13:50:42.773Z",
   "docsPresent": {
     "manifest": true,
     "context": true,
@@ -13,7 +13,7 @@
     "recentWorkflows": 38,
     "staleManifestRows": 3,
     "spentScripts": 28,
-    "spentWorkflows": 23,
+    "spentWorkflows": 63,
     "decideScripts": 15,
     "decideWorkflows": 0,
     "safeDelete": 6,
@@ -211,10 +211,10 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "lastCommit": "2026-09-10T23:32:05+10:00",
+      "lastCommit": "2026-09-10T23:47:07+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 43736,
+      "bytes": 45468,
       "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
@@ -2173,7 +2173,7 @@
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "Counts p[] ids by length and finds rosters listing the same person under BOTH forms. 2026-08-24: 99.24% truncated, 0.76% full, ZERO double-listed (T37)",
       "lastCommit": "2026-08-23T23:40:34+10:00",
-      "ageDays": 17,
+      "ageDays": 18,
       "recent": false,
       "bytes": 6404,
       "verdict": "KEEP — recorded in the manifest as an on-demand tool"
@@ -2732,6 +2732,7 @@
       "hasSchedule": false,
       "lastRunDays": 97,
       "lastRunAt": "2026-06-05T22:37:42Z",
+      "runCount": 1,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch",
@@ -2740,7 +2741,7 @@
       "ageDays": 56,
       "recent": false,
       "bytes": 8875,
-      "verdict": "LIVE — runs on a schedule or in the nightly chain  [last ran 97d ago]"
+      "verdict": "SPENT — only ever ran 1 time(s), last 97d ago"
     },
     {
       "path": ".github/workflows/audit-aliases-against-playhq.yml",
@@ -2751,8 +2752,9 @@
       ],
       "missingScripts": [],
       "hasSchedule": false,
-      "lastRunDays": 13,
+      "lastRunDays": 14,
       "lastRunAt": "2026-08-28T01:49:02Z",
+      "runCount": 6,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -2761,7 +2763,7 @@
       "ageDays": 13,
       "recent": true,
       "bytes": 4580,
-      "verdict": "LIVE — actually ran 13d ago"
+      "verdict": "LIVE — actually ran 14d ago (6 runs)"
     },
     {
       "path": ".github/workflows/audit-diff-fields.yml",
@@ -2774,6 +2776,7 @@
       "hasSchedule": false,
       "lastRunDays": 6,
       "lastRunAt": "2026-09-04T10:19:44Z",
+      "runCount": 4,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch",
@@ -2782,7 +2785,7 @@
       "ageDays": 7,
       "recent": true,
       "bytes": 2752,
-      "verdict": "LIVE — actually ran 6d ago"
+      "verdict": "LIVE — actually ran 6d ago (4 runs)"
     },
     {
       "path": ".github/workflows/audit-finished-unlocked-seasons.yml",
@@ -2795,6 +2798,7 @@
       "hasSchedule": false,
       "lastRunDays": 2,
       "lastRunAt": "2026-09-08T03:43:14Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -2803,7 +2807,7 @@
       "ageDays": 2,
       "recent": true,
       "bytes": 5232,
-      "verdict": "LIVE — actually ran 2d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 2d ago"
     },
     {
       "path": ".github/workflows/audit-nonfinal-games.yml",
@@ -2816,6 +2820,7 @@
       "hasSchedule": false,
       "lastRunDays": 0,
       "lastRunAt": "2026-09-10T08:36:10Z",
+      "runCount": 9,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -2824,7 +2829,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 6466,
-      "verdict": "LIVE — actually ran 0d ago"
+      "verdict": "LIVE — actually ran 0d ago (9 runs)"
     },
     {
       "path": ".github/workflows/audit-pending-games-vs-playhq.yml",
@@ -2837,6 +2842,7 @@
       "hasSchedule": false,
       "lastRunDays": 2,
       "lastRunAt": "2026-09-08T11:23:55Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -2845,7 +2851,7 @@
       "ageDays": 2,
       "recent": true,
       "bytes": 5010,
-      "verdict": "LIVE — actually ran 2d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 2d ago"
     },
     {
       "path": ".github/workflows/audit-removed-org-seasons.yml",
@@ -2858,6 +2864,7 @@
       "hasSchedule": false,
       "lastRunDays": 2,
       "lastRunAt": "2026-09-08T02:00:12Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -2866,7 +2873,7 @@
       "ageDays": 2,
       "recent": true,
       "bytes": 4469,
-      "verdict": "LIVE — actually ran 2d ago"
+      "verdict": "SPENT — only ever ran 1 time(s), last 2d ago"
     },
     {
       "path": ".github/workflows/audit-seasons-gaps.yml",
@@ -2879,6 +2886,7 @@
       "hasSchedule": false,
       "lastRunDays": 40,
       "lastRunAt": "2026-08-01T12:37:08Z",
+      "runCount": 9,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -2899,7 +2907,8 @@
       "missingScripts": [],
       "hasSchedule": false,
       "lastRunDays": 0,
-      "lastRunAt": "2026-09-10T13:32:33Z",
+      "lastRunAt": "2026-09-10T13:47:38Z",
+      "runCount": 11,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -2908,7 +2917,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 6430,
-      "verdict": "LIVE — actually ran 0d ago"
+      "verdict": "LIVE — actually ran 0d ago (11 runs)"
     },
     {
       "path": ".github/workflows/audit-uuid-collisions.yml",
@@ -2921,6 +2930,7 @@
       "hasSchedule": false,
       "lastRunDays": 62,
       "lastRunAt": "2026-07-10T05:31:22Z",
+      "runCount": 1,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -2929,7 +2939,7 @@
       "ageDays": 62,
       "recent": false,
       "bytes": 1061,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 62d ago]"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 1 time(s))"
     },
     {
       "path": ".github/workflows/backfill.yml",
@@ -2944,6 +2954,7 @@
       "hasSchedule": false,
       "lastRunDays": 93,
       "lastRunAt": "2026-06-10T01:02:59Z",
+      "runCount": 30,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -2965,6 +2976,7 @@
       "hasSchedule": false,
       "lastRunDays": 15,
       "lastRunAt": "2026-08-26T03:38:43Z",
+      "runCount": 5,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -2973,7 +2985,7 @@
       "ageDays": 15,
       "recent": false,
       "bytes": 2365,
-      "verdict": "LIVE — actually ran 15d ago"
+      "verdict": "LIVE — actually ran 15d ago (5 runs)"
     },
     {
       "path": ".github/workflows/build-finals-stats.yml",
@@ -2986,6 +2998,7 @@
       "hasSchedule": false,
       "lastRunDays": 3,
       "lastRunAt": "2026-09-07T23:15:24Z",
+      "runCount": 20,
       "manifestSection": "3.2",
       "manifestClass": "BUILD trigger (manual full rebuild)",
       "manifestPurpose": "",
@@ -2994,7 +3007,7 @@
       "ageDays": 41,
       "recent": false,
       "bytes": 4551,
-      "verdict": "LIVE — actually ran 3d ago"
+      "verdict": "LIVE — actually ran 3d ago (20 runs)"
     },
     {
       "path": ".github/workflows/build-leaderboards.yml",
@@ -3007,6 +3020,7 @@
       "hasSchedule": false,
       "lastRunDays": 3,
       "lastRunAt": "2026-09-07T23:26:06Z",
+      "runCount": 97,
       "manifestSection": "3.2",
       "manifestClass": "BUILD trigger (manual full rebuild)",
       "manifestPurpose": "",
@@ -3015,7 +3029,7 @@
       "ageDays": 35,
       "recent": false,
       "bytes": 2911,
-      "verdict": "LIVE — actually ran 3d ago"
+      "verdict": "LIVE — actually ran 3d ago (97 runs)"
     },
     {
       "path": ".github/workflows/build-player-games.yml",
@@ -3028,6 +3042,7 @@
       "hasSchedule": false,
       "lastRunDays": 4,
       "lastRunAt": "2026-09-06T04:13:02Z",
+      "runCount": 30,
       "manifestSection": "3.2",
       "manifestClass": "BUILD trigger (manual full rebuild)",
       "manifestPurpose": "",
@@ -3036,7 +3051,7 @@
       "ageDays": 7,
       "recent": true,
       "bytes": 2197,
-      "verdict": "LIVE — actually ran 4d ago"
+      "verdict": "LIVE — actually ran 4d ago (30 runs)"
     },
     {
       "path": ".github/workflows/build-records.yml",
@@ -3049,6 +3064,7 @@
       "hasSchedule": false,
       "lastRunDays": 35,
       "lastRunAt": "2026-08-07T01:15:32Z",
+      "runCount": 66,
       "manifestSection": "3.2",
       "manifestClass": "BUILD trigger (manual full rebuild)",
       "manifestPurpose": "",
@@ -3070,6 +3086,7 @@
       "hasSchedule": false,
       "lastRunDays": 1,
       "lastRunAt": "2026-09-09T08:20:01Z",
+      "runCount": 56,
       "manifestSection": "3.2",
       "manifestClass": "BUILD trigger (manual full rebuild)",
       "manifestPurpose": "",
@@ -3078,7 +3095,7 @@
       "ageDays": 35,
       "recent": false,
       "bytes": 1546,
-      "verdict": "LIVE — actually ran 1d ago"
+      "verdict": "LIVE — actually ran 1d ago (56 runs)"
     },
     {
       "path": ".github/workflows/build-team-stats.yml",
@@ -3091,6 +3108,7 @@
       "hasSchedule": false,
       "lastRunDays": 35,
       "lastRunAt": "2026-08-07T01:15:34Z",
+      "runCount": 28,
       "manifestSection": "3.2",
       "manifestClass": "BUILD trigger (manual full rebuild)",
       "manifestPurpose": "",
@@ -3112,6 +3130,7 @@
       "hasSchedule": false,
       "lastRunDays": 2,
       "lastRunAt": "2026-09-08T12:31:28Z",
+      "runCount": 7,
       "manifestSection": "3.2",
       "manifestClass": "BUILD trigger (manual full rebuild)",
       "manifestPurpose": "",
@@ -3120,7 +3139,7 @@
       "ageDays": 2,
       "recent": true,
       "bytes": 5693,
-      "verdict": "LIVE — actually ran 2d ago"
+      "verdict": "LIVE — actually ran 2d ago (7 runs)"
     },
     {
       "path": ".github/workflows/build-win-loss.yml",
@@ -3133,6 +3152,7 @@
       "hasSchedule": false,
       "lastRunDays": 7,
       "lastRunAt": "2026-09-03T03:56:52Z",
+      "runCount": 11,
       "manifestSection": "3.2",
       "manifestClass": "BUILD trigger (manual full rebuild)",
       "manifestPurpose": "",
@@ -3141,7 +3161,7 @@
       "ageDays": 7,
       "recent": true,
       "bytes": 2141,
-      "verdict": "LIVE — actually ran 7d ago"
+      "verdict": "LIVE — actually ran 7d ago (11 runs)"
     },
     {
       "path": ".github/workflows/census-wrongly-keyed-matrix.yml",
@@ -3154,6 +3174,7 @@
       "hasSchedule": false,
       "lastRunDays": 11,
       "lastRunAt": "2026-08-30T21:59:10Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -3162,7 +3183,7 @@
       "ageDays": 10,
       "recent": true,
       "bytes": 12456,
-      "verdict": "LIVE — actually ran 11d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 11d ago"
     },
     {
       "path": ".github/workflows/census-wrongly-keyed-players.yml",
@@ -3175,6 +3196,7 @@
       "hasSchedule": false,
       "lastRunDays": 11,
       "lastRunAt": "2026-08-30T23:50:35Z",
+      "runCount": 19,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -3183,7 +3205,7 @@
       "ageDays": 10,
       "recent": true,
       "bytes": 5566,
-      "verdict": "LIVE — actually ran 11d ago"
+      "verdict": "LIVE — actually ran 11d ago (19 runs)"
     },
     {
       "path": ".github/workflows/check-roster-freshness.yml",
@@ -3196,6 +3218,7 @@
       "hasSchedule": false,
       "lastRunDays": 43,
       "lastRunAt": "2026-07-29T06:29:03Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -3204,7 +3227,7 @@
       "ageDays": 44,
       "recent": false,
       "bytes": 2559,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 43d ago]"
+      "verdict": "SPENT — only ever ran 2 time(s), last 43d ago"
     },
     {
       "path": ".github/workflows/cleanup-repo.yml",
@@ -3470,6 +3493,7 @@
       "hasSchedule": false,
       "lastRunDays": 56,
       "lastRunAt": "2026-07-16T11:14:20Z",
+      "runCount": 10,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -3491,6 +3515,7 @@
       "hasSchedule": false,
       "lastRunDays": 75,
       "lastRunAt": "2026-06-27T08:20:59Z",
+      "runCount": 5,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -3512,6 +3537,7 @@
       "hasSchedule": true,
       "lastRunDays": 2,
       "lastRunAt": "2026-09-09T01:27:03Z",
+      "runCount": 4,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -3520,7 +3546,7 @@
       "ageDays": 1,
       "recent": true,
       "bytes": 7485,
-      "verdict": "LIVE — actually ran 2d ago"
+      "verdict": "LIVE — actually ran 2d ago (4 runs)"
     },
     {
       "path": ".github/workflows/correct-wrong-aliases.yml",
@@ -3533,6 +3559,7 @@
       "hasSchedule": false,
       "lastRunDays": 12,
       "lastRunAt": "2026-08-29T11:50:24Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -3541,7 +3568,7 @@
       "ageDays": 12,
       "recent": true,
       "bytes": 3171,
-      "verdict": "LIVE — actually ran 12d ago"
+      "verdict": "SPENT — only ever ran 1 time(s), last 12d ago"
     },
     {
       "path": ".github/workflows/count-stats-checked.yml",
@@ -3554,6 +3581,7 @@
       "hasSchedule": false,
       "lastRunDays": 76,
       "lastRunAt": "2026-06-26T05:44:17Z",
+      "runCount": 1,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -3562,7 +3590,7 @@
       "ageDays": 76,
       "recent": false,
       "bytes": 349,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 76d ago]"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 1 time(s))"
     },
     {
       "path": ".github/workflows/db-audit.yml",
@@ -3575,6 +3603,7 @@
       "hasSchedule": false,
       "lastRunDays": 0,
       "lastRunAt": "2026-09-10T03:49:54Z",
+      "runCount": 42,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -3583,7 +3612,7 @@
       "ageDays": 62,
       "recent": false,
       "bytes": 1127,
-      "verdict": "LIVE — actually ran 0d ago"
+      "verdict": "LIVE — actually ran 0d ago (42 runs)"
     },
     {
       "path": ".github/workflows/deploy-pages.yml",
@@ -3594,6 +3623,7 @@
       "hasSchedule": false,
       "lastRunDays": 1,
       "lastRunAt": "2026-09-09T21:10:52Z",
+      "runCount": 220,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -3602,7 +3632,7 @@
       "ageDays": 34,
       "recent": false,
       "bytes": 9766,
-      "verdict": "LIVE — actually ran 1d ago"
+      "verdict": "LIVE — actually ran 1d ago (220 runs)"
     },
     {
       "path": ".github/workflows/diagnose-alias-conflicts.yml",
@@ -3615,6 +3645,7 @@
       "hasSchedule": false,
       "lastRunDays": 12,
       "lastRunAt": "2026-08-29T12:10:45Z",
+      "runCount": 3,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -3623,7 +3654,7 @@
       "ageDays": 14,
       "recent": true,
       "bytes": 2859,
-      "verdict": "LIVE — actually ran 12d ago"
+      "verdict": "SPENT — only ever ran 3 time(s), last 12d ago"
     },
     {
       "path": ".github/workflows/diagnose-forfeit-game.yml",
@@ -3634,8 +3665,9 @@
       ],
       "missingScripts": [],
       "hasSchedule": false,
-      "lastRunDays": 39,
+      "lastRunDays": 40,
       "lastRunAt": "2026-08-02T01:47:43Z",
+      "runCount": 1,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -3644,7 +3676,7 @@
       "ageDays": 39,
       "recent": false,
       "bytes": 1696,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 39d ago]"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 1 time(s))"
     },
     {
       "path": ".github/workflows/diagnose-id-field-lengths.yml",
@@ -3657,6 +3689,7 @@
       "hasSchedule": false,
       "lastRunDays": 62,
       "lastRunAt": "2026-07-10T13:03:25Z",
+      "runCount": 2,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -3665,7 +3698,7 @@
       "ageDays": 62,
       "recent": false,
       "bytes": 1090,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 62d ago]"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 2 time(s))"
     },
     {
       "path": ".github/workflows/diagnose-nightly-health.yml",
@@ -3678,6 +3711,7 @@
       "hasSchedule": false,
       "lastRunDays": 75,
       "lastRunAt": "2026-06-27T02:14:15Z",
+      "runCount": 1,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -3686,7 +3720,7 @@
       "ageDays": 75,
       "recent": false,
       "bytes": 940,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 75d ago]"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 1 time(s))"
     },
     {
       "path": ".github/workflows/diagnose-unregistered-appearances.yml",
@@ -3699,6 +3733,7 @@
       "hasSchedule": false,
       "lastRunDays": 7,
       "lastRunAt": "2026-09-03T07:38:24Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -3707,7 +3742,7 @@
       "ageDays": 7,
       "recent": true,
       "bytes": 4394,
-      "verdict": "LIVE — actually ran 7d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 7d ago"
     },
     {
       "path": ".github/workflows/diagnose.yml",
@@ -3720,6 +3755,7 @@
       "hasSchedule": false,
       "lastRunDays": null,
       "lastRunAt": null,
+      "runCount": 0,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -3741,6 +3777,7 @@
       "hasSchedule": true,
       "lastRunDays": 3,
       "lastRunAt": "2026-09-07T22:21:10Z",
+      "runCount": 36,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -3749,7 +3786,7 @@
       "ageDays": 21,
       "recent": false,
       "bytes": 9192,
-      "verdict": "LIVE — actually ran 3d ago"
+      "verdict": "LIVE — actually ran 3d ago (36 runs)"
     },
     {
       "path": ".github/workflows/discover-game-backfill.yml",
@@ -3762,15 +3799,16 @@
       "hasSchedule": false,
       "lastRunDays": 5,
       "lastRunAt": "2026-09-05T13:20:25Z",
+      "runCount": 15,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
       "dispatchedBy": [],
       "lastCommit": "2026-08-11T23:47:08+10:00",
-      "ageDays": 29,
+      "ageDays": 30,
       "recent": false,
       "bytes": 2825,
-      "verdict": "LIVE — actually ran 5d ago"
+      "verdict": "LIVE — actually ran 5d ago (15 runs)"
     },
     {
       "path": ".github/workflows/discover-org-seasons.yml",
@@ -3783,6 +3821,7 @@
       "hasSchedule": true,
       "lastRunDays": 1,
       "lastRunAt": "2026-09-09T21:29:22Z",
+      "runCount": 9,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "cron 19:00 UTC daily + dispatch",
@@ -3791,7 +3830,7 @@
       "ageDays": 2,
       "recent": true,
       "bytes": 9750,
-      "verdict": "LIVE — actually ran 1d ago"
+      "verdict": "LIVE — actually ran 1d ago (9 runs)"
     },
     {
       "path": ".github/workflows/discover-seasons-matrix.yml",
@@ -3804,6 +3843,7 @@
       "hasSchedule": true,
       "lastRunDays": 2,
       "lastRunAt": "2026-09-08T06:59:47Z",
+      "runCount": 166,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch (by nightly Sundays / self)",
@@ -3812,7 +3852,7 @@
       "ageDays": 2,
       "recent": true,
       "bytes": 23751,
-      "verdict": "LIVE — actually ran 2d ago"
+      "verdict": "LIVE — actually ran 2d ago (166 runs)"
     },
     {
       "path": ".github/workflows/discover-seasons.yml",
@@ -3825,6 +3865,7 @@
       "hasSchedule": false,
       "lastRunDays": 65,
       "lastRunAt": "2026-07-07T09:11:55Z",
+      "runCount": 11,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -3846,6 +3887,7 @@
       "hasSchedule": false,
       "lastRunDays": 0,
       "lastRunAt": "2026-09-10T03:49:18Z",
+      "runCount": 3,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -3854,7 +3896,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 3708,
-      "verdict": "LIVE — actually ran 0d ago"
+      "verdict": "SPENT — only ever ran 3 time(s), last 0d ago"
     },
     {
       "path": ".github/workflows/fetch-profile-stats-matrix.yml",
@@ -3868,6 +3910,7 @@
       "hasSchedule": false,
       "lastRunDays": 1,
       "lastRunAt": "2026-09-09T20:10:56Z",
+      "runCount": 933,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch (by nightly / add-player / self)",
@@ -3878,7 +3921,7 @@
       "ageDays": 6,
       "recent": true,
       "bytes": 42392,
-      "verdict": "LIVE — actually ran 1d ago"
+      "verdict": "LIVE — actually ran 1d ago (933 runs)"
     },
     {
       "path": ".github/workflows/fetch-profile-stats.yml",
@@ -3891,6 +3934,7 @@
       "hasSchedule": false,
       "lastRunDays": 62,
       "lastRunAt": "2026-07-10T14:18:54Z",
+      "runCount": 15,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch",
@@ -3910,6 +3954,7 @@
       "hasSchedule": false,
       "lastRunDays": 39,
       "lastRunAt": "2026-08-02T12:44:25Z",
+      "runCount": 2,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -3918,7 +3963,7 @@
       "ageDays": 41,
       "recent": false,
       "bytes": 4597,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 39d ago]"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 2 time(s))"
     },
     {
       "path": ".github/workflows/find-flag-collisions.yml",
@@ -3929,8 +3974,9 @@
       ],
       "missingScripts": [],
       "hasSchedule": false,
-      "lastRunDays": 39,
+      "lastRunDays": 40,
       "lastRunAt": "2026-08-02T01:48:00Z",
+      "runCount": 5,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -3939,7 +3985,7 @@
       "ageDays": 39,
       "recent": false,
       "bytes": 1791,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 39d ago]"
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 40d ago]"
     },
     {
       "path": ".github/workflows/find-lost-stats-from-folds.yml",
@@ -3952,6 +3998,7 @@
       "hasSchedule": false,
       "lastRunDays": 6,
       "lastRunAt": "2026-09-04T12:39:38Z",
+      "runCount": 5,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch",
@@ -3960,7 +4007,7 @@
       "ageDays": 6,
       "recent": true,
       "bytes": 7890,
-      "verdict": "LIVE — actually ran 6d ago"
+      "verdict": "LIVE — actually ran 6d ago (5 runs)"
     },
     {
       "path": ".github/workflows/find-misrouted-appearances.yml",
@@ -3973,6 +4020,7 @@
       "hasSchedule": false,
       "lastRunDays": 4,
       "lastRunAt": "2026-09-06T03:32:47Z",
+      "runCount": 10,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch",
@@ -3981,7 +4029,7 @@
       "ageDays": 4,
       "recent": true,
       "bytes": 8578,
-      "verdict": "LIVE — actually ran 4d ago"
+      "verdict": "LIVE — actually ran 4d ago (10 runs)"
     },
     {
       "path": ".github/workflows/find-players-by-team.yml",
@@ -3994,6 +4042,7 @@
       "hasSchedule": false,
       "lastRunDays": 65,
       "lastRunAt": "2026-07-07T09:27:54Z",
+      "runCount": 6,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -4013,6 +4062,7 @@
       "hasSchedule": false,
       "lastRunDays": 73,
       "lastRunAt": "2026-06-29T06:51:33Z",
+      "runCount": 1,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -4021,7 +4071,7 @@
       "ageDays": 73,
       "recent": false,
       "bytes": 1142,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 73d ago]"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 1 time(s))"
     },
     {
       "path": ".github/workflows/fix-merge-aliases.yml",
@@ -4034,6 +4084,7 @@
       "hasSchedule": false,
       "lastRunDays": 18,
       "lastRunAt": "2026-08-23T08:59:34Z",
+      "runCount": 3,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4042,7 +4093,7 @@
       "ageDays": 18,
       "recent": false,
       "bytes": 3855,
-      "verdict": "LIVE — actually ran 18d ago"
+      "verdict": "SPENT — only ever ran 3 time(s), last 18d ago"
     },
     {
       "path": ".github/workflows/fold-diverged-players.yml",
@@ -4055,6 +4106,7 @@
       "hasSchedule": false,
       "lastRunDays": 1,
       "lastRunAt": "2026-09-09T20:29:30Z",
+      "runCount": 97,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch (by matrix terminal)",
@@ -4065,7 +4117,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 12672,
-      "verdict": "LIVE — actually ran 1d ago"
+      "verdict": "LIVE — actually ran 1d ago (97 runs)"
     },
     {
       "path": ".github/workflows/generate-roster.yml",
@@ -4076,6 +4128,7 @@
       "hasSchedule": false,
       "lastRunDays": 52,
       "lastRunAt": "2026-07-20T07:23:10Z",
+      "runCount": 10,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -4095,6 +4148,7 @@
       "hasSchedule": false,
       "lastRunDays": 1,
       "lastRunAt": "2026-09-09T21:02:59Z",
+      "runCount": 51,
       "manifestSection": "2.1",
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "",
@@ -4103,7 +4157,7 @@
       "ageDays": 31,
       "recent": false,
       "bytes": 23111,
-      "verdict": "LIVE — actually ran 1d ago"
+      "verdict": "LIVE — actually ran 1d ago (51 runs)"
     },
     {
       "path": ".github/workflows/lock-quiet-seasons.yml",
@@ -4116,6 +4170,7 @@
       "hasSchedule": true,
       "lastRunDays": 1,
       "lastRunAt": "2026-09-09T22:40:45Z",
+      "runCount": 5,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4124,7 +4179,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 10661,
-      "verdict": "LIVE — actually ran 1d ago"
+      "verdict": "LIVE — actually ran 1d ago (5 runs)"
     },
     {
       "path": ".github/workflows/measure-credited-coverage.yml",
@@ -4137,6 +4192,7 @@
       "hasSchedule": false,
       "lastRunDays": 7,
       "lastRunAt": "2026-09-03T05:58:14Z",
+      "runCount": 3,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch",
@@ -4145,7 +4201,7 @@
       "ageDays": 10,
       "recent": true,
       "bytes": 4854,
-      "verdict": "LIVE — actually ran 7d ago"
+      "verdict": "SPENT — only ever ran 3 time(s), last 7d ago"
     },
     {
       "path": ".github/workflows/merge-census-partial.yml",
@@ -4158,6 +4214,7 @@
       "hasSchedule": false,
       "lastRunDays": 11,
       "lastRunAt": "2026-08-30T23:04:05Z",
+      "runCount": 3,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4166,7 +4223,7 @@
       "ageDays": 10,
       "recent": true,
       "bytes": 2762,
-      "verdict": "LIVE — actually ran 11d ago"
+      "verdict": "SPENT — only ever ran 3 time(s), last 11d ago"
     },
     {
       "path": ".github/workflows/merge-phantom-profiles.yml",
@@ -4179,6 +4236,7 @@
       "hasSchedule": false,
       "lastRunDays": 19,
       "lastRunAt": "2026-08-22T03:34:33Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4187,7 +4245,7 @@
       "ageDays": 19,
       "recent": false,
       "bytes": 3141,
-      "verdict": "LIVE — actually ran 19d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 19d ago"
     },
     {
       "path": ".github/workflows/nightly-crawl.yml",
@@ -4204,6 +4262,7 @@
       "hasSchedule": true,
       "lastRunDays": 1,
       "lastRunAt": "2026-09-09T18:23:40Z",
+      "runCount": 97,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "cron daily 15:00 UTC + dispatch",
@@ -4212,7 +4271,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 23590,
-      "verdict": "LIVE — actually ran 1d ago"
+      "verdict": "LIVE — actually ran 1d ago (97 runs)"
     },
     {
       "path": ".github/workflows/overnight-chain.yml",
@@ -4229,6 +4288,7 @@
       "hasSchedule": false,
       "lastRunDays": 21,
       "lastRunAt": "2026-08-20T12:55:57Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4237,7 +4297,7 @@
       "ageDays": 20,
       "recent": false,
       "bytes": 13690,
-      "verdict": "LIVE — actually ran 21d ago"
+      "verdict": "SPENT — only ever ran 1 time(s), last 21d ago"
     },
     {
       "path": ".github/workflows/post-drain-chain.yml",
@@ -4254,6 +4314,7 @@
       "hasSchedule": false,
       "lastRunDays": 1,
       "lastRunAt": "2026-09-09T20:14:36Z",
+      "runCount": 51,
       "manifestSection": "2.1",
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "",
@@ -4262,7 +4323,7 @@
       "ageDays": 6,
       "recent": true,
       "bytes": 17932,
-      "verdict": "LIVE — actually ran 1d ago"
+      "verdict": "LIVE — actually ran 1d ago (51 runs)"
     },
     {
       "path": ".github/workflows/probe-absent-games.yml",
@@ -4275,6 +4336,7 @@
       "hasSchedule": false,
       "lastRunDays": 22,
       "lastRunAt": "2026-08-20T00:05:25Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4283,7 +4345,7 @@
       "ageDays": 21,
       "recent": false,
       "bytes": 2079,
-      "verdict": "LIVE — actually ran 22d ago"
+      "verdict": "SPENT — only ever ran 1 time(s), last 22d ago"
     },
     {
       "path": ".github/workflows/probe-alias-credits.yml",
@@ -4296,6 +4358,7 @@
       "hasSchedule": false,
       "lastRunDays": 17,
       "lastRunAt": "2026-08-24T04:44:12Z",
+      "runCount": 9,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4304,7 +4367,7 @@
       "ageDays": 17,
       "recent": false,
       "bytes": 7990,
-      "verdict": "LIVE — actually ran 17d ago"
+      "verdict": "LIVE — actually ran 17d ago (9 runs)"
     },
     {
       "path": ".github/workflows/probe-alias-names.yml",
@@ -4317,6 +4380,7 @@
       "hasSchedule": false,
       "lastRunDays": 17,
       "lastRunAt": "2026-08-25T00:50:00Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4325,7 +4389,7 @@
       "ageDays": 16,
       "recent": false,
       "bytes": 3614,
-      "verdict": "LIVE — actually ran 17d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 17d ago"
     },
     {
       "path": ".github/workflows/probe-alias-stats.yml",
@@ -4338,6 +4402,7 @@
       "hasSchedule": false,
       "lastRunDays": 23,
       "lastRunAt": "2026-08-18T05:33:39Z",
+      "runCount": 3,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4346,7 +4411,7 @@
       "ageDays": 23,
       "recent": false,
       "bytes": 2714,
-      "verdict": "LIVE — actually ran 23d ago"
+      "verdict": "SPENT — only ever ran 3 time(s), last 23d ago"
     },
     {
       "path": ".github/workflows/probe-api-limits.yml",
@@ -4359,6 +4424,7 @@
       "hasSchedule": false,
       "lastRunDays": 69,
       "lastRunAt": "2026-07-03T19:36:45Z",
+      "runCount": 6,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -4380,6 +4446,7 @@
       "hasSchedule": false,
       "lastRunDays": 18,
       "lastRunAt": "2026-08-23T13:48:48Z",
+      "runCount": 4,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4388,7 +4455,7 @@
       "ageDays": 16,
       "recent": false,
       "bytes": 3233,
-      "verdict": "LIVE — actually ran 18d ago"
+      "verdict": "LIVE — actually ran 18d ago (4 runs)"
     },
     {
       "path": ".github/workflows/probe-discover-teams.yml",
@@ -4401,6 +4468,7 @@
       "hasSchedule": false,
       "lastRunDays": 21,
       "lastRunAt": "2026-08-20T03:45:42Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4409,7 +4477,7 @@
       "ageDays": 21,
       "recent": false,
       "bytes": 2078,
-      "verdict": "LIVE — actually ran 21d ago"
+      "verdict": "SPENT — only ever ran 1 time(s), last 21d ago"
     },
     {
       "path": ".github/workflows/probe-duplicate-profiles.yml",
@@ -4422,6 +4490,7 @@
       "hasSchedule": false,
       "lastRunDays": 16,
       "lastRunAt": "2026-08-26T00:16:21Z",
+      "runCount": 4,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4430,7 +4499,7 @@
       "ageDays": 15,
       "recent": false,
       "bytes": 5660,
-      "verdict": "LIVE — actually ran 16d ago"
+      "verdict": "LIVE — actually ran 16d ago (4 runs)"
     },
     {
       "path": ".github/workflows/probe-grade-ladder.yml",
@@ -4441,8 +4510,9 @@
       ],
       "missingScripts": [],
       "hasSchedule": false,
-      "lastRunDays": 21,
+      "lastRunDays": 22,
       "lastRunAt": "2026-08-20T01:42:57Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4451,7 +4521,7 @@
       "ageDays": 21,
       "recent": false,
       "bytes": 2353,
-      "verdict": "LIVE — actually ran 21d ago"
+      "verdict": "SPENT — only ever ran 1 time(s), last 22d ago"
     },
     {
       "path": ".github/workflows/probe-missing-games.yml",
@@ -4464,6 +4534,7 @@
       "hasSchedule": false,
       "lastRunDays": 36,
       "lastRunAt": "2026-08-05T22:58:51Z",
+      "runCount": 4,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4485,6 +4556,7 @@
       "hasSchedule": false,
       "lastRunDays": 18,
       "lastRunAt": "2026-08-23T14:31:30Z",
+      "runCount": 4,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4493,7 +4565,7 @@
       "ageDays": 19,
       "recent": false,
       "bytes": 1721,
-      "verdict": "LIVE — actually ran 18d ago"
+      "verdict": "LIVE — actually ran 18d ago (4 runs)"
     },
     {
       "path": ".github/workflows/probe-notfound.yml",
@@ -4506,6 +4578,7 @@
       "hasSchedule": false,
       "lastRunDays": 22,
       "lastRunAt": "2026-08-19T23:43:27Z",
+      "runCount": 3,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4514,7 +4587,7 @@
       "ageDays": 22,
       "recent": false,
       "bytes": 2069,
-      "verdict": "LIVE — actually ran 22d ago"
+      "verdict": "SPENT — only ever ran 3 time(s), last 22d ago"
     },
     {
       "path": ".github/workflows/probe-player.yml",
@@ -4527,6 +4600,7 @@
       "hasSchedule": false,
       "lastRunDays": 21,
       "lastRunAt": "2026-08-20T10:16:54Z",
+      "runCount": 6,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4535,7 +4609,7 @@
       "ageDays": 27,
       "recent": false,
       "bytes": 1906,
-      "verdict": "LIVE — actually ran 21d ago"
+      "verdict": "LIVE — actually ran 21d ago (6 runs)"
     },
     {
       "path": ".github/workflows/probe-registrations.yml",
@@ -4548,6 +4622,7 @@
       "hasSchedule": false,
       "lastRunDays": 22,
       "lastRunAt": "2026-08-19T08:44:37Z",
+      "runCount": 3,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4556,7 +4631,7 @@
       "ageDays": 22,
       "recent": false,
       "bytes": 2181,
-      "verdict": "LIVE — actually ran 22d ago"
+      "verdict": "SPENT — only ever ran 3 time(s), last 22d ago"
     },
     {
       "path": ".github/workflows/probe-roster-sources.yml",
@@ -4569,6 +4644,7 @@
       "hasSchedule": false,
       "lastRunDays": 15,
       "lastRunAt": "2026-08-26T09:26:43Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4577,7 +4653,7 @@
       "ageDays": 14,
       "recent": true,
       "bytes": 3373,
-      "verdict": "LIVE — actually ran 15d ago"
+      "verdict": "SPENT — only ever ran 1 time(s), last 15d ago"
     },
     {
       "path": ".github/workflows/probe-selfalias-check.yml",
@@ -4590,6 +4666,7 @@
       "hasSchedule": false,
       "lastRunDays": 16,
       "lastRunAt": "2026-08-25T10:41:10Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4598,7 +4675,7 @@
       "ageDays": 16,
       "recent": false,
       "bytes": 1553,
-      "verdict": "LIVE — actually ran 16d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 16d ago"
     },
     {
       "path": ".github/workflows/probe-setup-node-fingerprint.yml",
@@ -4611,6 +4688,7 @@
       "hasSchedule": false,
       "lastRunDays": null,
       "lastRunAt": null,
+      "runCount": 0,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4632,6 +4710,7 @@
       "hasSchedule": false,
       "lastRunDays": 16,
       "lastRunAt": "2026-08-25T03:06:09Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4640,7 +4719,7 @@
       "ageDays": 16,
       "recent": false,
       "bytes": 2721,
-      "verdict": "LIVE — actually ran 16d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 16d ago"
     },
     {
       "path": ".github/workflows/probe-shared-roster.yml",
@@ -4653,6 +4732,7 @@
       "hasSchedule": false,
       "lastRunDays": 18,
       "lastRunAt": "2026-08-23T14:52:33Z",
+      "runCount": 3,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4661,7 +4741,7 @@
       "ageDays": 20,
       "recent": false,
       "bytes": 2211,
-      "verdict": "LIVE — actually ran 18d ago"
+      "verdict": "SPENT — only ever ran 3 time(s), last 18d ago"
     },
     {
       "path": ".github/workflows/probe-squad-evidence.yml",
@@ -4672,8 +4752,9 @@
       ],
       "missingScripts": [],
       "hasSchedule": false,
-      "lastRunDays": 15,
+      "lastRunDays": 16,
       "lastRunAt": "2026-08-26T01:37:45Z",
+      "runCount": 7,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4682,7 +4763,7 @@
       "ageDays": 16,
       "recent": false,
       "bytes": 2610,
-      "verdict": "LIVE — actually ran 15d ago"
+      "verdict": "LIVE — actually ran 16d ago (7 runs)"
     },
     {
       "path": ".github/workflows/probe-stattrack-shapes.yml",
@@ -4696,6 +4777,7 @@
       "hasSchedule": false,
       "lastRunDays": 56,
       "lastRunAt": "2026-07-16T13:26:28Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4704,7 +4786,7 @@
       "ageDays": 56,
       "recent": false,
       "bytes": 2225,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 56d ago]"
+      "verdict": "SPENT — only ever ran 2 time(s), last 56d ago"
     },
     {
       "path": ".github/workflows/probe-unresolved-aliases.yml",
@@ -4717,6 +4799,7 @@
       "hasSchedule": false,
       "lastRunDays": 16,
       "lastRunAt": "2026-08-25T08:25:28Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4725,7 +4808,7 @@
       "ageDays": 16,
       "recent": false,
       "bytes": 2812,
-      "verdict": "LIVE — actually ran 16d ago"
+      "verdict": "SPENT — only ever ran 1 time(s), last 16d ago"
     },
     {
       "path": ".github/workflows/probe-verdict-conflict.yml",
@@ -4738,6 +4821,7 @@
       "hasSchedule": false,
       "lastRunDays": 16,
       "lastRunAt": "2026-08-25T05:30:58Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4746,7 +4830,7 @@
       "ageDays": 16,
       "recent": false,
       "bytes": 2671,
-      "verdict": "LIVE — actually ran 16d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 16d ago"
     },
     {
       "path": ".github/workflows/probe-wrong-rosters.yml",
@@ -4759,6 +4843,7 @@
       "hasSchedule": false,
       "lastRunDays": 22,
       "lastRunAt": "2026-08-19T06:51:28Z",
+      "runCount": 4,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4767,7 +4852,7 @@
       "ageDays": 22,
       "recent": false,
       "bytes": 2200,
-      "verdict": "LIVE — actually ran 22d ago"
+      "verdict": "LIVE — actually ran 22d ago (4 runs)"
     },
     {
       "path": ".github/workflows/prove-player-files-intact.yml",
@@ -4780,6 +4865,7 @@
       "hasSchedule": false,
       "lastRunDays": 15,
       "lastRunAt": "2026-08-26T08:33:00Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4788,7 +4874,7 @@
       "ageDays": 15,
       "recent": false,
       "bytes": 2615,
-      "verdict": "LIVE — actually ran 15d ago"
+      "verdict": "SPENT — only ever ran 1 time(s), last 15d ago"
     },
     {
       "path": ".github/workflows/prune-dangling-aliases.yml",
@@ -4801,6 +4887,7 @@
       "hasSchedule": false,
       "lastRunDays": 0,
       "lastRunAt": "2026-09-10T04:12:49Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4809,7 +4896,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 4482,
-      "verdict": "LIVE — actually ran 0d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 0d ago"
     },
     {
       "path": ".github/workflows/rebuild-chain.yml",
@@ -4826,6 +4913,7 @@
       "hasSchedule": false,
       "lastRunDays": 35,
       "lastRunAt": "2026-08-06T09:58:10Z",
+      "runCount": 2,
       "manifestSection": "2.1",
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "",
@@ -4834,7 +4922,7 @@
       "ageDays": 35,
       "recent": false,
       "bytes": 7344,
-      "verdict": "LIVE — runs on a schedule or in the nightly chain  [last ran 35d ago]"
+      "verdict": "SPENT — only ever ran 2 time(s), last 35d ago"
     },
     {
       "path": ".github/workflows/rebuild-player-index.yml",
@@ -4847,6 +4935,7 @@
       "hasSchedule": false,
       "lastRunDays": 57,
       "lastRunAt": "2026-07-15T23:58:06Z",
+      "runCount": 3,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4855,7 +4944,7 @@
       "ageDays": 56,
       "recent": false,
       "bytes": 2291,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 57d ago]"
+      "verdict": "SPENT — only ever ran 3 time(s), last 57d ago"
     },
     {
       "path": ".github/workflows/recheck-forfeit-games.yml",
@@ -4868,6 +4957,7 @@
       "hasSchedule": false,
       "lastRunDays": 79,
       "lastRunAt": "2026-06-23T12:15:36Z",
+      "runCount": 4,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -4889,6 +4979,7 @@
       "hasSchedule": true,
       "lastRunDays": 9,
       "lastRunAt": "2026-09-01T07:12:51Z",
+      "runCount": 4,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "cron monthly + dispatch",
@@ -4897,7 +4988,7 @@
       "ageDays": 79,
       "recent": false,
       "bytes": 1164,
-      "verdict": "LIVE — actually ran 9d ago"
+      "verdict": "LIVE — actually ran 9d ago (4 runs)"
     },
     {
       "path": ".github/workflows/reconstruct-alias-history.yml",
@@ -4910,6 +5001,7 @@
       "hasSchedule": false,
       "lastRunDays": 12,
       "lastRunAt": "2026-08-29T10:00:17Z",
+      "runCount": 4,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4918,7 +5010,7 @@
       "ageDays": 12,
       "recent": true,
       "bytes": 5005,
-      "verdict": "LIVE — actually ran 12d ago"
+      "verdict": "LIVE — actually ran 12d ago (4 runs)"
     },
     {
       "path": ".github/workflows/redirect-exposure.yml",
@@ -4931,6 +5023,7 @@
       "hasSchedule": false,
       "lastRunDays": 56,
       "lastRunAt": "2026-07-16T03:27:54Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4939,7 +5032,7 @@
       "ageDays": 56,
       "recent": false,
       "bytes": 684,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 56d ago]"
+      "verdict": "SPENT — only ever ran 1 time(s), last 56d ago"
     },
     {
       "path": ".github/workflows/refresh-team-grades.yml",
@@ -4952,6 +5045,7 @@
       "hasSchedule": false,
       "lastRunDays": 0,
       "lastRunAt": "2026-09-10T09:38:47Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4960,7 +5054,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 5178,
-      "verdict": "LIVE — actually ran 0d ago"
+      "verdict": "SPENT — only ever ran 1 time(s), last 0d ago"
     },
     {
       "path": ".github/workflows/repair-duplicate-regs.yml",
@@ -4973,6 +5067,7 @@
       "hasSchedule": false,
       "lastRunDays": 40,
       "lastRunAt": "2026-08-01T08:28:30Z",
+      "runCount": 4,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4994,6 +5089,7 @@
       "hasSchedule": false,
       "lastRunDays": 39,
       "lastRunAt": "2026-08-02T02:02:19Z",
+      "runCount": 2,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5002,7 +5098,7 @@
       "ageDays": 39,
       "recent": false,
       "bytes": 2300,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 39d ago]"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 2 time(s))"
     },
     {
       "path": ".github/workflows/repair-legacy-flags.yml",
@@ -5015,6 +5111,7 @@
       "hasSchedule": false,
       "lastRunDays": 39,
       "lastRunAt": "2026-08-02T02:11:52Z",
+      "runCount": 6,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5036,6 +5133,7 @@
       "hasSchedule": false,
       "lastRunDays": null,
       "lastRunAt": null,
+      "runCount": 0,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5057,6 +5155,7 @@
       "hasSchedule": false,
       "lastRunDays": 20,
       "lastRunAt": "2026-08-21T10:37:57Z",
+      "runCount": 35,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5065,7 +5164,7 @@
       "ageDays": 20,
       "recent": false,
       "bytes": 7709,
-      "verdict": "LIVE — actually ran 20d ago"
+      "verdict": "LIVE — actually ran 20d ago (35 runs)"
     },
     {
       "path": ".github/workflows/repair-reg-sibling-sync.yml",
@@ -5078,6 +5177,7 @@
       "hasSchedule": false,
       "lastRunDays": 40,
       "lastRunAt": "2026-08-01T10:49:41Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5086,7 +5186,7 @@
       "ageDays": 40,
       "recent": false,
       "bytes": 2920,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 40d ago]"
+      "verdict": "SPENT — only ever ran 2 time(s), last 40d ago"
     },
     {
       "path": ".github/workflows/repair-season-names.yml",
@@ -5099,6 +5199,7 @@
       "hasSchedule": false,
       "lastRunDays": 55,
       "lastRunAt": "2026-07-17T11:31:17Z",
+      "runCount": 8,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5120,6 +5221,7 @@
       "hasSchedule": false,
       "lastRunDays": 15,
       "lastRunAt": "2026-08-26T03:05:04Z",
+      "runCount": 9,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5128,7 +5230,7 @@
       "ageDays": 17,
       "recent": false,
       "bytes": 3315,
-      "verdict": "LIVE — actually ran 15d ago"
+      "verdict": "LIVE — actually ran 15d ago (9 runs)"
     },
     {
       "path": ".github/workflows/report-alias-index.yml",
@@ -5141,6 +5243,7 @@
       "hasSchedule": false,
       "lastRunDays": 59,
       "lastRunAt": "2026-07-13T22:39:24Z",
+      "runCount": 1,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5149,7 +5252,7 @@
       "ageDays": 58,
       "recent": false,
       "bytes": 1793,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 59d ago]"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 1 time(s))"
     },
     {
       "path": ".github/workflows/requeue-repointed-players.yml",
@@ -5162,6 +5265,7 @@
       "hasSchedule": false,
       "lastRunDays": 4,
       "lastRunAt": "2026-09-06T11:48:54Z",
+      "runCount": 2,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch",
@@ -5170,7 +5274,7 @@
       "ageDays": 4,
       "recent": true,
       "bytes": 6465,
-      "verdict": "LIVE — actually ran 4d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 4d ago"
     },
     {
       "path": ".github/workflows/restore-deleted-file.yml",
@@ -5181,6 +5285,7 @@
       "hasSchedule": false,
       "lastRunDays": 73,
       "lastRunAt": "2026-06-29T07:46:29Z",
+      "runCount": 5,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5202,6 +5307,7 @@
       "hasSchedule": false,
       "lastRunDays": 5,
       "lastRunAt": "2026-09-06T00:57:03Z",
+      "runCount": 2,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch",
@@ -5210,7 +5316,7 @@
       "ageDays": 4,
       "recent": true,
       "bytes": 4360,
-      "verdict": "LIVE — actually ran 5d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 5d ago"
     },
     {
       "path": ".github/workflows/salvage-spectator-names.yml",
@@ -5223,6 +5329,7 @@
       "hasSchedule": false,
       "lastRunDays": 55,
       "lastRunAt": "2026-07-17T12:41:34Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5231,7 +5338,7 @@
       "ageDays": 55,
       "recent": false,
       "bytes": 3216,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 55d ago]"
+      "verdict": "SPENT — only ever ran 2 time(s), last 55d ago"
     },
     {
       "path": ".github/workflows/scan-complete-rounds.yml",
@@ -5244,6 +5351,7 @@
       "hasSchedule": false,
       "lastRunDays": 67,
       "lastRunAt": "2026-07-06T00:03:56Z",
+      "runCount": 4,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5265,6 +5373,7 @@
       "hasSchedule": false,
       "lastRunDays": 18,
       "lastRunAt": "2026-08-23T14:11:15Z",
+      "runCount": 3,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5273,7 +5382,7 @@
       "ageDays": 18,
       "recent": false,
       "bytes": 1716,
-      "verdict": "LIVE — actually ran 18d ago"
+      "verdict": "SPENT — only ever ran 3 time(s), last 18d ago"
     },
     {
       "path": ".github/workflows/scan-season-name-contamination.yml",
@@ -5286,6 +5395,7 @@
       "hasSchedule": false,
       "lastRunDays": 18,
       "lastRunAt": "2026-08-23T14:17:43Z",
+      "runCount": 8,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5294,7 +5404,7 @@
       "ageDays": 55,
       "recent": false,
       "bytes": 1591,
-      "verdict": "LIVE — actually ran 18d ago"
+      "verdict": "LIVE — actually ran 18d ago (8 runs)"
     },
     {
       "path": ".github/workflows/seed-apiid-from-playhq-pairs.yml",
@@ -5307,6 +5417,7 @@
       "hasSchedule": false,
       "lastRunDays": 8,
       "lastRunAt": "2026-09-02T23:46:32Z",
+      "runCount": 11,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5315,7 +5426,7 @@
       "ageDays": 14,
       "recent": true,
       "bytes": 3475,
-      "verdict": "LIVE — actually ran 8d ago"
+      "verdict": "LIVE — actually ran 8d ago (11 runs)"
     },
     {
       "path": ".github/workflows/seed-missing-profiles.yml",
@@ -5328,6 +5439,7 @@
       "hasSchedule": false,
       "lastRunDays": 16,
       "lastRunAt": "2026-08-25T11:49:49Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5336,7 +5448,7 @@
       "ageDays": 16,
       "recent": false,
       "bytes": 3078,
-      "verdict": "LIVE — actually ran 16d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 16d ago"
     },
     {
       "path": ".github/workflows/size-appearance-gaps.yml",
@@ -5349,6 +5461,7 @@
       "hasSchedule": false,
       "lastRunDays": 36,
       "lastRunAt": "2026-08-05T02:17:25Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5357,7 +5470,7 @@
       "ageDays": 36,
       "recent": false,
       "bytes": 1142,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 36d ago]"
+      "verdict": "SPENT — only ever ran 1 time(s), last 36d ago"
     },
     {
       "path": ".github/workflows/size-duplicate-profiles.yml",
@@ -5370,6 +5483,7 @@
       "hasSchedule": false,
       "lastRunDays": 19,
       "lastRunAt": "2026-08-22T13:08:50Z",
+      "runCount": 4,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5378,7 +5492,7 @@
       "ageDays": 20,
       "recent": false,
       "bytes": 1926,
-      "verdict": "LIVE — actually ran 19d ago"
+      "verdict": "LIVE — actually ran 19d ago (4 runs)"
     },
     {
       "path": ".github/workflows/size-gap-players.yml",
@@ -5389,6 +5503,7 @@
       "hasSchedule": false,
       "lastRunDays": 23,
       "lastRunAt": "2026-08-18T03:11:18Z",
+      "runCount": 11,
       "manifestSection": "2.2",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5397,7 +5512,7 @@
       "ageDays": 34,
       "recent": false,
       "bytes": 5442,
-      "verdict": "LIVE — actually ran 23d ago"
+      "verdict": "LIVE — actually ran 23d ago (11 runs)"
     },
     {
       "path": ".github/workflows/size-locked-backfill.yml",
@@ -5410,6 +5525,7 @@
       "hasSchedule": false,
       "lastRunDays": 38,
       "lastRunAt": "2026-08-03T07:34:29Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5418,7 +5534,7 @@
       "ageDays": 38,
       "recent": false,
       "bytes": 1616,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 38d ago]"
+      "verdict": "SPENT — only ever ran 1 time(s), last 38d ago"
     },
     {
       "path": ".github/workflows/size-locked-resweep.yml",
@@ -5431,6 +5547,7 @@
       "hasSchedule": false,
       "lastRunDays": 38,
       "lastRunAt": "2026-08-03T09:49:11Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5439,7 +5556,7 @@
       "ageDays": 38,
       "recent": false,
       "bytes": 1464,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 38d ago]"
+      "verdict": "SPENT — only ever ran 1 time(s), last 38d ago"
     },
     {
       "path": ".github/workflows/size-locked-split.yml",
@@ -5450,6 +5567,7 @@
       "hasSchedule": false,
       "lastRunDays": 35,
       "lastRunAt": "2026-08-06T19:58:25Z",
+      "runCount": 2,
       "manifestSection": "2.1",
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "",
@@ -5458,7 +5576,7 @@
       "ageDays": 34,
       "recent": false,
       "bytes": 8583,
-      "verdict": "LIVE — runs on a schedule or in the nightly chain  [last ran 35d ago]"
+      "verdict": "SPENT — only ever ran 2 time(s), last 35d ago"
     },
     {
       "path": ".github/workflows/size-misses.yml",
@@ -5469,6 +5587,7 @@
       "hasSchedule": false,
       "lastRunDays": 30,
       "lastRunAt": "2026-08-11T09:55:38Z",
+      "runCount": 1,
       "manifestSection": "2.2",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5477,7 +5596,7 @@
       "ageDays": 23,
       "recent": false,
       "bytes": 8431,
-      "verdict": "LIVE — actually ran 30d ago"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 1 time(s))"
     },
     {
       "path": ".github/workflows/size-missing-gids.yml",
@@ -5490,6 +5609,7 @@
       "hasSchedule": false,
       "lastRunDays": 37,
       "lastRunAt": "2026-08-04T14:01:38Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5498,7 +5618,7 @@
       "ageDays": 36,
       "recent": false,
       "bytes": 1357,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 37d ago]"
+      "verdict": "SPENT — only ever ran 1 time(s), last 37d ago"
     },
     {
       "path": ".github/workflows/size-negative-gap.yml",
@@ -5509,6 +5629,7 @@
       "hasSchedule": false,
       "lastRunDays": 23,
       "lastRunAt": "2026-08-18T04:47:13Z",
+      "runCount": 5,
       "manifestSection": "2.2",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5517,7 +5638,7 @@
       "ageDays": 23,
       "recent": false,
       "bytes": 17347,
-      "verdict": "LIVE — actually ran 23d ago"
+      "verdict": "LIVE — actually ran 23d ago (5 runs)"
     },
     {
       "path": ".github/workflows/size-opposition-index.yml",
@@ -5530,6 +5651,7 @@
       "hasSchedule": false,
       "lastRunDays": 39,
       "lastRunAt": "2026-08-02T09:02:55Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5538,7 +5660,7 @@
       "ageDays": 39,
       "recent": false,
       "bytes": 1469,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 39d ago]"
+      "verdict": "SPENT — only ever ran 1 time(s), last 39d ago"
     },
     {
       "path": ".github/workflows/size-pages-artifact.yml",
@@ -5549,6 +5671,7 @@
       "hasSchedule": false,
       "lastRunDays": 35,
       "lastRunAt": "2026-08-06T12:15:30Z",
+      "runCount": 1,
       "manifestSection": "2.1",
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "",
@@ -5557,7 +5680,7 @@
       "ageDays": 35,
       "recent": false,
       "bytes": 3370,
-      "verdict": "LIVE — runs on a schedule or in the nightly chain  [last ran 35d ago]"
+      "verdict": "SPENT — only ever ran 1 time(s), last 35d ago"
     },
     {
       "path": ".github/workflows/size-repair-rosters.yml",
@@ -5568,6 +5691,7 @@
       "hasSchedule": false,
       "lastRunDays": 23,
       "lastRunAt": "2026-08-18T03:11:24Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5576,7 +5700,7 @@
       "ageDays": 23,
       "recent": false,
       "bytes": 13953,
-      "verdict": "LIVE — actually ran 23d ago"
+      "verdict": "SPENT — only ever ran 2 time(s), last 23d ago"
     },
     {
       "path": ".github/workflows/size-report.yml",
@@ -5589,6 +5713,7 @@
       "hasSchedule": false,
       "lastRunDays": 19,
       "lastRunAt": "2026-08-22T12:56:16Z",
+      "runCount": 18,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5597,7 +5722,7 @@
       "ageDays": 21,
       "recent": false,
       "bytes": 7614,
-      "verdict": "LIVE — actually ran 19d ago"
+      "verdict": "LIVE — actually ran 19d ago (18 runs)"
     },
     {
       "path": ".github/workflows/size-resweep.yml",
@@ -5608,6 +5733,7 @@
       "hasSchedule": false,
       "lastRunDays": 32,
       "lastRunAt": "2026-08-09T09:16:31Z",
+      "runCount": 6,
       "manifestSection": "2.2",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5629,15 +5755,16 @@
       "hasSchedule": false,
       "lastRunDays": 36,
       "lastRunAt": "2026-08-05T13:38:28Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
       "dispatchedBy": [],
       "lastCommit": "2026-08-05T23:36:25+10:00",
-      "ageDays": 35,
+      "ageDays": 36,
       "recent": false,
       "bytes": 1268,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 36d ago]"
+      "verdict": "SPENT — only ever ran 1 time(s), last 36d ago"
     },
     {
       "path": ".github/workflows/spectator-backfill.yml",
@@ -5650,6 +5777,7 @@
       "hasSchedule": true,
       "lastRunDays": 5,
       "lastRunAt": "2026-09-05T13:14:34Z",
+      "runCount": 43,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5658,7 +5786,7 @@
       "ageDays": 21,
       "recent": false,
       "bytes": 10629,
-      "verdict": "LIVE — actually ran 5d ago"
+      "verdict": "LIVE — actually ran 5d ago (43 runs)"
     },
     {
       "path": ".github/workflows/synthesize-missing-games.yml",
@@ -5671,6 +5799,7 @@
       "hasSchedule": false,
       "lastRunDays": 34,
       "lastRunAt": "2026-08-07T09:18:25Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5679,7 +5808,7 @@
       "ageDays": 34,
       "recent": false,
       "bytes": 6044,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 34d ago]"
+      "verdict": "SPENT — only ever ran 2 time(s), last 34d ago"
     },
     {
       "path": ".github/workflows/test-api.yml",
@@ -5692,6 +5821,7 @@
       "hasSchedule": false,
       "lastRunDays": 69,
       "lastRunAt": "2026-07-03T13:20:15Z",
+      "runCount": 1,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5700,7 +5830,7 @@
       "ageDays": 69,
       "recent": false,
       "bytes": 784,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 69d ago]"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 1 time(s))"
     },
     {
       "path": ".github/workflows/test-backfill.yml",
@@ -5713,6 +5843,7 @@
       "hasSchedule": false,
       "lastRunDays": 65,
       "lastRunAt": "2026-07-07T11:38:32Z",
+      "runCount": 4,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5734,6 +5865,7 @@
       "hasSchedule": false,
       "lastRunDays": 18,
       "lastRunAt": "2026-08-23T13:09:49Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5742,7 +5874,7 @@
       "ageDays": 18,
       "recent": false,
       "bytes": 1891,
-      "verdict": "LIVE — actually ran 18d ago"
+      "verdict": "SPENT — only ever ran 1 time(s), last 18d ago"
     },
     {
       "path": ".github/workflows/update-team-index.yml",
@@ -5755,6 +5887,7 @@
       "hasSchedule": false,
       "lastRunDays": 2,
       "lastRunAt": "2026-09-09T00:49:21Z",
+      "runCount": 5,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5763,7 +5896,7 @@
       "ageDays": 2,
       "recent": true,
       "bytes": 5396,
-      "verdict": "LIVE — actually ran 2d ago"
+      "verdict": "LIVE — actually ran 2d ago (5 runs)"
     },
     {
       "path": ".github/workflows/update-venue-lookup.yml",
@@ -5776,6 +5909,7 @@
       "hasSchedule": false,
       "lastRunDays": 70,
       "lastRunAt": "2026-07-02T11:54:01Z",
+      "runCount": 3,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5784,7 +5918,7 @@
       "ageDays": 79,
       "recent": false,
       "bytes": 1085,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 70d ago]"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 3 time(s))"
     },
     {
       "path": ".github/workflows/validate-uncredited-games.yml",
@@ -5797,6 +5931,7 @@
       "hasSchedule": false,
       "lastRunDays": 5,
       "lastRunAt": "2026-09-05T08:19:22Z",
+      "runCount": 1,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5805,7 +5940,7 @@
       "ageDays": 5,
       "recent": true,
       "bytes": 4681,
-      "verdict": "LIVE — actually ran 5d ago"
+      "verdict": "SPENT — only ever ran 1 time(s), last 5d ago"
     },
     {
       "path": ".github/workflows/verify-enrich.yml",
@@ -5818,6 +5953,7 @@
       "hasSchedule": false,
       "lastRunDays": 58,
       "lastRunAt": "2026-07-14T13:09:38Z",
+      "runCount": 3,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5826,7 +5962,7 @@
       "ageDays": 58,
       "recent": false,
       "bytes": 923,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 58d ago]"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 3 time(s))"
     },
     {
       "path": ".github/workflows/verify-outstanding-claims.yml",
@@ -5839,6 +5975,7 @@
       "hasSchedule": false,
       "lastRunDays": 3,
       "lastRunAt": "2026-09-07T07:00:16Z",
+      "runCount": 4,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch",
@@ -5847,7 +5984,7 @@
       "ageDays": 3,
       "recent": true,
       "bytes": 4862,
-      "verdict": "LIVE — actually ran 3d ago"
+      "verdict": "LIVE — actually ran 3d ago (4 runs)"
     },
     {
       "path": ".github/workflows/verify-p-redundancy.yml",
@@ -5860,6 +5997,7 @@
       "hasSchedule": false,
       "lastRunDays": 63,
       "lastRunAt": "2026-07-10T01:24:34Z",
+      "runCount": 1,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -5868,7 +6006,7 @@
       "ageDays": 62,
       "recent": false,
       "bytes": 1439,
-      "verdict": "KEEP — recorded in the manifest as an on-demand tool  [last ran 63d ago]"
+      "verdict": "KEEP — recorded as an on-demand tool (has run 1 time(s))"
     },
     {
       "path": ".github/workflows/verify-players-against-playhq.yml",
@@ -5881,6 +6019,7 @@
       "hasSchedule": false,
       "lastRunDays": 13,
       "lastRunAt": "2026-08-29T00:43:39Z",
+      "runCount": 8,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5889,7 +6028,7 @@
       "ageDays": 15,
       "recent": false,
       "bytes": 2825,
-      "verdict": "LIVE — actually ran 13d ago"
+      "verdict": "LIVE — actually ran 13d ago (8 runs)"
     },
     {
       "path": ".github/workflows/weekly-future-fixtures.yml",
@@ -5902,6 +6041,7 @@
       "hasSchedule": false,
       "lastRunDays": 40,
       "lastRunAt": "2026-08-01T02:29:40Z",
+      "runCount": 2,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -5910,7 +6050,7 @@
       "ageDays": 40,
       "recent": false,
       "bytes": 5404,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 40d ago]"
+      "verdict": "SPENT — only ever ran 2 time(s), last 40d ago"
     },
     {
       "path": ".github/workflows/weekly-indexes.yml",
@@ -5926,6 +6066,7 @@
       "hasSchedule": true,
       "lastRunDays": 4,
       "lastRunAt": "2026-09-06T06:52:13Z",
+      "runCount": 14,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "cron Sun 02:00 UTC + dispatch",
@@ -5934,7 +6075,7 @@
       "ageDays": 27,
       "recent": false,
       "bytes": 6911,
-      "verdict": "LIVE — actually ran 4d ago"
+      "verdict": "LIVE — actually ran 4d ago (14 runs)"
     }
   ],
   "staleManifestRows": [
