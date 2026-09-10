@@ -531,6 +531,18 @@ async function main() {
     if (x.klass && x.klass.startsWith('BROKEN')) {
       return `BROKEN — calls a script that is not in the repo${typeof x.lastRunDays === 'number' ? ` (last ran ${x.lastRunDays}d ago)` : ''}`;
     }
+    // ⚠️ RECENCY OF CREATION BEFORE EVERYTHING. A file created this week has few
+    // runs and no manifest row BY DEFINITION — it looks exactly like an abandoned
+    // one-off. On 2026-09-10 this marked prune-dangling-aliases.yml and
+    // refresh-team-grades.yml SPENT on the day they were built and first run.
+    // The script classifier already checked `recent` before the one-off rule; the
+    // workflow path did not, and that asymmetry was the bug.
+    // DECIDE NOW is the honest answer for new work: it has not earned a verdict yet,
+    // and the decision due is whether to document it or delete it.
+    if (x.recent && !(x.manifestSection === '2.2' || x.manifestSection === '3.3')) {
+      return 'DECIDE NOW — added recently, not recorded as a tool. Document it or delete it.';
+    }
+
     // Run COUNT before run DATE. A one-off that ran recently is still a one-off,
     // and that is the whole population being hunted here.
     if (typeof x.runCount === 'number' && x.runCount > 0 && x.runCount <= ONE_OFF_RUNS) {
