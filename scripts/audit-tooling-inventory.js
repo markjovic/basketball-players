@@ -241,13 +241,33 @@ async function main() {
     for (const line of readText(MANIFEST).split('\n')) {
       const h = line.match(/^###\s+(\d+\.\d+)\s/);
       if (h) { section = h[1]; continue; }
-      const m = line.match(/^\|\s*`([^`]+)`\s*\|\s*([^|]*)\|/);
-      if (!m) continue;
-      const nme = m[1].trim().replace(/^.*\//, '');
-      if (!/\.(js|cjs|mjs|sh|ya?ml)$/.test(nme)) continue;
       if (!section || !/^[23]\./.test(section)) continue;
-      if (manifestRows.has(nme)) continue;
-      manifestRows.set(nme, { purpose: m[2].trim(), section });
+
+      // ⚠️ NOT EVERY SECTION IS A TABLE, AND ASSUMING SO CLASSIFIED 97 LIVE
+      // WORKFLOWS AS SPENT. §2.1, §2.2 and §3.1 are tables. §3.2 (build triggers)
+      // and §3.3 (on-demand tools) are PROSE — comma-separated backticked filenames
+      // in running text. Measured 2026-09-10: 89 filenames in tables, 42 in prose,
+      // and every prose one is a workflow. A table-only parser therefore saw no
+      // §3.2 or §3.3 rows at all, so every build trigger and every on-demand
+      // workflow fell through to SPENT — including deploy-pages.yml, which
+      // publishes the site.
+      const tableRow = line.match(/^\|\s*`([^`]+)`\s*\|\s*([^|]*)\|/);
+      if (tableRow) {
+        const nme = tableRow[1].trim().replace(/^.*\//, '');
+        if (!/\.(js|cjs|mjs|sh|ya?ml)$/.test(nme)) continue;
+        if (manifestRows.has(nme)) continue;
+        manifestRows.set(nme, { purpose: tableRow[2].trim(), section });
+        continue;
+      }
+      // Prose line: take every backticked filename on it. There is no purpose text
+      // to extract — the section itself IS the classification, which is all the
+      // verdict needs.
+      for (const mm of line.matchAll(/`([^`]+)`/g)) {
+        const nme = mm[1].trim().replace(/^.*\//, '');
+        if (!/\.(js|cjs|mjs|sh|ya?ml)$/.test(nme)) continue;
+        if (manifestRows.has(nme)) continue;
+        manifestRows.set(nme, { purpose: '', section });
+      }
     }
     console.log(`  manifest rows (§2/§3): ${manifestRows.size} classified\n`);
   }
@@ -289,7 +309,18 @@ async function main() {
     const base = path.basename(rel);
     const body = scriptBodies.get(rel) || '';
 
-    const usedByWorkflows = wf.filter(w => w.body.includes(base)).map(w => w.file);
+    // ⚠️ A SCRIPT CAN BE REACHED THROUGH A WORKFLOW NAME, NOT ITS OWN.
+    // post-drain-chain.yml runs `gh workflow run build-leaderboards.yml`; that
+    // workflow runs build-leaderboards.js. Matching only on the SCRIPT's basename
+    // missed the link entirely and put build-leaderboards.js, build-records.js,
+    // build-finals-stats.js and build-team-stats.js on a "safe to delete" list on
+    // 2026-09-10. All four are live builders in the nightly chain.
+    // A workflow that dispatches another workflow counts as using everything that
+    // workflow runs — one hop, which is what the chain topology actually is.
+    const directUsers = wf.filter(w => w.body.includes(base));
+    const viaDispatch = wf.filter(w => !w.body.includes(base) &&
+      wf.some(t => t.invokes.includes(base) && w.body.includes(t.file)));
+    const usedByWorkflows = [...directUsers.map(w => w.file), ...viaDispatch.map(w => `${w.file} (dispatches its workflow)`)];
     const requiredBy = [];
     for (const [otherRel, otherBody] of scriptBodies) {
       if (otherRel === rel) continue;
@@ -331,12 +362,20 @@ async function main() {
     else if (w.hasSchedule)        klass = 'SCHEDULED';
     else if (!w.invokes.length)    klass = 'CALLS NO SCRIPT (composite, dispatcher, or inline shell) — read before judging';
     else                           klass = 'DISPATCH-ONLY';
+    // ⚠️ A WORKFLOW ANOTHER WORKFLOW DISPATCHES IS PART OF A CHAIN AND IS LIVE,
+    // WHATEVER THE MANIFEST SAYS. deploy-pages.yml is fired by post-drain-chain.yml
+    // and appears in the manifest only in §1 prose, so no §2/§3 row classifies it —
+    // and on 2026-09-10 it was reported SPENT. It publishes the site.
+    // Being dispatched is evidence of use that does not depend on the document
+    // being maintained, which is the whole reason to prefer it.
+    const dispatchedBy = wf.filter(o => o.file !== w.file && o.body.includes(w.file)).map(o => o.file);
     const wman = manifestOf(w.file);
     workflows.push({ path: `.github/workflows/${w.file}`, displayName: w.displayName, klass,
                      invokes: w.invokes, missingScripts: missing, hasSchedule: w.hasSchedule,
                      manifestSection: wman ? wman.section : null,
                      manifestClass:   manLabel(wman),
                      manifestPurpose: wman ? wman.purpose : null,
+                     dispatchedBy,
                      lastCommit: w.lastCommit, ageDays: age, recent: age !== null && age <= DAYS,
                      bytes: w.bytes });
   }
@@ -386,6 +425,7 @@ async function main() {
     const inLive = x.manifestSection === '2.1' || x.manifestSection === '3.1' || x.manifestSection === '3.2';
     const inTool = x.manifestSection === '2.2' || x.manifestSection === '3.3';
     if (x.klass === 'SCHEDULED' || inLive)          return 'LIVE — runs on a schedule or in the nightly chain';
+    if (x.dispatchedBy && x.dispatchedBy.length)    return `LIVE — dispatched by ${x.dispatchedBy.join(', ')}`;
     if (x.klass.startsWith('LIBRARY (required'))    return 'LIVE — required by another script';
     if (inTool)                                     return 'KEEP — recorded in the manifest as an on-demand tool';
     if (x.klass.startsWith('ORPHAN'))               return 'ORPHAN — nothing references it and no document mentions it';
@@ -478,6 +518,23 @@ async function main() {
   console.log('  then nobody remembers what it established.');
   for (const x of decide)  console.log(`  ${String(x.ageDays === null ? '?' : x.ageDays).padStart(4)}d  ${x.path}`);
   for (const x of decideW) console.log(`  ${String(x.ageDays === null ? '?' : x.ageDays).padStart(4)}d  ${x.path}`);
+
+  // ── Workflows the manifest does not classify ────────────────────────────────
+  // Distinct from SPENT: this is a DOCUMENTATION gap. A workflow absent from §3.x
+  // gets no protection from the manifest, so the verdict falls back to age and to
+  // whether anything dispatches it. If something here is live, the fix is a row in
+  // §3.2 or §3.3, not a change to this tool.
+  const unclassifiedW = workflows.filter(w => !w.manifestSection);
+  console.log(`\n── WORKFLOWS WITH NO §3.x ROW — ${unclassifiedW.length} ──`);
+  if (!unclassifiedW.length) console.log('  none.');
+  else {
+    console.log('  The manifest does not classify these, so nothing but age and dispatch protects');
+    console.log('  them from being read as spent. Add a row to §3.2 or §3.3 for any that are live.');
+    for (const w of unclassifiedW.slice(0, 40)) {
+      console.log(`  ${String(w.ageDays === null ? '?' : w.ageDays).padStart(4)}d  ${w.path}  ${w.verdict.split(' —')[0]}${w.dispatchedBy.length ? `  ← dispatched by ${w.dispatchedBy.join(', ')}` : ''}`);
+    }
+    if (unclassifiedW.length > 40) console.log(`  … and ${unclassifiedW.length - 40} more`);
+  }
 
   // ── Stale manifest rows ─────────────────────────────────────────────────────
   console.log(`\n── IN THE MANIFEST BUT NOT ON DISK — ${staleRows.length} row(s) ──`);
