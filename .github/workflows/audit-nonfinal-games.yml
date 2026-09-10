@@ -1,0 +1,120 @@
+# .github/workflows/audit-nonfinal-games.yml
+name: Audit Non-Final Games (read-only)
+
+# READ-ONLY. Counts every game that has not reached a terminal state, splits them by
+# whether their season is locked, and then asks PlayHQ what it says about the worst
+# locked ones today.
+#
+# WRITES NOTHING AND COMMITS NOTHING. No git configuration step, no write permission.
+#
+# WHY. db-audit.js was fixed on 2026-09-09 to count every game status; before that
+# five statuses were excluded from every counter and roughly 64,000 games were tallied
+# nowhere. The first corrected run showed LIVE at 47,807 — the third-largest status in
+# the database, never once displayed — plus PENDING 14,722, PRE_GAME 1,269 and
+# IN_PROGRESS 515.
+#
+# AND IT MATTERS NOW. lock-quiet-seasons.js closed 307 seasons on 2026-09-09, and the
+# nightly skips locked seasons, so a non-final game inside one is frozen permanently.
+# Nobody has checked whether those 47,807 sit in locked seasons or active ones.
+#
+# LIVE IS NOT PENDING. audit-pending-games-vs-playhq.js established that PENDING games
+# never finish — 685 asked, 0 finished at PlayHQ. LIVE is the opposite claim: PlayHQ
+# WAS scoring the game when we read it, so a finished season full of LIVE games is far
+# more likely to be a capture gap than a dead competition. The same answer must not be
+# assumed.
+#
+# FULL CHECKOUT, NOT SPARSE. It reads every file in games/bv — 1.94 GB across 2,966
+# files. Sparse checkout fetches roughly one blob per second, so naming them all is
+# slower than cloning. A full checkout takes about seven minutes on a runner.
+#
+# NO actions/setup-node ANYWHERE. Phase 2 fetches api.playhq.com and setup-node's
+# fingerprint change makes CloudFront 403 every request including session acquisition
+# (proven 2026-07-20 on the instrumented matrix shard 00).
+
+on:
+  # Dispatch only. This is a question, not a routine.
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'count-only = scan the files and report, no API calls at all. ask-playhq = also ask what PlayHQ says about the worst locked seasons.'
+        required: true
+        default: count-only
+        type: choice
+        options:
+          - count-only
+          - ask-playhq
+      status:
+        description: 'Restrict the per-season breakdown to one status, e.g. LIVE. Blank = every non-terminal status. The status table is always complete.'
+        required: false
+        default: ''
+        type: string
+      max_seasons:
+        description: 'How many of the worst locked seasons to ask about (default 8)'
+        required: false
+        default: '8'
+        type: string
+      max_grades:
+        description: 'Grades per season (default 4 — every round of every grade is fetched, so keep this small)'
+        required: false
+        default: '4'
+        type: string
+
+# Its own group, NOT data-write. It writes nothing, so it must not take the data lock
+# and block the nightly or either sweep by holding it.
+concurrency:
+  group: audit-nonfinal-games
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    # Generous: a full checkout is ~7 minutes, reading 2,966 games files is a few more,
+    # and phase 2 backs off hard when CloudFront pushes back.
+    timeout-minutes: 90
+    steps:
+      # Full checkout. See the note above — sparse is worse here, not better.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Syntax check
+        run: node --check scripts/audit-nonfinal-games.js
+
+      # Inputs through env, never straight onto the command line, each with an explicit
+      # fallback — and the fallback is count-only, the option that touches nothing.
+      - name: Count, and ask PlayHQ if asked to
+        env:
+          IN_MODE:   ${{ inputs.mode || 'count-only' }}
+          IN_STATUS: ${{ inputs.status }}
+          IN_MAXS:   ${{ inputs.max_seasons || '8' }}
+          IN_MAXG:   ${{ inputs.max_grades || '4' }}
+        run: |
+          set -euo pipefail
+          ARGS="--max-seasons=$IN_MAXS --max-grades=$IN_MAXG"
+          if [ "$IN_MODE" = "count-only" ]; then ARGS="$ARGS --count-only"; fi
+          if [ -n "$IN_STATUS" ]; then ARGS="$ARGS --status=$IN_STATUS"; fi
+          node scripts/audit-nonfinal-games.js $ARGS
+
+      - name: How to read the result
+        if: always()
+        run: |
+          echo "The status table splits every status by whether its season is locked."
+          echo "A non-terminal status with a non-zero LOCKED column is frozen: the"
+          echo "nightly skips locked seasons, so nothing will ever revisit those games."
+          echo ""
+          echo "FINISHED AT PLAYHQ = we hold the game as non-final and PlayHQ has a"
+          echo "  result. That is a real capture gap, and if it is inside a locked"
+          echo "  season, locking it was premature. Reopen by clearing locked,"
+          echo "  lockedAt and lockedReason on the affected season ids."
+          echo ""
+          echo "STILL NON-FINAL AT PLAYHQ = PlayHQ never completed the game either."
+          echo "  Nothing to recover, and locking was correct — the same finding as the"
+          echo "  PENDING work on 2026-09-08 (685 asked, 0 finished)."
+          echo ""
+          echo "COVERAGE n/m = only some grades were queried, so no count is produced"
+          echo "  for that season. A game in a grade nobody asked about is not evidence"
+          echo "  of anything."
