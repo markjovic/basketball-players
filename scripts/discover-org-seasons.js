@@ -96,6 +96,41 @@ const CONCURRENCY = Math.max(1, parseInt(argVal('concurrency', '8'), 10) || 8);
 const log = (m) => console.log(`[org-seasons] ${new Date().toISOString()} ${m}`);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+// ─── Organisations PlayHQ no longer serves ───────────────────────────────────
+// The org list is rebuilt from the orgId on every recorded season, so an
+// organisation stays in the sweep for as long as ANY of its seasons is in the index
+// — even a removed:true stub. 59363a37 "Testing Basketball Association 1" was
+// deleted at PlayHQ's end: discoverCompetitions answers "Organisation could not be
+// found" on every single run, and has done since at least 2026-09-08.
+//
+// Its four seasons are PlayHQ's own test fixtures — "Comp Dan test", "Shim Test",
+// "00 Dal domestic comp with players", "Finals Eligibility Comp" — all already
+// removed:true, locked:true, zero grades. They hold nothing.
+//
+// SKIPPED HERE RATHER THAN DELETED FROM THE INDEX. Deleting the four stubs would
+// stop the error today and not tomorrow: the list is rebuilt from the index every
+// run, so any future discovery that re-recorded one of those seasons would bring the
+// organisation straight back. Skipping the org id is the durable fix, and it is
+// reversible by deleting one line.
+//
+// REPORTED, NEVER SILENT. A permanent unexplained error line trains everyone to
+// ignore the error line, which is the real harm — the failure itself is harmless.
+// An entry here is a claim that an organisation is gone; it should be re-checked if
+// the count ever changes unexpectedly.
+const DEAD_ORGS = new Map([
+  ['59363a37', 'Testing Basketball Association 1 — deleted at PlayHQ; its 4 seasons are test fixtures, all removed:true stubs'],
+]);
+
+// Named explicitly with --org, a dead organisation is still asked. The skip is for
+// the automatic sweep; an operator asking directly should get the real answer.
+function pruneDeadOrgs(orgList) {
+  const kept = orgList.filter(([id]) => !DEAD_ORGS.has(id));
+  for (const [id, why] of DEAD_ORGS) {
+    if (orgList.some(([oid]) => oid === id)) log(`skipping dead organisation ${id} — ${why}`);
+  }
+  return kept;
+}
+
 // ─── Headers: the full set, never split. Copied from discover-seasons.js L150. ─
 const HEADERS_BASE = {
   'accept':       '*/*',
@@ -470,7 +505,7 @@ async function backfillDates() {
 
   const orgs = new Map();
   for (const se of before) if (se.orgId && !orgs.has(se.orgId)) orgs.set(se.orgId, se.orgName || se.orgId);
-  const orgList = ONE_ORG ? [[ONE_ORG, orgs.get(ONE_ORG) || ONE_ORG]] : [...orgs];
+  const orgList = ONE_ORG ? [[ONE_ORG, orgs.get(ONE_ORG) || ONE_ORG]] : pruneDeadOrgs([...orgs]);
   log(`organisations to ask: ${orgList.length}`);
 
   // Captured BEFORE the sweep. `before` holds the SAME object references as
@@ -603,7 +638,7 @@ async function main() {
     for (const se of Object.values(index.seasons)) {
       if (se.orgId && !orgs.has(se.orgId)) orgs.set(se.orgId, se.orgName || se.orgId);
     }
-    const orgList = ONE_ORG ? [[ONE_ORG, orgs.get(ONE_ORG) || ONE_ORG]] : [...orgs];
+    const orgList = ONE_ORG ? [[ONE_ORG, orgs.get(ONE_ORG) || ONE_ORG]] : pruneDeadOrgs([...orgs]);
     log(`organisations to ask: ${orgList.length}`);
 
     let done = 0;
