@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T11:56:44.031Z",
+  "generatedAt": "2026-09-10T12:25:42.187Z",
   "docsPresent": {
     "manifest": true,
     "context": true,
@@ -13,7 +13,7 @@
     "recentWorkflows": 38,
     "staleManifestRows": 3,
     "spentScripts": 27,
-    "spentWorkflows": 54,
+    "spentWorkflows": 59,
     "decideScripts": 16,
     "decideWorkflows": 19,
     "safeDelete": 6,
@@ -210,10 +210,10 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "lastCommit": "2026-09-10T21:53:46+10:00",
+      "lastCommit": "2026-09-10T22:22:29+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 37144,
+      "bytes": 38727,
       "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
@@ -312,7 +312,7 @@
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "",
       "lastCommit": "2026-08-01T22:08:15+10:00",
-      "ageDays": 39,
+      "ageDays": 40,
       "recent": false,
       "bytes": 27365,
       "verdict": "LIVE — runs on a schedule or in the nightly chain"
@@ -455,7 +455,7 @@
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "Date→venue and season→venue indexes",
       "lastCommit": "2026-09-08T22:10:30+10:00",
-      "ageDays": 1,
+      "ageDays": 2,
       "recent": true,
       "bytes": 12987,
       "verdict": "LIVE — runs on a schedule or in the nightly chain"
@@ -709,7 +709,7 @@
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "ID-length histogram in games/bv (checks for any lingering 10-char legacy ids)",
       "lastCommit": "2026-07-10T22:03:04+10:00",
-      "ageDays": 61,
+      "ageDays": 62,
       "recent": false,
       "bytes": 3369,
       "verdict": "KEEP — recorded in the manifest as an on-demand tool"
@@ -2270,7 +2270,7 @@
       "manifestClass": null,
       "manifestPurpose": null,
       "lastCommit": "2026-08-21T22:04:41+10:00",
-      "ageDays": 19,
+      "ageDays": 20,
       "recent": false,
       "bytes": 8508,
       "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
@@ -2927,19 +2927,12 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "dispatchedBy": [
-        "cleanup-repo.yml",
-        "discover-game-backfill.yml",
-        "overnight-chain.yml",
-        "probe-roster-sources.yml",
-        "size-locked-backfill.yml",
-        "spectator-backfill.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-12T15:48:33+10:00",
       "ageDays": 29,
       "recent": false,
       "bytes": 3666,
-      "verdict": "LIVE — dispatched by cleanup-repo.yml, discover-game-backfill.yml, overnight-chain.yml, probe-roster-sources.yml, size-locked-backfill.yml, spectator-backfill.yml"
+      "verdict": "BROKEN — calls a script that is not in the repo"
     },
     {
       "path": ".github/workflows/build-alias-worklist.yml",
@@ -2972,9 +2965,7 @@
       "manifestSection": "3.2",
       "manifestClass": "BUILD trigger (manual full rebuild)",
       "manifestPurpose": "",
-      "dispatchedBy": [
-        "discover-fixtures.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-07-31T11:04:27+10:00",
       "ageDays": 41,
       "recent": false,
@@ -2993,11 +2984,7 @@
       "manifestSection": "3.2",
       "manifestClass": "BUILD trigger (manual full rebuild)",
       "manifestPurpose": "",
-      "dispatchedBy": [
-        "build-finals-stats.yml",
-        "deploy-pages.yml",
-        "post-drain-chain.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-06T08:34:04+10:00",
       "ageDays": 35,
       "recent": false,
@@ -3035,11 +3022,7 @@
       "manifestSection": "3.2",
       "manifestClass": "BUILD trigger (manual full rebuild)",
       "manifestPurpose": "",
-      "dispatchedBy": [
-        "build-leaderboards.yml",
-        "deploy-pages.yml",
-        "post-drain-chain.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-06T08:34:04+10:00",
       "ageDays": 35,
       "recent": false,
@@ -3058,9 +3041,7 @@
       "manifestSection": "3.2",
       "manifestClass": "BUILD trigger (manual full rebuild)",
       "manifestPurpose": "",
-      "dispatchedBy": [
-        "deploy-pages.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-06T08:34:04+10:00",
       "ageDays": 35,
       "recent": false,
@@ -3079,9 +3060,7 @@
       "manifestSection": "3.2",
       "manifestClass": "BUILD trigger (manual full rebuild)",
       "manifestPurpose": "",
-      "dispatchedBy": [
-        "post-drain-chain.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-07T18:51:57+10:00",
       "ageDays": 34,
       "recent": false,
@@ -3102,7 +3081,7 @@
       "manifestPurpose": "",
       "dispatchedBy": [],
       "lastCommit": "2026-09-08T22:10:47+10:00",
-      "ageDays": 1,
+      "ageDays": 2,
       "recent": true,
       "bytes": 5693,
       "verdict": "LIVE — runs on a schedule or in the nightly chain"
@@ -3448,15 +3427,12 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "dispatchedBy": [
-        "audit-tooling-inventory.yml",
-        "reconstruct-alias-history.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-07-16T21:13:53+10:00",
       "ageDays": 56,
       "recent": false,
       "bytes": 24700,
-      "verdict": "LIVE — dispatched by audit-tooling-inventory.yml, reconstruct-alias-history.yml"
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/clear-stats-checked.yml",
@@ -3489,9 +3465,7 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "dispatchedBy": [
-        "lock-quiet-seasons.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-09-09T11:23:49+10:00",
       "ageDays": 1,
       "recent": true,
@@ -3565,14 +3539,12 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "dispatchedBy": [
-        "graduate-seasons.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-07T13:00:49+10:00",
       "ageDays": 34,
       "recent": false,
       "bytes": 9766,
-      "verdict": "LIVE — dispatched by graduate-seasons.yml"
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/diagnose-alias-conflicts.yml",
@@ -3626,7 +3598,7 @@
       "manifestPurpose": "",
       "dispatchedBy": [],
       "lastCommit": "2026-07-10T22:02:52+10:00",
-      "ageDays": 61,
+      "ageDays": 62,
       "recent": false,
       "bytes": 1090,
       "verdict": "KEEP — recorded in the manifest as an on-demand tool"
@@ -3700,11 +3672,7 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "dispatchedBy": [
-        "graduate-seasons.yml",
-        "overnight-chain.yml",
-        "weekly-future-fixtures.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-20T14:00:20+10:00",
       "ageDays": 21,
       "recent": false,
@@ -3723,15 +3691,12 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "dispatchedBy": [
-        "probe-roster-sources.yml",
-        "spectator-backfill.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-11T23:47:08+10:00",
       "ageDays": 29,
       "recent": false,
       "bytes": 2825,
-      "verdict": "LIVE — dispatched by probe-roster-sources.yml, spectator-backfill.yml"
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/discover-org-seasons.yml",
@@ -3764,12 +3729,7 @@
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch (by nightly Sundays / self)",
-      "dispatchedBy": [
-        "audit-finished-unlocked-seasons.yml",
-        "audit-pending-games-vs-playhq.yml",
-        "discover-seasons.yml",
-        "graduate-seasons.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-09-08T12:49:06+10:00",
       "ageDays": 2,
       "recent": true,
@@ -3828,22 +3788,7 @@
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch (by nightly / add-player / self)",
       "dispatchedBy": [
-        "add-player.yml",
-        "build-finals-stats.yml",
-        "build-team-stats.yml",
-        "census-wrongly-keyed-matrix.yml",
-        "discover-fixtures.yml",
-        "discover-seasons-matrix.yml",
-        "find-lost-stats-from-folds.yml",
-        "fold-diverged-players.yml",
-        "graduate-seasons.yml",
-        "nightly-crawl.yml",
-        "post-drain-chain.yml",
-        "repair-player.yml",
-        "repair-players-batch.yml",
-        "requeue-repointed-players.yml",
-        "spectator-backfill.yml",
-        "synthesize-missing-games.yml"
+        "add-player.yml"
       ],
       "lastCommit": "2026-09-04T19:36:45+10:00",
       "ageDays": 6,
@@ -4012,10 +3957,6 @@
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch (by matrix terminal)",
       "dispatchedBy": [
-        "build-team-stats.yml",
-        "deploy-pages.yml",
-        "post-drain-chain.yml",
-        "prune-dangling-aliases.yml",
         "weekly-indexes.yml"
       ],
       "lastCommit": "2026-09-10T13:37:31+10:00",
@@ -4051,11 +3992,7 @@
       "manifestSection": "2.1",
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "",
-      "dispatchedBy": [
-        "deploy-pages.yml",
-        "nightly-crawl.yml",
-        "post-drain-chain.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-10T11:13:30+10:00",
       "ageDays": 31,
       "recent": false,
@@ -4074,9 +4011,7 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "dispatchedBy": [
-        "close-empty-seasons.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-09-10T13:37:31+10:00",
       "ageDays": 0,
       "recent": true,
@@ -4156,16 +4091,7 @@
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "cron daily 15:00 UTC + dispatch",
-      "dispatchedBy": [
-        "build-team-stats.yml",
-        "discover-fixtures.yml",
-        "discover-seasons-matrix.yml",
-        "fold-diverged-players.yml",
-        "lock-quiet-seasons.yml",
-        "measure-credited-coverage.yml",
-        "post-drain-chain.yml",
-        "weekly-future-fixtures.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-09-10T13:48:05+10:00",
       "ageDays": 0,
       "recent": true,
@@ -4211,11 +4137,7 @@
       "manifestSection": "2.1",
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "",
-      "dispatchedBy": [
-        "fetch-profile-stats-matrix.yml",
-        "fold-diverged-players.yml",
-        "nightly-crawl.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-09-04T23:25:23+10:00",
       "ageDays": 5,
       "recent": true,
@@ -4578,7 +4500,7 @@
       "manifestPurpose": null,
       "dispatchedBy": [],
       "lastCommit": "2026-08-21T22:21:02+10:00",
-      "ageDays": 19,
+      "ageDays": 20,
       "recent": false,
       "bytes": 2211,
       "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
@@ -4733,9 +4655,7 @@
       "manifestSection": "2.1",
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "",
-      "dispatchedBy": [
-        "post-drain-chain.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-06T19:54:13+10:00",
       "ageDays": 35,
       "recent": false,
@@ -4775,7 +4695,7 @@
       "manifestPurpose": "",
       "dispatchedBy": [],
       "lastCommit": "2026-06-23T22:13:45+10:00",
-      "ageDays": 78,
+      "ageDays": 79,
       "recent": false,
       "bytes": 864,
       "verdict": "KEEP — recorded in the manifest as an on-demand tool"
@@ -4944,14 +4864,12 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "dispatchedBy": [
-        "overnight-chain.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-21T20:37:19+10:00",
       "ageDays": 20,
       "recent": false,
       "bytes": 7709,
-      "verdict": "LIVE — dispatched by overnight-chain.yml"
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/repair-reg-sibling-sync.yml",
@@ -5058,14 +4976,12 @@
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
-      "dispatchedBy": [
-        "cleanup-repo.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-06-29T17:55:55+10:00",
       "ageDays": 73,
       "recent": false,
       "bytes": 1521,
-      "verdict": "LIVE — dispatched by cleanup-repo.yml"
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": ".github/workflows/revert-alias-repoints.yml",
@@ -5248,14 +5164,12 @@
       "manifestSection": "2.2",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
-      "dispatchedBy": [
-        "size-report.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-07T19:57:05+10:00",
       "ageDays": 34,
       "recent": false,
       "bytes": 5442,
-      "verdict": "LIVE — dispatched by size-report.yml"
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": ".github/workflows/size-locked-backfill.yml",
@@ -5322,14 +5236,12 @@
       "manifestSection": "2.2",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
-      "dispatchedBy": [
-        "size-report.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-18T14:46:36+10:00",
       "ageDays": 23,
       "recent": false,
       "bytes": 8431,
-      "verdict": "LIVE — dispatched by size-report.yml"
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": ".github/workflows/size-missing-gids.yml",
@@ -5360,14 +5272,12 @@
       "manifestSection": "2.2",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
-      "dispatchedBy": [
-        "size-report.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-18T14:46:36+10:00",
       "ageDays": 23,
       "recent": false,
       "bytes": 17347,
-      "verdict": "LIVE — dispatched by size-report.yml"
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": ".github/workflows/size-opposition-index.yml",
@@ -5400,7 +5310,7 @@
       "manifestPurpose": "",
       "dispatchedBy": [],
       "lastCommit": "2026-08-06T22:15:07+10:00",
-      "ageDays": 34,
+      "ageDays": 35,
       "recent": false,
       "bytes": 3370,
       "verdict": "LIVE — runs on a schedule or in the nightly chain"
@@ -5415,14 +5325,12 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "dispatchedBy": [
-        "size-report.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-18T14:46:36+10:00",
       "ageDays": 23,
       "recent": false,
       "bytes": 13953,
-      "verdict": "LIVE — dispatched by size-report.yml"
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-report.yml",
@@ -5453,14 +5361,12 @@
       "manifestSection": "2.2",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
-      "dispatchedBy": [
-        "size-report.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-07T21:39:44+10:00",
       "ageDays": 34,
       "recent": false,
       "bytes": 2939,
-      "verdict": "LIVE — dispatched by size-report.yml"
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": ".github/workflows/size-spectator-queue.yml",
@@ -5493,9 +5399,7 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "dispatchedBy": [
-        "overnight-chain.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-20T17:37:12+10:00",
       "ageDays": 21,
       "recent": false,
@@ -5745,9 +5649,7 @@
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "cron Sun 02:00 UTC + dispatch",
-      "dispatchedBy": [
-        "deploy-pages.yml"
-      ],
+      "dispatchedBy": [],
       "lastCommit": "2026-08-14T14:32:10+10:00",
       "ageDays": 27,
       "recent": false,
