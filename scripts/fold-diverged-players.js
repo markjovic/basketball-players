@@ -102,10 +102,24 @@ const ALIAS_DIR = path.join(ROOT, 'players', 'aliases');
 const OUT_REPORT = path.join(ROOT, 'reports', 'fold-diverged.json');
 
 const DRY = process.argv.includes('--dry-run');
-// --repoint-only: skip the fold entirely and just repair alias values using the
-// oldKey -> apiId pairs recorded in reports/fold-diverged.json. Needed because the
-// fold is idempotent: once it has run, a corrected script finds zero apiId fields
-// and will never revisit the aliases the earlier run orphaned.
+// --repoint-only: skip the fold entirely and just repair alias values orphaned by a
+// PREVIOUS fold. Needed because the fold is idempotent: once it has run there are
+// zero apiId fields left, so a corrected script can never revisit the aliases an
+// earlier run orphaned.
+//
+// ⚠️ CORRECTED 2026-09-09. THIS COMMENT SAID IT USED THE oldKey -> apiId PAIRS IN
+// reports/fold-diverged.json. IT DOES NOT, AND HAS NOT SINCE THE T6 REWRITE.
+// repointOnlyMode calls buildSpectatorMap and reconstructs the mapping from the
+// PLAYER FILES themselves — each file's spectatorIds[]. reports/fold-diverged.json is
+// a single path overwritten by every run, and trusting it is exactly what made the
+// 2026-07-30 repair fix 0 of 284 dangling aliases. It is advisory only.
+// The workflow has carried this correction since 2026-07-31; the wrong version
+// survived here in the script header for six weeks.
+//
+// It is also SAFE BY CONSTRUCTION, which is why it can be run without a preview: it
+// only considers an alias whose target file DOES NOT EXIST, and only writes a new
+// target whose file DOES exist. A working alias is skipped before anything is
+// evaluated, and anything it cannot resolve is counted, sampled and left alone.
 const REPOINT_ONLY = process.argv.includes('--repoint-only');
 const NO_GIT = process.env.FOLD_NO_GIT === '1';
 
