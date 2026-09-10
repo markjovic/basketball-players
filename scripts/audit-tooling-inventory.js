@@ -539,7 +539,20 @@ async function main() {
     // workflow path did not, and that asymmetry was the bug.
     // DECIDE NOW is the honest answer for new work: it has not earned a verdict yet,
     // and the decision due is whether to document it or delete it.
-    if (x.recent && !(x.manifestSection === '2.2' || x.manifestSection === '3.3')) {
+    // ⚠️ RECENCY IS A SHIELD, NOT A VERDICT. It stops new work being called spent;
+    // it must NOT strip a positive answer from something that has one. Placing it
+    // above the schedule and manifest checks on 2026-09-10 put nightly-crawl.yml,
+    // lock-quiet-seasons.yml, close-empty-seasons.yml and discover-seasons-matrix.yml
+    // into DECIDE NOW — all four scheduled and unambiguously live — and cut the
+    // script LIVE count from 36 to 14. A file edited last week is still live if it
+    // runs on a cron.
+    const inLiveEarly = x.manifestSection === '2.1' || x.manifestSection === '3.1' || x.manifestSection === '3.2';
+    const inToolEarly = x.manifestSection === '2.2' || x.manifestSection === '3.3';
+    const hasPositive = x.klass === 'SCHEDULED' || inLiveEarly || inToolEarly ||
+                        (x.klass && x.klass.startsWith('LIBRARY (required')) ||
+                        (x.dispatchedBy && x.dispatchedBy.length) ||
+                        (x.triggers && x.triggers.length);
+    if (x.recent && !hasPositive) {
       return 'DECIDE NOW — added recently, not recorded as a tool. Document it or delete it.';
     }
 
