@@ -1,13 +1,10 @@
 # reports/tooling-delete-list.txt
-# generated 2026-09-10T10:22:52.853Z by scripts/audit-tooling-inventory.js
+# generated 2026-09-10T11:56:44.028Z by scripts/audit-tooling-inventory.js
 #
 # Paste into the SCRIPTS=( ) / WORKFLOWS=( ) arrays in cleanup-repo.yml.
 # Run cleanup-repo with dry_run=true FIRST and read the list it prints.
 #
 # SAFE — nothing references these and a document already records what they found:
-  scripts/build-finals-stats.js
-  scripts/build-leaderboards.js
-  scripts/build-records.js
   scripts/check-roster-freshness.js
   scripts/probe-missing-games.js
   scripts/redirect-exposure.js
