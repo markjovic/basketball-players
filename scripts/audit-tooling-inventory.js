@@ -85,6 +85,13 @@ const OUT_JSON      = path.join(REPORTS_DIR, 'tooling-inventory.json');
 const OUT_LIST      = path.join(REPORTS_DIR, 'tooling-delete-list.txt');
 const OUT_JSON_REL  = path.relative(ROOT, OUT_JSON);
 const OUT_LIST_REL  = path.relative(ROOT, OUT_LIST);
+// TOOLING.md is the PRIMARY source and the only one that needs to be in this repo.
+// It carries filenames and section numbers ONLY — no purpose text, no findings, no
+// method. The operator's real notes stay outside the repository; publishing them to
+// satisfy a classifier was never a good trade.
+// REPO_MANIFEST.md is still read when present, for its purpose column, but nothing
+// depends on it.
+const TOOLING       = path.join(ROOT, 'TOOLING.md');
 const MANIFEST      = path.join(ROOT, 'REPO_MANIFEST.md');
 const CONTEXT       = path.join(ROOT, 'claude_context.md');
 const TASKS         = path.join(ROOT, 'OUTSTANDING_TASKS.md');
@@ -309,9 +316,11 @@ async function main() {
     '3.4': 'RECORDED AS REMOVED (cleanup fe8eedb)',
   };
   const manifestRows = new Map();   // basename -> { purpose, section }
-  {
+  // TOOLING.md first; anything it classifies wins. REPO_MANIFEST.md is read after,
+  // and only fills in a purpose or a section TOOLING.md did not supply.
+  for (const src of [TOOLING, MANIFEST]) {
     let section = null;
-    for (const line of readText(MANIFEST).split('\n')) {
+    for (const line of readText(src).split('\n')) {
       const h = line.match(/^###\s+(\d+\.\d+)\s/);
       if (h) { section = h[1]; continue; }
       if (!section || !/^[23]\./.test(section)) continue;
@@ -342,8 +351,15 @@ async function main() {
         manifestRows.set(nme, { purpose: '', section });
       }
     }
-    console.log(`  manifest rows (§2/§3): ${manifestRows.size} classified\n`);
+    void section;
   }
+  const toolingPresent = fs.existsSync(TOOLING);
+  console.log(`  classified rows (§2/§3): ${manifestRows.size}   source: ${toolingPresent ? 'TOOLING.md' : 'REPO_MANIFEST.md only'}`);
+  if (!toolingPresent) {
+    console.log('  ⚠ TOOLING.md is absent. It is the intended source and the only one that has to');
+    console.log('    live in this repo. Without it, classification depends on REPO_MANIFEST.md.');
+  }
+  console.log('');
   const manifestOf = (base) => manifestRows.get(base) || null;
   const manLabel   = (r) => r ? (SECTION_LABEL[r.section] || `§${r.section}`) : null;
   const docsPresent = { manifest: fs.existsSync(MANIFEST), context: fs.existsSync(CONTEXT), tasks: fs.existsSync(TASKS) };
@@ -401,7 +417,12 @@ async function main() {
       if (otherRel === rel) continue;
       if (otherBody.includes(base)) requiredBy.push(otherRel);
     }
-    const documented = docText.includes(base);
+    // "Documented" means the finding is recorded SOMEWHERE — which is the question the
+    // safe/document-first split turns on. TOOLING.md §2.4 is exactly that assertion:
+    // this script is concluded and its finding is written down outside this repo. That
+    // keeps the marker in the repo while the finding itself does not have to be.
+    const man0 = manifestRows.get(base);
+    const documented = (man0 && (man0.section === '2.4' || man0.section === '3.4')) || docText.includes(base);
     const lastCommit = lastCommitISO(`scripts/${rel}`);
     const age = daysAgo(lastCommit);
     const scheduled = wf.some(w => w.hasSchedule && w.body.includes(base));
