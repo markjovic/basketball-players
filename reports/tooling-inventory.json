@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T22:59:24.785Z",
+  "generatedAt": "2026-09-10T23:41:53.559Z",
   "docsPresent": {
     "manifest": true,
     "context": true,
@@ -10,12 +10,12 @@
     "libs": 2,
     "workflows": 141,
     "recentScripts": 40,
-    "recentWorkflows": 38,
+    "recentWorkflows": 36,
     "staleManifestRows": 3,
     "spentScripts": 28,
-    "spentWorkflows": 47,
-    "decideScripts": 37,
-    "decideWorkflows": 37,
+    "spentWorkflows": 52,
+    "decideScripts": 15,
+    "decideWorkflows": 17,
     "safeDelete": 6,
     "documentFirst": 24,
     "brokenWorkflows": 1
@@ -95,7 +95,7 @@
       "ageDays": 6,
       "recent": true,
       "bytes": 9553,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/audit-finished-unlocked-seasons.js",
@@ -177,7 +177,7 @@
       "ageDays": 2,
       "recent": true,
       "bytes": 19243,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/audit-seasons-gaps.js",
@@ -211,10 +211,10 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "lastCommit": "2026-09-11T08:55:50+10:00",
+      "lastCommit": "2026-09-11T09:30:48+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 46279,
+      "bytes": 48725,
       "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
@@ -345,7 +345,7 @@
       "ageDays": 7,
       "recent": true,
       "bytes": 23490,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/build-records.js",
@@ -397,7 +397,7 @@
       "ageDays": 1,
       "recent": true,
       "bytes": 15031,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/build-team-stats.js",
@@ -434,7 +434,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 15250,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/build-venue-indexes.js",
@@ -459,7 +459,7 @@
       "ageDays": 2,
       "recent": true,
       "bytes": 12987,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/build-win-loss.js",
@@ -496,7 +496,7 @@
       "ageDays": 7,
       "recent": true,
       "bytes": 19287,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/census-wrongly-keyed-players.js",
@@ -592,7 +592,7 @@
       "ageDays": 2,
       "recent": true,
       "bytes": 22647,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/correct-wrong-aliases.js",
@@ -819,7 +819,7 @@
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "**Full-fixture tool via discoverTeamFixture (returns ALL rounds incl. FUTURE)**: `--all-seasons`/`--season` historical backfill + `--current-only` weekly future-fixtures mode (skips seasons with no game in 21 days). ⚠️ **staging bug — recorded here as \"fixed 2026-07-21\"; the deployed file did NOT have the fix. Corrected 2026-07-31 by reading it AND by reproducing the failure with its exact pathspec list.** One combined `git add` with any unmatched pathspec stages NOTHING (atomic), silently discarding a whole green run (30,426 games, 2026-07-19). ACTUALLY fixed 2026-07-31: per-path adds, `staging:` shortstat, inline identity, fail-fast on non-contention, THROW on exhaustion, and `cwd: ROOT` (which was missing entirely — it relied on `process.cwd()`). Candidate for a weekly cron (§6.8 pending decision).",
       "lastCommit": "2026-09-08T09:22:06+10:00",
-      "ageDays": 2,
+      "ageDays": 3,
       "recent": true,
       "bytes": 46912,
       "verdict": "LIVE — runs on a schedule or in the nightly chain"
@@ -874,7 +874,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 45904,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/discover-seasons.js",
@@ -907,10 +907,10 @@
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "Detect seasons/grades; burst+cursor shard mode; roster backfill",
       "lastCommit": "2026-09-08T09:22:06+10:00",
-      "ageDays": 2,
+      "ageDays": 3,
       "recent": true,
       "bytes": 60355,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/drop-stale-playercount.js",
@@ -1006,7 +1006,7 @@
       "ageDays": 6,
       "recent": true,
       "bytes": 78852,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/find-flag-collisions.js",
@@ -1044,7 +1044,7 @@
       "ageDays": 6,
       "recent": true,
       "bytes": 15355,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/find-misrouted-appearances.js",
@@ -1065,7 +1065,7 @@
       "ageDays": 3,
       "recent": true,
       "bytes": 33322,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/find-players-by-team.js",
@@ -1136,7 +1136,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 39717,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/lock-quiet-seasons.js",
@@ -1156,7 +1156,7 @@
       "ageDays": 1,
       "recent": true,
       "bytes": 19818,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/measure-credited-coverage.js",
@@ -1174,7 +1174,7 @@
       "ageDays": 10,
       "recent": true,
       "bytes": 46155,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/merge-census-partial.js",
@@ -1189,7 +1189,7 @@
       "manifestClass": null,
       "manifestPurpose": null,
       "lastCommit": "2026-08-31T09:02:54+10:00",
-      "ageDays": 10,
+      "ageDays": 11,
       "recent": true,
       "bytes": 7016,
       "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
@@ -2102,7 +2102,7 @@
       "ageDays": 4,
       "recent": true,
       "bytes": 6865,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/revert-alias-repoints.js",
@@ -2120,7 +2120,7 @@
       "ageDays": 4,
       "recent": true,
       "bytes": 20708,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/salvage-spectator-names.js",
@@ -2218,7 +2218,7 @@
       "ageDays": 9,
       "recent": true,
       "bytes": 59163,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/seed-missing-profiles.js",
@@ -2498,7 +2498,7 @@
       "ageDays": 1,
       "recent": true,
       "bytes": 12548,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/update-venue-lookup.js",
@@ -2525,7 +2525,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 10309,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/validate-uncredited-games.js",
@@ -2582,7 +2582,7 @@
       "ageDays": 3,
       "recent": true,
       "bytes": 18804,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/verify-p-redundancy.js",
@@ -2785,7 +2785,7 @@
       "ageDays": 7,
       "recent": true,
       "bytes": 2752,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 7d ago (4 runs)"
     },
     {
       "path": ".github/workflows/audit-finished-unlocked-seasons.yml",
@@ -2840,7 +2840,7 @@
       ],
       "missingScripts": [],
       "hasSchedule": false,
-      "lastRunDays": 2,
+      "lastRunDays": 3,
       "lastRunAt": "2026-09-08T11:23:55Z",
       "runCount": 2,
       "manifestSection": null,
@@ -2907,8 +2907,8 @@
       "missingScripts": [],
       "hasSchedule": false,
       "lastRunDays": 0,
-      "lastRunAt": "2026-09-10T22:56:31Z",
-      "runCount": 12,
+      "lastRunAt": "2026-09-10T23:38:30Z",
+      "runCount": 13,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -2982,7 +2982,7 @@
       "manifestPurpose": null,
       "dispatchedBy": [],
       "lastCommit": "2026-08-26T09:27:10+10:00",
-      "ageDays": 15,
+      "ageDays": 16,
       "recent": false,
       "bytes": 2365,
       "verdict": "LIVE — actually ran 16d ago (5 runs)"
@@ -3051,7 +3051,7 @@
       "ageDays": 7,
       "recent": true,
       "bytes": 2197,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 5d ago (30 runs)"
     },
     {
       "path": ".github/workflows/build-records.yml",
@@ -3139,7 +3139,7 @@
       "ageDays": 2,
       "recent": true,
       "bytes": 5693,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 2d ago (7 runs)"
     },
     {
       "path": ".github/workflows/build-win-loss.yml",
@@ -3161,7 +3161,7 @@
       "ageDays": 7,
       "recent": true,
       "bytes": 2141,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 8d ago (11 runs)"
     },
     {
       "path": ".github/workflows/census-wrongly-keyed-matrix.yml",
@@ -3202,7 +3202,7 @@
       "manifestPurpose": null,
       "dispatchedBy": [],
       "lastCommit": "2026-08-31T09:11:38+10:00",
-      "ageDays": 10,
+      "ageDays": 11,
       "recent": true,
       "bytes": 5566,
       "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
@@ -3491,7 +3491,7 @@
         "cleanup-dead-artifacts.js"
       ],
       "hasSchedule": false,
-      "lastRunDays": 56,
+      "lastRunDays": 57,
       "lastRunAt": "2026-07-16T11:14:20Z",
       "runCount": 10,
       "manifestSection": null,
@@ -3502,7 +3502,7 @@
       "ageDays": 56,
       "recent": false,
       "bytes": 24700,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 56d ago]"
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 57d ago]"
     },
     {
       "path": ".github/workflows/clear-stats-checked.yml",
@@ -3546,7 +3546,7 @@
       "ageDays": 1,
       "recent": true,
       "bytes": 7485,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 2d ago (4 runs)"
     },
     {
       "path": ".github/workflows/correct-wrong-aliases.yml",
@@ -3651,10 +3651,10 @@
       "manifestPurpose": null,
       "dispatchedBy": [],
       "lastCommit": "2026-08-27T09:19:47+10:00",
-      "ageDays": 14,
-      "recent": true,
+      "ageDays": 15,
+      "recent": false,
       "bytes": 2859,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "SPENT — only ever ran 3 time(s), last 12d ago"
     },
     {
       "path": ".github/workflows/diagnose-forfeit-game.yml",
@@ -3830,7 +3830,7 @@
       "ageDays": 2,
       "recent": true,
       "bytes": 9750,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 0d ago (10 runs)"
     },
     {
       "path": ".github/workflows/discover-seasons-matrix.yml",
@@ -3852,7 +3852,7 @@
       "ageDays": 2,
       "recent": true,
       "bytes": 23751,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 3d ago (166 runs)"
     },
     {
       "path": ".github/workflows/discover-seasons.yml",
@@ -3908,9 +3908,9 @@
       ],
       "missingScripts": [],
       "hasSchedule": false,
-      "lastRunDays": 1,
-      "lastRunAt": "2026-09-09T20:10:56Z",
-      "runCount": 933,
+      "lastRunDays": 0,
+      "lastRunAt": "2026-09-10T23:31:03Z",
+      "runCount": 938,
       "manifestSection": "3.1",
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "dispatch (by nightly / add-player / self)",
@@ -3921,7 +3921,7 @@
       "ageDays": 6,
       "recent": true,
       "bytes": 42392,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 0d ago (938 runs)"
     },
     {
       "path": ".github/workflows/fetch-profile-stats.yml",
@@ -4007,7 +4007,7 @@
       "ageDays": 6,
       "recent": true,
       "bytes": 7890,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 6d ago (5 runs)"
     },
     {
       "path": ".github/workflows/find-misrouted-appearances.yml",
@@ -4029,7 +4029,7 @@
       "ageDays": 4,
       "recent": true,
       "bytes": 8578,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 5d ago (10 runs)"
     },
     {
       "path": ".github/workflows/find-players-by-team.yml",
@@ -4117,7 +4117,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 12672,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 1d ago (97 runs)"
     },
     {
       "path": ".github/workflows/generate-roster.yml",
@@ -4179,7 +4179,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 10661,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 0d ago (6 runs)"
     },
     {
       "path": ".github/workflows/measure-credited-coverage.yml",
@@ -4201,7 +4201,7 @@
       "ageDays": 10,
       "recent": true,
       "bytes": 4854,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "SPENT — only ever ran 3 time(s), last 8d ago"
     },
     {
       "path": ".github/workflows/merge-census-partial.yml",
@@ -4271,7 +4271,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 23590,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 0d ago (98 runs)"
     },
     {
       "path": ".github/workflows/overnight-chain.yml",
@@ -4312,9 +4312,9 @@
       ],
       "missingScripts": [],
       "hasSchedule": false,
-      "lastRunDays": 1,
-      "lastRunAt": "2026-09-09T20:14:36Z",
-      "runCount": 51,
+      "lastRunDays": 0,
+      "lastRunAt": "2026-09-10T23:34:20Z",
+      "runCount": 52,
       "manifestSection": "2.1",
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "",
@@ -4323,7 +4323,7 @@
       "ageDays": 6,
       "recent": true,
       "bytes": 17932,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 0d ago (52 runs)"
     },
     {
       "path": ".github/workflows/probe-absent-games.yml",
@@ -4650,10 +4650,10 @@
       "manifestPurpose": null,
       "dispatchedBy": [],
       "lastCommit": "2026-08-27T09:19:47+10:00",
-      "ageDays": 14,
-      "recent": true,
+      "ageDays": 15,
+      "recent": false,
       "bytes": 3373,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "SPENT — only ever ran 1 time(s), last 16d ago"
     },
     {
       "path": ".github/workflows/probe-selfalias-check.yml",
@@ -5197,7 +5197,7 @@
       ],
       "missingScripts": [],
       "hasSchedule": false,
-      "lastRunDays": 55,
+      "lastRunDays": 56,
       "lastRunAt": "2026-07-17T11:31:17Z",
       "runCount": 8,
       "manifestSection": null,
@@ -5208,7 +5208,7 @@
       "ageDays": 55,
       "recent": false,
       "bytes": 2632,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 55d ago]"
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 56d ago]"
     },
     {
       "path": ".github/workflows/repoint-aliases.yml",
@@ -5274,7 +5274,7 @@
       "ageDays": 4,
       "recent": true,
       "bytes": 6465,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "SPENT — only ever ran 2 time(s), last 4d ago"
     },
     {
       "path": ".github/workflows/restore-deleted-file.yml",
@@ -5316,7 +5316,7 @@
       "ageDays": 4,
       "recent": true,
       "bytes": 4360,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "SPENT — only ever ran 2 time(s), last 5d ago"
     },
     {
       "path": ".github/workflows/salvage-spectator-names.yml",
@@ -5841,7 +5841,7 @@
       ],
       "missingScripts": [],
       "hasSchedule": false,
-      "lastRunDays": 65,
+      "lastRunDays": 66,
       "lastRunAt": "2026-07-07T11:38:32Z",
       "runCount": 4,
       "manifestSection": null,
@@ -5852,7 +5852,7 @@
       "ageDays": 65,
       "recent": false,
       "bytes": 2744,
-      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 65d ago]"
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 66d ago]"
     },
     {
       "path": ".github/workflows/trace-player-game.yml",
@@ -5984,7 +5984,7 @@
       "ageDays": 3,
       "recent": true,
       "bytes": 4862,
-      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
+      "verdict": "LIVE — actually ran 4d ago (4 runs)"
     },
     {
       "path": ".github/workflows/verify-p-redundancy.yml",
