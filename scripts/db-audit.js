@@ -550,12 +550,26 @@ if (fs.existsSync(gamesDir)) {
         if (rn.includes('grand final') || rn === 'gf') gamesGrandFinal++;
       }
 
+      // ⚠️ FIXED 2026-09-09. FIVE STATUSES WERE COUNTED NOWHERE AT ALL.
+      // The final branch used to read
+      //   else if (!['BYE','LIVE','PRE_GAME','IN_PROGRESS','PENDING'].includes(st))
+      // which EXCLUDED those five from the catch-all as well as from the named
+      // counters, so a game in any of them fell through the whole chain and was
+      // counted by nothing. Measured 2026-09-08: the Status section totalled
+      // 2,360,109 of 2,424,380 games, leaving roughly 64,000 unaccounted for.
+      // PENDING alone is the largest of them — 2,503 games in finished-but-unlocked
+      // seasons read PENDING, and audit-pending-games-vs-playhq.js established they
+      // are never coming back.
+      //
+      // Now EVERY status is counted, in a named row or in otherStatuses, and the
+      // reconciliation line below proves the sum equals the game total. A status
+      // nobody anticipated shows up as its own row instead of vanishing.
       const st = g.st || '';
-      if      (st === 'FINAL')    stFinal++;
-      else if (st === 'UPCOMING') stUpcoming++;
+      if      (st === 'FINAL')     stFinal++;
+      else if (st === 'UPCOMING')  stUpcoming++;
       else if (st === 'POSTPONED') stPostponed++;
-      else if (st === '')         stNone++;
-      else if (!['BYE','LIVE','PRE_GAME','IN_PROGRESS','PENDING'].includes(st)) {
+      else if (st === '')          stNone++;
+      else {
         stOther++;
         otherStatuses[st] = (otherStatuses[st] || 0) + 1;
       }
@@ -602,6 +616,16 @@ if (Object.keys(otherStatuses).length > 0) {
     row(`  ${st}`, fmt(n));
   }
 }
+// A counter with no check is a number nobody can verify. Every game carries exactly
+// one status, so these must add up to the game total — and before 2026-09-09 they
+// did not, by about 64,000.
+const stSum = stFinal + stUpcoming + stPostponed + stNone +
+              Object.values(otherStatuses).reduce((a, b) => a + b, 0);
+row('  ─ sum of all statuses', fmt(stSum),
+    stSum === totalGames ? '✅ equals total games' : `❌ ${fmt(totalGames - stSum)} game(s) counted by NOTHING`);
+// LIVE / PRE_GAME / IN_PROGRESS / PENDING — a game that has not reached a terminal
+// state. Counted since forever at line ~543 and never once displayed.
+row('  ─ not yet final', fmt(inProgress), 'LIVE + PRE_GAME + IN_PROGRESS + PENDING');
 
 console.log('\n  ── Field coverage ──');
 row('  Has score',           fmt(gamesWithScore),  pct(gamesWithScore, totalGames));
