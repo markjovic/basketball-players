@@ -1,221 +1,479 @@
 // scripts/audit-tooling-inventory.js
-// REVISION 2026-09-10a — first version.
 //
-// READ-ONLY. Lists every file in scripts/ and .github/workflows/, finds what
-// references it, and joins that to what REPO_MANIFEST.md says it is for.
+// Inventories scripts/ and .github/workflows/ and classifies every file, so a
+// deletion list is AGREED FROM EVIDENCE rather than remembered. It deletes
+// nothing and proposes no commit to those paths — deletion stays with
+// cleanup-repo.yml, which already has the dry-run, the pre-cleanup tag and the
+// ordering gates. Building a second deleter would be the exact duplication this
+// audit exists to find.
 //
-// WRITES NOTHING. No fs.writeFileSync, no git, no network.
+// WHY. 163 workflow files, 37 added or amended in seven days. The pattern is
+// that each question gets its own script and workflow, they ship as a pair, and
+// nothing is ever retired — so a week of debugging leaves dozens of permanent
+// artefacts for a handful of durable answers. A one-question diagnostic should
+// be deleted in the same commit that records its answer.
 //
-// WHY
-// ───
-// cleanup-repo.yml names about 250 paths for deletion. It was written on 2026-07-16
-// and asserts what is obsolete rather than checking — several entries are things that
-// have been touched since. Extending a list like that one file at a time makes it
-// less trustworthy, not more. What is needed first is an inventory derived from the
-// repository as it is now.
+// WHAT IT DECIDES, AND WHAT IT REFUSES TO DECIDE. It reports facts: whether a
+// script is referenced by a workflow, whether a workflow calls a script that
+// exists, whether anything requires or imports it, whether REPO_MANIFEST.md
+// mentions it, and when it was last committed. It classifies on those facts
+// alone. It NEVER proposes deleting anything whose findings are not already
+// written down somewhere — an undocumented one-off is flagged
+// DOCUMENT-THEN-DELETE, not DELETE, because deleting it loses the answer it was
+// built to get.
 //
-// IT DOES NOT PRODUCE A DELETE LIST. It produces a table, and "no inbound references"
-// is a flag for a human to judge, never an instruction. Three reasons a file can be
-// live with nothing pointing at it, all of them real here:
-//   - A script required by another script and run by no workflow of its own —
-//     scripts/lib/uuid-prefix.cjs is exactly that.
-//   - A workflow with no cron and no dispatcher, because a person runs it by hand.
-//     Every diagnostic tool in §2.2 is that.
-//   - A workflow dispatched by `gh workflow run` from inside another workflow's shell
-//     script, which is not a dependency any parser would normally see.
+// REFERENCE DETECTION IS DELIBERATELY GENEROUS. A script counts as referenced if
+// ANY workflow mentions its filename anywhere, not merely in a `node scripts/x.js`
+// line — a workflow may call it through a shell variable, a case statement or a
+// composite step. Over-counting a reference leaves a dead file in the repo;
+// under-counting one puts a LIVE file on a delete list. Those costs are not
+// symmetrical, so the bias runs one way on purpose.
 //
-// HOW REFERENCES ARE FOUND. By basename, across every script and workflow. That is
-// deliberately blunt: it catches `node scripts/x.js`, `require('./x')`,
-// `gh workflow run x.yml`, a `uses:` reference and a bare mention in a comment alike.
-// A comment mention is a weak reference and is labelled as one rather than dropped,
-// because a name appearing only in prose usually means the file was documented and
-// then orphaned.
+// DATES NEED HISTORY. `git log` on a depth-1 checkout returns nothing, so the
+// workflow uses a blobless full-history checkout sparse to scripts/ and
+// .github/workflows/ — the same pattern cleanup-repo.yml already uses for the
+// same reason. If history is unavailable the date is reported as null and the
+// classification does not depend on it.
 //
-// PURPOSE COMES FROM THE MANIFEST, NOT FROM MEMORY. §2.1/§2.2/§2.3 classify scripts
-// as live, on-demand tool, or already removed; §3.1–§3.4 do the same for workflows.
-// A file on disk with no manifest row is UNDOCUMENTED. A manifest row with no file is
-// a STALE DOCUMENT. Both are findings and both are printed.
+// WRITES: reports/tooling-inventory.json and reports/tooling-delete-list.txt.
+// Nothing else. The delete list is text ready to paste into cleanup-repo.yml.
 //
-// Run:
-//   node scripts/audit-tooling-inventory.js
-//   node scripts/audit-tooling-inventory.js --orphans-only
-//   node scripts/audit-tooling-inventory.js --show=scripts
+// ── ADDED 2026-09-10 ────────────────────────────────────────────────────────
+// TWO THINGS, BOTH ABOUT THE MANIFEST RATHER THAN THE FILES.
+//
+// 1. `documented` was a boolean — the name appears somewhere in one of three
+//    documents. It now also carries WHAT THE MANIFEST SAYS: the section the file is
+//    listed under and its stated purpose. §2.1/§2.2/§2.3 classify scripts and
+//    §3.1–§3.4 classify workflows, so a row tells you whether the manifest considers
+//    a file live, an on-demand tool, or already removed. §1.1 is IGNORED on purpose:
+//    it is the schedule table and lists workflow names too, so a row from there would
+//    classify nightly-crawl.yml by its cron entry rather than by the section that
+//    says what it is. Presence proved a file was mentioned; this says in what terms.
+//
+// 2. STALE MANIFEST ROWS — files the manifest describes that are no longer on disk.
+//    Nothing detected these before. They matter because this tool's own "documented"
+//    test reads the manifest as authority: a document describing tools that were
+//    deleted months ago is the same failure as data/venue-index.json's writer being
+//    recorded as "(venue build)", a placeholder that was read back as fact for three
+//    months (T56). Rows in §2.3 and §3.4 are EXCLUDED — those sections exist to
+//    record what was removed, so their absence from disk is correct, not stale.
 
 'use strict';
 
 const fs   = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
-const ROOT      = path.join(__dirname, '..');
-const SCRIPTS   = path.join(ROOT, 'scripts');
-const WORKFLOWS = path.join(ROOT, '.github', 'workflows');
-const MANIFEST  = path.join(ROOT, 'REPO_MANIFEST.md');
+const ROOT = path.join(__dirname, '..');
+const ARGS = Object.fromEntries(
+  process.argv.slice(2)
+    .filter(a => a.startsWith('--'))
+    .map(a => { const i = a.indexOf('='); return i === -1 ? [a.slice(2), true] : [a.slice(2, i), a.slice(i + 1)]; })
+);
 
-const args        = process.argv.slice(2);
-const argVal      = (n, d) => { const a = args.find(x => x.startsWith(`--${n}=`)); return a ? a.slice(n.length + 3) : d; };
-const ORPHANS_ONLY = args.includes('--orphans-only');
-const SHOW         = argVal('show', 'all');   // all | scripts | workflows
+const DAYS   = ARGS.days ? Math.max(1, parseInt(ARGS.days, 10)) : 14;
+const DRY    = !ARGS.commit;          // default: print and write locally, commit only with --commit
+const SCRIPTS_DIR   = path.join(ROOT, 'scripts');
+const WORKFLOWS_DIR = path.join(ROOT, '.github', 'workflows');
+const REPORTS_DIR   = path.join(ROOT, 'reports');
+const OUT_JSON      = path.join(REPORTS_DIR, 'tooling-inventory.json');
+const OUT_LIST      = path.join(REPORTS_DIR, 'tooling-delete-list.txt');
+const OUT_JSON_REL  = path.relative(ROOT, OUT_JSON);
+const OUT_LIST_REL  = path.relative(ROOT, OUT_LIST);
+const MANIFEST      = path.join(ROOT, 'REPO_MANIFEST.md');
+const CONTEXT       = path.join(ROOT, 'claude_context.md');
+const TASKS         = path.join(ROOT, 'OUTSTANDING_TASKS.md');
 
-const log = (m) => console.log(`[inventory] ${new Date().toISOString()} ${m}`);
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+// gitCommit below is copied verbatim from discover-game-backfill.js, and that
+// script gates it on a DRY_RUN const of its own. This file has no dry-run of
+// that kind, so the constant is declared here rather than editing the copied
+// block — an edited copy stops being verbatim and stops being checkable against
+// its source. It cost a full dispatch on 2026-08-26 when the census crashed at
+// its first commit AFTER a 419,427-file scan had completed.
+const DRY_RUN = false;
+// ─── Git commit — discover-game-backfill.js, verbatim ─────────────────────────
 
-// ─── Collect the files ───────────────────────────────────────────────────────
-function walk(dir, base = '') {
-  const out = [];
-  if (!fs.existsSync(dir)) return out;
-  for (const name of fs.readdirSync(dir)) {
-    const full = path.join(dir, name);
-    const rel  = base ? `${base}/${name}` : name;
-    if (fs.statSync(full).isDirectory()) out.push(...walk(full, rel));
-    else out.push({ rel, full });
+const GIT_MAXBUF     = 512 * 1024 * 1024;
+const GIT_TIMEOUT_MS = 10 * 60 * 1000;
+
+async function gitCommit(message, dirs) {
+  if (DRY_RUN) { console.log(`  [dry-run] would commit: ${message}`); return; }
+  const paths = (dirs && dirs.length ? dirs : ['.']);
+
+  let addFailures = 0, hardAddFailures = 0;
+  for (const p of paths) {
+    try { execFileSync('git', ['add', '--', p], { stdio: 'pipe', cwd: ROOT, maxBuffer: GIT_MAXBUF, timeout: GIT_TIMEOUT_MS }); }
+    catch (e) {
+      addFailures++;
+      const detail = ((e.stderr && e.stderr.toString()) || e.message || '').trim().split('\n')[0];
+      if (!/did not match any files/i.test(detail)) hardAddFailures++;
+      console.error(`  ⚠ git add ${/did not match any files/i.test(detail) ? 'skipped' : 'FAILED'} for "${p}": ${detail}`);
+    }
   }
-  return out;
-}
 
-const scriptFiles   = walk(SCRIPTS).filter(f => /\.(js|cjs|mjs|sh)$/.test(f.rel))
-                        .map(f => ({ ...f, kind: 'script',   key: `scripts/${f.rel}` }));
-const workflowFiles = walk(WORKFLOWS).filter(f => /\.ya?ml$/.test(f.rel))
-                        .map(f => ({ ...f, kind: 'workflow', key: `.github/workflows/${f.rel}` }));
-const all = [...scriptFiles, ...workflowFiles];
+  const staged = (() => {
+    try { return execFileSync('git', ['diff', '--staged', '--shortstat'], { stdio: 'pipe', cwd: ROOT, maxBuffer: GIT_MAXBUF, timeout: GIT_TIMEOUT_MS }).toString().trim(); }
+    catch (_) { return ''; }
+  })();
 
-// ─── Read every file once ────────────────────────────────────────────────────
-const text = new Map();
-for (const f of all) {
-  try { text.set(f.key, fs.readFileSync(f.full, 'utf8')); } catch { text.set(f.key, ''); }
-}
-
-// ─── Manifest: purpose and classification ────────────────────────────────────
-// §2.1 live / §2.2 tool / §2.3 removed for scripts; §3.1–§3.4 for workflows.
-let manifest = '';
-try { manifest = fs.readFileSync(MANIFEST, 'utf8'); } catch { console.log('  ⚠ REPO_MANIFEST.md not readable — purpose column will be empty'); }
-
-const SECTION_LABEL = {
-  '2.1': 'LIVE (scheduled/chain)', '2.2': 'TOOL (on-demand)', '2.3': 'REMOVED in cleanup fe8eedb',
-  '3.1': 'LIVE (scheduled)', '3.2': 'BUILD trigger', '3.3': 'TOOL (on-demand)', '3.4': 'REMOVED in cleanup fe8eedb',
-};
-
-const manifestRows = new Map();   // basename -> { purpose, section }
-{
-  let section = null;
-  for (const line of manifest.split('\n')) {
-    const h = line.match(/^###\s+(\d+\.\d+)\s/);
-    if (h) { section = h[1]; continue; }
-    const m = line.match(/^\|\s*`([^`]+)`\s*\|\s*([^|]*)\|/);
-    if (!m) continue;
-    const name = m[1].trim().replace(/^.*\//, '');
-    if (!/\.(js|cjs|mjs|sh|ya?ml)$/.test(name)) continue;
-    // ONLY §2.x (scripts) and §3.x (workflows) classify a file. §1.1 is the schedule
-    // table and lists workflow names too — taking a row from there would classify
-    // nightly-crawl.yml by its cron entry rather than by §3.1, which is the section
-    // that actually says what it is and whether to keep it.
-    if (!section || !/^[23]\./.test(section)) continue;
-    if (manifestRows.has(name)) continue;                    // first §2/§3 mention wins
-    manifestRows.set(name, { purpose: m[2].trim(), section });
+  if (!staged) {
+    if (hardAddFailures) {
+      throw new Error(`gitCommit: nothing staged and ${hardAddFailures} path(s) failed to stage for a reason other than "did not match any files" ("${message}")`);
+    }
+    if (addFailures) {
+      console.log(`  (no changes to commit: ${message}) — ${addFailures} optional path(s) absent`);
+      return;
+    }
+    console.log(`  (no changes to commit: ${message})`);
+    return;
   }
-}
+  console.log(`  staging: ${staged}`);
 
-// ─── References: who mentions whom ───────────────────────────────────────────
-// Every non-comment line is scored and the STRONGEST wins. Taking the first match
-// classified a workflow as merely "mentions it" because its `node --check` line came
-// before the `node scripts/x.js` line that actually runs the thing.
-const STRENGTH = { 'runs it': 5, 'requires it': 5, 'dispatches it': 4, 'uses it': 4, 'mentions it': 2, 'comment only': 1 };
-function classifyLine(l) {
-  if (/node\s+(--\S+\s+)*scripts\//.test(l))  return 'runs it';
-  if (/require\(/.test(l))                     return 'requires it';
-  if (/gh workflow run/.test(l))               return 'dispatches it';
-  if (/uses:/.test(l))                         return 'uses it';
-  return 'mentions it';
-}
-function classify(where, name) {
-  const t = text.get(where) || '';
-  const lines = t.split('\n').filter(l => l.includes(name));
-  if (!lines.length) return null;
-  const live = lines.filter(l => { const s = l.trim(); return !s.startsWith('#') && !s.startsWith('//'); });
-  if (!live.length) return 'comment only';
-  let best = 'mentions it';
-  for (const l of live) { const c = classifyLine(l); if (STRENGTH[c] > STRENGTH[best]) best = c; }
-  return best;
-}
+  const IDENT = ['-c', 'user.name=github-actions[bot]',
+                 '-c', 'user.email=github-actions[bot]@users.noreply.github.com'];
 
-const refs = new Map();
-for (const f of all) {
-  const base = path.basename(f.rel);
-  const found = [];
-  for (const other of all) {
-    if (other.key === f.key) continue;
-    if (!(text.get(other.key) || '').includes(base)) continue;
-    found.push({ from: other.key, how: classify(other.key, base) });
+  try { execFileSync('git', [...IDENT, 'commit', '-q', '-m', message], { stdio: 'pipe', cwd: ROOT, maxBuffer: GIT_MAXBUF, timeout: GIT_TIMEOUT_MS }); }
+  catch (e) {
+    const detail = ((e.stderr && e.stderr.toString()) || e.message || '').trim();
+    throw new Error(`gitCommit: commit failed for "${message}" — ${detail}`);
   }
-  refs.set(f.key, found);
+
+  const MAX = 60;
+  for (let attempt = 1; attempt <= MAX; attempt++) {
+    try { execFileSync('git', ['merge', '--abort'], { stdio: 'pipe', cwd: ROOT, maxBuffer: GIT_MAXBUF, timeout: GIT_TIMEOUT_MS }); } catch (_) {}
+
+    try {
+      execFileSync('git', ['fetch', 'origin', 'main'], { stdio: 'pipe', cwd: ROOT, maxBuffer: GIT_MAXBUF, timeout: GIT_TIMEOUT_MS });
+    } catch (e) {
+      if (attempt === MAX) throw e;
+      const s = 1 + Math.floor(Math.random() * 91);
+      console.log(`  fetch failed (attempt ${attempt}/${MAX}), retrying in ${s}s`);
+      await sleep(s * 1000);
+      continue;
+    }
+
+    execFileSync('git', [...IDENT, 'merge', '-q', '-X', 'ours', 'FETCH_HEAD', '--no-edit', '--no-stat'], { stdio: 'pipe', cwd: ROOT, maxBuffer: GIT_MAXBUF, timeout: GIT_TIMEOUT_MS });
+
+    try {
+      execFileSync('git', ['push', 'origin', 'HEAD:main'], { stdio: 'pipe', cwd: ROOT, maxBuffer: GIT_MAXBUF, timeout: GIT_TIMEOUT_MS });
+      console.log(`  ✓ Committed: ${message} (pushed on attempt ${attempt})`);
+      return;
+    } catch (e) {
+      const detail = ((e.stderr && e.stderr.toString()) || e.message || '').trim();
+      const contention = /non-fast-forward|fetch first|\[rejected\]|failed to push some refs|cannot lock ref/i.test(detail);
+      if (!contention) {
+        console.error(`  push failed — NOT contention, failing fast. git said:\n${detail}`);
+        throw e;
+      }
+      if (attempt === MAX) {
+        console.error(`  push still rejected after ${MAX} attempts. git said:\n${detail}`);
+        throw e;
+      }
+      const s = 1 + Math.floor(Math.random() * 91);
+      console.log(`  push attempt ${attempt}/${MAX} rejected, re-syncing in ${s}s`);
+      await sleep(s * 1000);
+    }
+  }
+  throw new Error(`gitCommit: exhausted ${MAX} push attempts for "${message}"`);
+}
+// ─── Git helpers ──────────────────────────────────────────────────────────────
+
+function lastCommitISO(relPath) {
+  try {
+    const out = execFileSync('git', ['log', '-1', '--format=%cI', '--', relPath],
+      { cwd: ROOT, stdio: 'pipe', maxBuffer: 32 * 1024 * 1024 }).toString().trim();
+    return out || null;
+  } catch (e) { return null; }
 }
 
-// ─── Report ──────────────────────────────────────────────────────────────────
-log('audit-tooling-inventory  READ-ONLY');
-console.log('─'.repeat(110));
-console.log(`  scripts on disk        : ${scriptFiles.length}`);
-console.log(`  workflows on disk      : ${workflowFiles.length}`);
-console.log(`  manifest rows parsed   : ${manifestRows.size}`);
+function daysAgo(iso) {
+  if (!iso) return null;
+  return Math.floor((Date.now() - Date.parse(iso)) / 86400000);
+}
 
-const rows = all.map(f => {
-  const base = path.basename(f.rel);
-  const r    = refs.get(f.key) || [];
-  const man  = manifestRows.get(base);
-  const strong = r.filter(x => x.how !== 'comment only');
-  return { f, base, r, strong, man };
-});
+// ─── Read the tree ────────────────────────────────────────────────────────────
 
-const orphans      = rows.filter(x => x.strong.length === 0);
-const undocumented = rows.filter(x => !x.man);
-const stale        = [...manifestRows.keys()].filter(n => !all.some(f => path.basename(f.rel) === n));
+function listFiles(dir, filterFn) {
+  try { return fs.readdirSync(dir).filter(filterFn).sort(); }
+  catch (e) { return []; }
+}
 
-console.log(`  no strong reference    : ${orphans.length}   ← candidates, NOT a delete list`);
-console.log(`  on disk, not in manifest: ${undocumented.length}   ← undocumented`);
-console.log(`  in manifest, not on disk: ${stale.length}   ← stale documentation`);
+function readText(p) { try { return fs.readFileSync(p, 'utf8'); } catch { return ''; } }
 
-function printRow(x) {
-  const cls = x.man ? (SECTION_LABEL[x.man.section] || `§${x.man.section}`) : '⚠ UNDOCUMENTED';
-  console.log(`\n  ${x.f.key}`);
-  console.log(`      classified : ${cls}`);
-  if (x.man && x.man.purpose) console.log(`      purpose    : ${x.man.purpose.replace(/\*\*/g, '').slice(0, 150)}`);
-  if (!x.r.length) {
-    console.log(`      referenced : NOTHING references this file`);
+// ─── Main ─────────────────────────────────────────────────────────────────────
+
+async function main() {
+  const t0 = Date.now();
+  console.log('audit-tooling-inventory — what is in scripts/ and .github/workflows/, and what can go\n');
+  fs.mkdirSync(REPORTS_DIR, { recursive: true });
+
+  const scriptFiles   = listFiles(SCRIPTS_DIR, f => f.endsWith('.js') || f.endsWith('.cjs') || f.endsWith('.mjs') || f.endsWith('.sh'));
+  const libFiles      = listFiles(path.join(SCRIPTS_DIR, 'lib'), f => f.endsWith('.cjs') || f.endsWith('.js'));
+  const workflowFiles = listFiles(WORKFLOWS_DIR, f => f.endsWith('.yml') || f.endsWith('.yaml'));
+
+  console.log(`  scripts/          : ${scriptFiles.length} files`);
+  console.log(`  scripts/lib/      : ${libFiles.length} files`);
+  console.log(`  .github/workflows/: ${workflowFiles.length} files\n`);
+
+  const docText = readText(MANIFEST) + '\n' + readText(CONTEXT) + '\n' + readText(TASKS);
+
+  // ── What the manifest SAYS about each file, not merely that it mentions it ──
+  // Only §2.x (scripts) and §3.x (workflows) classify. See the header for why §1.1
+  // is skipped. First matching row wins; later mentions are cross-references.
+  const SECTION_LABEL = {
+    '2.1': 'LIVE (scheduled / nightly chain)',
+    '2.2': 'TOOL (on-demand, kept)',
+    '2.3': 'RECORDED AS REMOVED (cleanup fe8eedb)',
+    '3.1': 'LIVE (scheduled)',
+    '3.2': 'BUILD trigger (manual full rebuild)',
+    '3.3': 'TOOL (on-demand, kept)',
+    '3.4': 'RECORDED AS REMOVED (cleanup fe8eedb)',
+  };
+  const manifestRows = new Map();   // basename -> { purpose, section }
+  {
+    let section = null;
+    for (const line of readText(MANIFEST).split('\n')) {
+      const h = line.match(/^###\s+(\d+\.\d+)\s/);
+      if (h) { section = h[1]; continue; }
+      const m = line.match(/^\|\s*`([^`]+)`\s*\|\s*([^|]*)\|/);
+      if (!m) continue;
+      const nme = m[1].trim().replace(/^.*\//, '');
+      if (!/\.(js|cjs|mjs|sh|ya?ml)$/.test(nme)) continue;
+      if (!section || !/^[23]\./.test(section)) continue;
+      if (manifestRows.has(nme)) continue;
+      manifestRows.set(nme, { purpose: m[2].trim(), section });
+    }
+    console.log(`  manifest rows (§2/§3): ${manifestRows.size} classified\n`);
+  }
+  const manifestOf = (base) => manifestRows.get(base) || null;
+  const manLabel   = (r) => r ? (SECTION_LABEL[r.section] || `§${r.section}`) : null;
+  const docsPresent = { manifest: fs.existsSync(MANIFEST), context: fs.existsSync(CONTEXT), tasks: fs.existsSync(TASKS) };
+  if (!docsPresent.manifest) console.log('  ⚠ REPO_MANIFEST.md not found — "documented" cannot be assessed and every');
+  if (!docsPresent.manifest) console.log('    script will read as undocumented. Treat that column as unknown, not as fact.\n');
+
+  // Workflow bodies, once.
+  const wf = workflowFiles.map(f => {
+    const body = readText(path.join(WORKFLOWS_DIR, f));
+    const nameMatch = body.match(/^name:\s*(.+)$/m);
+    // Scripts invoked. Generous on purpose — see header.
+    const invoked = new Set();
+    for (const m of body.matchAll(/scripts\/([A-Za-z0-9._-]+\.(?:js|cjs|mjs|sh))/g)) invoked.add(m[1]);
+    return {
+      file: f,
+      displayName: nameMatch ? nameMatch[1].trim() : null,
+      hasSchedule: /^\s*schedule:/m.test(body),
+      hasDispatch: /workflow_dispatch:/.test(body),
+      hasRepoDispatch: /repository_dispatch:/.test(body),
+      hasWorkflowCall: /workflow_call:/.test(body),
+      invokes: [...invoked],
+      lastCommit: lastCommitISO(`.github/workflows/${f}`),
+      bytes: Buffer.byteLength(body),
+      body,
+    };
+  });
+
+  // Script bodies, once.
+  const allScriptNames = [...scriptFiles, ...libFiles.map(f => `lib/${f}`)];
+  const scriptBodies = new Map();
+  for (const rel of allScriptNames) scriptBodies.set(rel, readText(path.join(SCRIPTS_DIR, rel)));
+
+  // ── Classify scripts ────────────────────────────────────────────────────────
+  const scripts = [];
+  for (const rel of allScriptNames) {
+    const base = path.basename(rel);
+    const body = scriptBodies.get(rel) || '';
+
+    const usedByWorkflows = wf.filter(w => w.body.includes(base)).map(w => w.file);
+    const requiredBy = [];
+    for (const [otherRel, otherBody] of scriptBodies) {
+      if (otherRel === rel) continue;
+      if (otherBody.includes(base)) requiredBy.push(otherRel);
+    }
+    const documented = docText.includes(base);
+    const lastCommit = lastCommitISO(`scripts/${rel}`);
+    const age = daysAgo(lastCommit);
+    const scheduled = wf.some(w => w.hasSchedule && w.body.includes(base));
+
+    let klass;
+    if (rel.startsWith('lib/'))             klass = requiredBy.length ? 'LIBRARY (required by other scripts)' : 'LIBRARY, UNREFERENCED';
+    else if (scheduled)                     klass = 'SCHEDULED';
+    else if (usedByWorkflows.length)        klass = 'DISPATCH-ONLY';
+    else if (requiredBy.length)             klass = 'CALLED BY ANOTHER SCRIPT (no workflow)';
+    else if (documented)                    klass = 'NO WORKFLOW, but documented — review';
+    else                                    klass = 'ORPHAN: no workflow, nothing requires it, undocumented';
+
+    const man = manifestOf(base);
+    scripts.push({ path: `scripts/${rel}`, base, klass, usedByWorkflows, requiredBy, documented,
+                   manifestSection: man ? man.section : null,
+                   manifestClass:   manLabel(man),
+                   manifestPurpose: man ? man.purpose : null,
+                   lastCommit, ageDays: age, recent: age !== null && age <= DAYS,
+                   bytes: Buffer.byteLength(body) });
+  }
+
+  // ── Classify workflows ──────────────────────────────────────────────────────
+  const scriptBaseSet = new Set(allScriptNames.map(r => path.basename(r)));
+  const workflows = [];
+  for (const w of wf) {
+    const missing = w.invokes.filter(s => !scriptBaseSet.has(s));
+    const age = daysAgo(w.lastCommit);
+    let klass;
+    if (missing.length && missing.length === w.invokes.length && w.invokes.length)
+      klass = `BROKEN: calls script(s) that do not exist — ${missing.join(', ')}`;
+    else if (missing.length)
+      klass = `PARTLY BROKEN: missing ${missing.join(', ')}`;
+    else if (w.hasSchedule)        klass = 'SCHEDULED';
+    else if (!w.invokes.length)    klass = 'CALLS NO SCRIPT (composite, dispatcher, or inline shell) — read before judging';
+    else                           klass = 'DISPATCH-ONLY';
+    const wman = manifestOf(w.file);
+    workflows.push({ path: `.github/workflows/${w.file}`, displayName: w.displayName, klass,
+                     invokes: w.invokes, missingScripts: missing, hasSchedule: w.hasSchedule,
+                     manifestSection: wman ? wman.section : null,
+                     manifestClass:   manLabel(wman),
+                     manifestPurpose: wman ? wman.purpose : null,
+                     lastCommit: w.lastCommit, ageDays: age, recent: age !== null && age <= DAYS,
+                     bytes: w.bytes });
+  }
+
+  // ── Manifest rows describing files that are gone ────────────────────────────
+  // The reverse of every other check here. Everything above asks "is this file
+  // referenced"; this asks "is this DOCUMENT still true". §2.3 and §3.4 are excluded
+  // because those sections exist to record what was removed — absence from disk is
+  // what they assert, not a fault. A stale row elsewhere matters because the
+  // `documented` test in this very script treats the manifest as authority, and a
+  // document describing tools deleted months ago will keep something alive on that
+  // basis. Same failure as data/venue-index.json's writer being recorded as
+  // "(venue build)" — a placeholder read back as fact for three months (T56).
+  const onDisk = new Set([...allScriptNames.map(r => path.basename(r)),
+                          ...workflowFiles.map(f => path.basename(f))]);
+  const staleRows = [...manifestRows.entries()]
+    .filter(([nme, r]) => !onDisk.has(nme) && !/^[23]\.(3|4)$/.test(r.section))
+    .map(([nme, r]) => ({ name: nme, section: r.section, klass: manLabel(r), purpose: r.purpose }))
+    .sort((a, b) => a.section.localeCompare(b.section) || a.name.localeCompare(b.name));
+
+  // ── Pairs added recently ────────────────────────────────────────────────────
+  const recentScripts   = scripts.filter(s => s.recent);
+  const recentWorkflows = workflows.filter(w => w.recent);
+
+  // ── Deletion candidates ─────────────────────────────────────────────────────
+  // Two lists, deliberately separate. SAFE = nothing references it and its
+  // findings are recorded. DOCUMENT-FIRST = nothing references it but no document
+  // mentions it, so deleting it silently discards whatever it established.
+  const safeDelete = [], documentFirst = [], brokenWorkflows = [];
+  const SELF = 'scripts/audit-tooling-inventory.js';
+  for (const s of scripts) {
+    // Never list itself. It is dispatched by its own workflow but that workflow
+    // mentions it, so the generous reference rule already covers it — this guard
+    // is for the case where the audit is run before its workflow is added.
+    if (s.path === SELF) continue;
+    // 'NO WORKFLOW, but documented' MUST be a candidate. It is the class every
+    // retired one-off lands in once its finding has been written down, and the
+    // first version of this file excluded it — which made the SAFE list
+    // permanently empty for scripts, since the ORPHAN class is undocumented by
+    // definition. The audit would have reported "none to delete" against 163
+    // workflows and looked like a clean result.
+    const candidate = s.klass.startsWith('ORPHAN')
+                   || s.klass.startsWith('LIBRARY, UNREF')
+                   || s.klass.startsWith('NO WORKFLOW');
+    if (!candidate) continue;
+    (s.documented ? safeDelete : documentFirst).push(s.path);
+  }
+  for (const w of workflows) {
+    if (w.klass.startsWith('BROKEN')) brokenWorkflows.push(w.path);
+  }
+
+  // ── Print ───────────────────────────────────────────────────────────────────
+  const tallyBy = (arr, key) => {
+    const t = {};
+    for (const x of arr) { const k = x[key].split(' —')[0].split(':')[0]; t[k] = (t[k] || 0) + 1; }
+    return t;
+  };
+  console.log('──── SCRIPTS BY CLASS ────');
+  for (const [k, v] of Object.entries(tallyBy(scripts, 'klass'))) console.log(`  ${String(v).padStart(4)}  ${k}`);
+  console.log('\n──── WORKFLOWS BY CLASS ────');
+  for (const [k, v] of Object.entries(tallyBy(workflows, 'klass'))) console.log(`  ${String(v).padStart(4)}  ${k}`);
+
+  console.log(`\n──── ADDED OR AMENDED IN THE LAST ${DAYS} DAYS ────`);
+  console.log(`  ${recentScripts.length} script(s), ${recentWorkflows.length} workflow(s)`);
+  for (const s of recentScripts) console.log(`  ${String(s.ageDays).padStart(3)}d  ${s.path}  [${s.klass}]${s.documented ? '' : '  UNDOCUMENTED'}`);
+
+  // ── Stale manifest rows ─────────────────────────────────────────────────────
+  console.log(`\n── IN THE MANIFEST BUT NOT ON DISK — ${staleRows.length} row(s) ──`);
+  if (!staleRows.length) {
+    console.log('  none — every §2/§3 row outside the "removed" sections has a file.');
   } else {
-    for (const ref of x.r.slice(0, 6)) console.log(`      referenced : ${ref.from}  (${ref.how})`);
-    if (x.r.length > 6) console.log(`                   … and ${x.r.length - 6} more`);
+    console.log('  The document describes these; the files are gone. Either they were deleted');
+    console.log('  without the manifest being updated, or the row was aspirational. This is a');
+    console.log('  DOCUMENT fault, not a file fault — nothing here is a deletion candidate.');
+    console.log('  §2.3 and §3.4 are excluded: recording what was removed is their purpose.');
+    for (const r of staleRows) {
+      console.log(`  ${r.name.padEnd(46)} §${r.section}  ${r.klass}`);
+      if (r.purpose) console.log(`      says: ${r.purpose.replace(/\*\*/g, '').slice(0, 120)}`);
+    }
   }
+  for (const w of recentWorkflows) console.log(`  ${String(w.ageDays).padStart(3)}d  ${w.path}  [${w.klass}]`);
+
+  console.log('\n──── BROKEN WORKFLOWS (call a script that is not in the repo) ────');
+  if (!brokenWorkflows.length) console.log('  none');
+  for (const w of workflows.filter(x => x.klass.startsWith('BROKEN') || x.klass.startsWith('PARTLY'))) {
+    console.log(`  ${w.path} — missing ${w.missingScripts.join(', ')}`);
+  }
+
+  console.log('\n──── ORPHAN SCRIPTS, DOCUMENTED (findings already recorded — safe to delete) ────');
+  if (!safeDelete.length) console.log('  none');
+  for (const p of safeDelete) console.log(`  ${p}`);
+
+  console.log('\n──── ORPHAN SCRIPTS, UNDOCUMENTED (write the finding down FIRST) ────');
+  if (!documentFirst.length) console.log('  none');
+  for (const p of documentFirst) console.log(`  ${p}`);
+
+  console.log('\nHOW TO READ THIS. "Referenced" is generous: a script counts as used if ANY');
+  console.log('workflow mentions its filename anywhere. That over-counts, on purpose — a missed');
+  console.log('reference would put a LIVE file on a delete list, which is the costlier mistake.');
+  console.log('Nothing here is deleted. Paste the list into cleanup-repo.yml, dry-run it first.');
+
+  // ── Write the paste-ready list ──────────────────────────────────────────────
+  const lines = [
+    '# reports/tooling-delete-list.txt',
+    `# generated ${new Date().toISOString()} by scripts/audit-tooling-inventory.js`,
+    '#',
+    '# Paste into the SCRIPTS=( ) / WORKFLOWS=( ) arrays in cleanup-repo.yml.',
+    '# Run cleanup-repo with dry_run=true FIRST and read the list it prints.',
+    '#',
+    '# SAFE — nothing references these and a document already records what they found:',
+    ...safeDelete.map(p => `  ${p}`),
+    '#',
+    '# DOCUMENT FIRST — nothing references these, but NO document mentions them.',
+    '# Deleting one discards whatever it established. Write the finding into',
+    '# REPO_MANIFEST.md in the same commit, then move the line up into SAFE.',
+    ...documentFirst.map(p => `  # ${p}`),
+    '#',
+    '# BROKEN WORKFLOWS — these call a script that is not in the repo. They cannot',
+    '# run. Confirm the script was deleted deliberately, then remove the workflow:',
+    ...brokenWorkflows.map(p => `  ${p}`),
+    '',
+  ];
+  fs.writeFileSync(OUT_LIST, lines.join('\n'));
+
+  const out = {
+    generatedAt: new Date().toISOString(),
+    docsPresent,
+    counts: { scripts: scriptFiles.length, libs: libFiles.length, workflows: workflowFiles.length,
+              recentScripts: recentScripts.length, recentWorkflows: recentWorkflows.length,
+              staleManifestRows: staleRows.length,
+              safeDelete: safeDelete.length, documentFirst: documentFirst.length, brokenWorkflows: brokenWorkflows.length },
+    safeDelete, documentFirst, brokenWorkflows,
+    scripts, workflows,
+  };
+  out.staleManifestRows = staleRows;
+  fs.writeFileSync(OUT_JSON, JSON.stringify(out, null, 2));
+  console.log(`\nWrote ${OUT_JSON_REL} and ${OUT_LIST_REL}`);
+
+  if (DRY) console.log('(not committed — re-run with commit enabled to commit the two reports)');
+  else await gitCommit(`tooling inventory: ${scriptFiles.length} scripts, ${workflowFiles.length} workflows, ${safeDelete.length} safe to delete`, [OUT_JSON_REL, OUT_LIST_REL]);
+
+  console.log(`\nDone in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
 }
 
-if (ORPHANS_ONLY) {
-  console.log(`\n─── NO STRONG REFERENCE — judge each, do not bulk delete ───────────────────────`);
-  console.log(`    A file can be live with nothing pointing at it: a library another script`);
-  console.log(`    requires, a workflow a person dispatches by hand, or one dispatched by`);
-  console.log(`    'gh workflow run' from inside another workflow's shell.`);
-  for (const x of orphans) if (SHOW === 'all' || x.f.kind + 's' === SHOW) printRow(x);
-} else {
-  for (const kind of ['script', 'workflow']) {
-    if (SHOW !== 'all' && SHOW !== kind + 's') continue;
-    console.log(`\n${'═'.repeat(110)}`);
-    console.log(`  ${kind.toUpperCase()}S`);
-    console.log(`${'═'.repeat(110)}`);
-    for (const x of rows.filter(y => y.f.kind === kind).sort((a, b) => a.f.key.localeCompare(b.f.key))) printRow(x);
-  }
-}
-
-if (stale.length) {
-  console.log(`\n─── IN THE MANIFEST BUT NOT ON DISK ────────────────────────────────────────────`);
-  console.log(`    The document describes files that are gone. Either they were deleted without`);
-  console.log(`    the manifest being updated, or the row is aspirational.`);
-  for (const nme of stale.sort()) {
-    const m = manifestRows.get(nme);
-    console.log(`    ${nme.padEnd(44)} ${SECTION_LABEL[m.section] || '§' + m.section}`);
-  }
-}
-
-console.log(`\n${'═'.repeat(110)}`);
-console.log(`  scripts ${scriptFiles.length}  workflows ${workflowFiles.length}  no strong reference ${orphans.length}  undocumented ${undocumented.length}  stale manifest rows ${stale.length}`);
-console.log(`${'═'.repeat(110)}`);
-console.log(`\n  This is an inventory, not a plan. Before deleting anything, confirm for each file`);
-console.log(`  that it is not a library, not something you run by hand, and not dispatched from`);
-console.log(`  inside another workflow's shell. cleanup-repo.yml should be rebuilt FROM this`);
-console.log(`  output rather than extended — its list dates from 2026-07-16 and asserts rather`);
-console.log(`  than checks.`);
-log('read-only — nothing written.');
+main().catch(e => { console.error('FATAL:', e && e.stack || e); process.exit(1); });
