@@ -23,9 +23,14 @@
 // built to get.
 //
 // REFERENCE DETECTION IS DELIBERATELY GENEROUS. A script counts as referenced if
-// ANY workflow mentions its filename anywhere, not merely in a `node scripts/x.js`
-// line — a workflow may call it through a shell variable, a case statement or a
-// composite step. Over-counting a reference leaves a dead file in the repo;
+// ANY workflow mentions its filename anywhere, not merely in an explicit
+// `node scripts/<name>` invocation — a workflow may call it through a shell
+// variable, a case statement or a composite step.
+//   (That sentence used to spell out a literal example path. The workflow's own
+//   header repeated it, and the invocation matcher then read the example out of the
+//   prose and reported audit-tooling-inventory.yml as PARTLY BROKEN, calling a
+//   script that has never existed. A detector that matches paths must not be
+//   documented using a path.) Over-counting a reference leaves a dead file in the repo;
 // under-counting one puts a LIVE file on a delete list. Those costs are not
 // symmetrical, so the bias runs one way on purpose.
 //
