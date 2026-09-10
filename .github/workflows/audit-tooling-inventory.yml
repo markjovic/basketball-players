@@ -33,6 +33,17 @@ name: Audit Tooling Inventory
 # for the same reason — no player or game blobs. If history is unavailable dates
 # report null and no classification depends on them.
 #
+# ⚠️ TOOLING.md MUST BE IN THIS LIST. It is the classifier's primary source, and it was
+# missing from the sparse checkout on 2026-09-10 — the file was committed to the repo and
+# the job simply never checked it out, so the script reported it absent and fell back to
+# REPO_MANIFEST.md. A file present in the repository is not present in the working tree
+# unless a sparse pattern names it.
+#
+# The other four documents are listed only while they remain in the repo. They contain the
+# operator's method and are being removed; TOOLING.md carries filenames and section numbers
+# only and is the one that has to stay. When they go, delete their lines from here too —
+# a sparse pattern naming a file that does not exist is harmless but misleading.
+#
 # ⚠️ THE DOCUMENTS ARE NAMED ONE BY ONE, NOT MATCHED BY `/*.md`. 2026-09-10: the
 # pattern was `/*.md` and NOTHING matched, so REPO_MANIFEST.md was absent and every
 # file in the repository read as UNDOCUMENTED. That is not a cosmetic column — the
@@ -94,6 +105,7 @@ jobs:
             scripts
             .github/workflows
             reports
+            TOOLING.md
             REPO_MANIFEST.md
             claude_context.md
             OUTSTANDING_TASKS.md
@@ -113,7 +125,7 @@ jobs:
         run: |
           set -euo pipefail
           missing=0
-          for f in REPO_MANIFEST.md claude_context.md OUTSTANDING_TASKS.md; do
+          for f in TOOLING.md REPO_MANIFEST.md claude_context.md OUTSTANDING_TASKS.md; do
             if [ -f "$f" ]; then echo "  present: $f"; else echo "  ⚠ MISSING: $f"; missing=$((missing+1)); fi
           done
           if [ "$missing" -gt 0 ]; then
