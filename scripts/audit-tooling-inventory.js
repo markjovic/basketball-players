@@ -203,6 +203,12 @@ async function gitCommit(message, dirs) {
 // Needs `actions: read` and the gh CLI (preinstalled on runners). Without it every
 // workflow reports an unknown date and the verdict falls back to structure — worse,
 // but it SAYS SO rather than pretending.
+// A workflow that has only ever run a handful of times is a one-off, however
+// recently it ran. Anything genuinely live accumulates runs: the nightly has
+// hundreds, a build trigger dozens. Three is generous — a probe usually runs once,
+// then once more after a fix.
+const ONE_OFF_RUNS = 3;
+
 function lastRunDays() {
   const out = new Map();
   const repo = process.env.GITHUB_REPOSITORY;
@@ -219,15 +225,30 @@ function lastRunDays() {
     for (const line of raw.trim().split('\n').filter(Boolean)) {
       const [wpath, id] = line.split('\t');
       const file = String(wpath).replace(/^.*\//, '');
-      let iso = '';
+      // BOTH the date AND the total run count, from one response.
+      // Recency alone conflates two different things: nightly-crawl has run
+      // hundreds of times, and probe-notfound ran twice during a campaign three
+      // weeks ago. On 2026-09-10 a recency-only rule marked every probe-* workflow
+      // LIVE because a one-off happened to be recent. HOW MANY TIMES it has ever
+      // run is the discriminator, and it costs nothing extra to ask for.
+      let iso = '', total = null;
       try {
-        iso = gh(['api', `repos/${repo}/actions/workflows/${id}/runs?per_page=1`,
-                  '--jq', '.workflow_runs[0].created_at // empty']).trim();
+        const JQ = '[(.total_count | tostring), (.workflow_runs[0].created_at // "")] | @tsv';
+        const raw2 = gh(['api', `repos/${repo}/actions/workflows/${id}/runs?per_page=1`, '--jq', JQ]);
+        const [t, d] = raw2.trim().split('\t');
+        total = Number.isFinite(parseInt(t, 10)) ? parseInt(t, 10) : null;
+        iso = (d || '').trim();
       } catch (_) {}
-      out.set(file, { days: iso ? Math.round((Date.now() - Date.parse(iso)) / 86400000) : null, iso: iso || null });
+      out.set(file, {
+        days: iso ? Math.round((Date.now() - Date.parse(iso)) / 86400000) : null,
+        iso: iso || null,
+        runs: total,
+      });
     }
-    const withRuns = [...out.values()].filter(v => v.days !== null).length;
-    console.log(`  workflow run history: ${out.size} workflow(s) queried, ${withRuns} have run at least once`);
+    const vals = [...out.values()];
+    const withRuns = vals.filter(v => v.days !== null).length;
+    const oneOffs  = vals.filter(v => typeof v.runs === 'number' && v.runs > 0 && v.runs <= ONE_OFF_RUNS).length;
+    console.log(`  workflow run history: ${out.size} queried, ${withRuns} have run, ${oneOffs} have run ${ONE_OFF_RUNS} time(s) or fewer`);
   } catch (e) {
     console.log(`  ⚠ could not read workflow run history: ${String(e.message).slice(0, 90)}`);
     console.log('    Verdicts fall back to structure alone, which has been wrong three times.');
@@ -449,7 +470,7 @@ async function main() {
     const wman = manifestOf(w.file);
     workflows.push({ path: `.github/workflows/${w.file}`, displayName: w.displayName, klass,
                      invokes: w.invokes, missingScripts: missing, hasSchedule: w.hasSchedule,
-                     triggers: w.triggers, lastRunDays: run.days, lastRunAt: run.iso,
+                     triggers: w.triggers, lastRunDays: run.days, lastRunAt: run.iso, runCount: run.runs,
                      manifestSection: wman ? wman.section : null,
                      manifestClass:   manLabel(wman),
                      manifestPurpose: wman ? wman.purpose : null,
@@ -510,8 +531,15 @@ async function main() {
     if (x.klass && x.klass.startsWith('BROKEN')) {
       return `BROKEN — calls a script that is not in the repo${typeof x.lastRunDays === 'number' ? ` (last ran ${x.lastRunDays}d ago)` : ''}`;
     }
+    // Run COUNT before run DATE. A one-off that ran recently is still a one-off,
+    // and that is the whole population being hunted here.
+    if (typeof x.runCount === 'number' && x.runCount > 0 && x.runCount <= ONE_OFF_RUNS) {
+      const inTool2 = x.manifestSection === '2.2' || x.manifestSection === '3.3';
+      if (!inTool2) return `SPENT — only ever ran ${x.runCount} time(s), last ${x.lastRunDays}d ago`;
+      return `KEEP — recorded as an on-demand tool (has run ${x.runCount} time(s))`;
+    }
     if (typeof x.lastRunDays === 'number') {
-      if (x.lastRunDays <= RUN_LIVE_DAYS)  return `LIVE — actually ran ${x.lastRunDays}d ago`;
+      if (x.lastRunDays <= RUN_LIVE_DAYS)  return `LIVE — actually ran ${x.lastRunDays}d ago (${x.runCount} runs)`;
       if (x.lastRunDays >= RUN_DEAD_DAYS)  return `SPENT — has not run in ${x.lastRunDays} days`;
       // Between the two: it ran, but not recently. Structure decides, and the date
       // is carried into the answer so nobody has to go and look it up.
