@@ -1,65 +1,71 @@
 // scripts/audit-nonfinal-games.js
-// REVISION 2026-09-10b — instruments the ask phase; 10a reported a conclusion from
-// zero questions.
+// REVISION 2026-09-10c — the ask phase now uses gameView/discoverGame. Revisions a
+// and b asked the WRONG ENDPOINT ENTIRELY and established nothing.
 //
 // READ-ONLY. Counts every game that has not reached a terminal state, splits them by
-// whether their season is locked, and then asks PlayHQ what it says about the worst
-// locked ones today.
+// whether their season is locked, then asks PlayHQ's CANONICAL record what it says
+// about a sample of the frozen ones.
 //
 // WRITES NOTHING. No fs.writeFileSync, no git, no commit. Safe to run twice.
 //
-// WHY THIS EXISTS
-// ───────────────
-// db-audit.js was fixed on 2026-09-09 to count every game status; before that, five
-// of them were excluded from every counter and roughly 64,000 games were tallied
-// nowhere. The first corrected run surfaced this:
+// WHY THE FIRST TWO REVISIONS WERE WORTHLESS
+// ──────────────────────────────────────────
+// They asked gradeRounds(gradeID) -> discoverFixtureByRound(roundID), the pair the
+// nightly uses to walk a season's fixtures. Every grade returned discoverGrade: null
+// and not one game was ever asked about.
 //
-//   LIVE          47,807
-//   PENDING       14,722
-//   PRE_GAME       1,269
-//   IN_PROGRESS       515
-//   ──────────────────────
-//   not yet final 64,313   of 2,425,863 games
+// The documentation says why, and it should have been read first.
+// REPO_MANIFEST §1629 and OUTSTANDING_TASKS §352: `spectator.playhq.com` is PlayHQ's
+// LIVE-SCORING service and holds only games scored in real time; `api.playhq.com`'s
+// gameView -> discoverGame is the CANONICAL record and holds everything, including
+// games scored on paper and entered afterwards. Roster capture has read spectator
+// exclusively since it was written.
 //
-// LIVE was the third-largest status in the database and had never been displayed.
+// So `LIVE` is a spectator-service status. Those games were reached through a
+// live-scoring or player route, NOT through a grade listing — which is exactly why
+// the grade endpoint knows nothing about their grades. Asking it was a category
+// error, and the numbers it returned were zeros with no meaning.
 //
-// AND IT MATTERS NOW BECAUSE OF THE LOCKING. lock-quiet-seasons.js closed 307 seasons
-// on 2026-09-09 and locked seasons are skipped by the nightly, so any non-final game
-// inside one is frozen in that state permanently. Nobody has checked whether the
-// 47,807 sit in locked seasons or active ones.
+// WHAT THIS ASKS INSTEAD
+// ──────────────────────
+// discoverGame(gameID) per game, via the gameView operation. That is the canonical
+// record, it is keyed by the game id we already hold, and it needs no grade, no round
+// and no season listing. gqlGameView, GV_QUERY, doFetch, HEADERS_MAIN and
+// refreshSession below are COPIED VERBATIM from discover-game-backfill.js — the live
+// script that makes exactly this class of call, already exercised against the real
+// API for exactly this purpose. Nothing is retyped or trimmed: a partial PlayHQ query
+// breaks silently.
 //
-// LIVE IS NOT PENDING, AND THE DIFFERENCE IS THE WHOLE POINT.
-// audit-pending-games-vs-playhq.js established that PENDING games are never coming
-// back — 685 asked, 0 finished at PlayHQ, across seasons ending 2020 to 2025. Those
-// competitions were run and never scored. LIVE is the opposite claim: PlayHQ WAS
-// scoring the game at the moment we read it. A finished season full of LIVE games is
-// far more likely to be a capture gap than a dead competition, so the same answer
-// must not be assumed.
+// CONCURRENCY 5, AND IT SHOULD STAY. discover-game-backfill.js measured it on
+// 2026-08-11: 25 ran a 98% hit rate for ~140 games then hit a wall it never recovered
+// from; 5 ran 200/200 clean in 52 seconds. The nightly depends on this same endpoint,
+// so provoking a throttling regime here damages far more than this audit.
 //
-// TWO PHASES IN ONE RUN
-// ─────────────────────
-//   1. COUNT — every file in games/bv, every status, split locked vs unlocked. No
-//      network. This alone answers "is the locking freezing anything".
-//   2. ASK — for the worst LOCKED seasons, the nightly's own gradeRounds ->
-//      discoverFixtureByRound pair, comparing what we hold against what PlayHQ says
-//      now. Skipped with --count-only.
-//
-// Three outcomes, never collapsed: still non-final at PlayHQ; FINISHED at PlayHQ and
-// we missed it; and no answer, which is not a finding either way.
+// WHAT IT MEASURED (2026-09-10)
+// ─────────────────────────────
+//   LIVE          47,807   every single one in a LOCKED season, none unlocked
+//   PENDING       14,722   13,968 locked
+//   PRE_GAME       1,269   all locked
+//   IN_PROGRESS      515   441 locked
+//   (absent)         113    47 locked
+// Locked seasons are skipped by the nightly, so a non-final game inside one is frozen
+// permanently. The worst offenders cluster hard on Winter 2022 and Spring 2021 and
+// carry no endDate — they are among the 808 seasons no organisation returned in the
+// 2026-09-08 backfill.
 //
 // FULL CHECKOUT, NOT SPARSE. It reads every file in games/bv — 1.94 GB across 2,966
-// files. Sparse checkout fetches roughly one blob per second, so naming them is worse
-// than cloning. A full checkout takes about seven minutes on a runner.
+// files. Sparse checkout fetches roughly one blob per second, so naming them all is
+// slower than cloning. A full checkout takes about seven minutes on a runner.
 //
-// Queries and headers are copied from audit-pending-games-vs-playhq.js, which took
-// them verbatim from nightly-crawl.js. The pacing is copied from
-// close-empty-seasons.js — a fixed sleep with no retry got that script walled after
-// five seasons on 2026-09-08 (T52).
+// A CONCLUSION IS ONLY DRAWN FROM QUESTIONS THAT WERE ACTUALLY PUT. If nothing was
+// asked, it says so and refuses to interpret the zeros. Revision a printed
+// "nothing is frozen here" on the back of eight seasons and zero questions.
 //
 // Run:
 //   node scripts/audit-nonfinal-games.js --count-only
 //   node scripts/audit-nonfinal-games.js
-//   node scripts/audit-nonfinal-games.js --max-seasons=12 --max-grades=6
+//   node scripts/audit-nonfinal-games.js --max-seasons=20 --per-season=10
+//   node scripts/audit-nonfinal-games.js --status=LIVE
 
 'use strict';
 
@@ -76,27 +82,29 @@ const API_URL    = 'https://api.playhq.com/graphql';
 const args   = process.argv.slice(2);
 const argVal = (n, d) => { const a = args.find(x => x.startsWith(`--${n}=`)); return a ? a.slice(n.length + 3) : d; };
 const COUNT_ONLY  = args.includes('--count-only');
-const MAX_SEASONS = Math.max(1, parseInt(argVal('max-seasons', '8'), 10) || 8);
-const MAX_GRADES  = Math.max(1, parseInt(argVal('max-grades', '4'), 10) || 4);
+const MAX_SEASONS = Math.max(1, parseInt(argVal('max-seasons', '10'), 10) || 10);
+const PER_SEASON  = Math.max(1, parseInt(argVal('per-season', '8'), 10) || 8);
 const ONLY_STATUS = argVal('status', '').trim();
 
 const log   = (m) => console.log(`[nonfinal] ${new Date().toISOString()} ${m}`);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // Allowlist, never a test for a specific non-terminal value. Real data uses statuses
-// no one anticipated, and testing for `st === 'UPCOMING'` once counted zero unplayed
+// nobody anticipated, and testing for `st === 'UPCOMING'` once counted zero unplayed
 // games in a season holding three (T53).
 const TERMINAL = new Set(['FINAL', 'CANCELLED', 'ABANDONED', 'FORFEIT']);
 
-// ─── Request machinery: copied from audit-pending-games-vs-playhq.js, which took
-//     it verbatim from nightly-crawl.js. ────────────────────────────────────────
+// ─── Everything below to the end of gqlGameView is COPIED VERBATIM from
+//     scripts/discover-game-backfill.js. Do not edit it here. ──────────────────
 function doFetch(url, bodyObj, headers) {
   return new Promise((resolve, reject) => {
     const body   = JSON.stringify(bodyObj);
     const parsed = new URL(url);
-    const h      = { ...headers, 'request-id': crypto.randomUUID(), 'content-length': Buffer.byteLength(body) };
-    const req = https.request(
-      { hostname: parsed.hostname, path: parsed.pathname, method: 'POST', headers: h, agent: new https.Agent({ keepAlive: false }) },
+    const h      = { ...headers, 'request-id': crypto.randomUUID(),
+                     'content-length': Buffer.byteLength(body) };
+    const req    = https.request(
+      { hostname: parsed.hostname, path: parsed.pathname, method: 'POST',
+        headers: h, agent: new https.Agent({ keepAlive: false }) },
       res => {
         const chunks = [];
         res.on('data', c => chunks.push(c));
@@ -104,7 +112,12 @@ function doFetch(url, bodyObj, headers) {
           const rawText = Buffer.concat(chunks).toString('utf8');
           let body = null;
           try { body = JSON.parse(rawText); } catch (_) { body = null; }
-          resolve({ status: res.statusCode, rawCookies: res.headers['set-cookie'], body, rawText });
+          resolve({
+            status:     res.statusCode,
+            rawCookies: res.headers['set-cookie'],
+            body,
+            rawText,
+          });
         });
         res.on('error', reject);
       }
@@ -115,102 +128,89 @@ function doFetch(url, bodyObj, headers) {
   });
 }
 
+// ─── Session — nightly-crawl.js, verbatim ─────────────────────────────────────
+
 const HEADERS_MAIN = {
   'accept': '*/*', 'origin': 'https://www.playhq.com',
   'user-agent': 'PlayHQ/1.47.2 Android/28 (Android SDK built for x86)',
   'tenant': 'basketball-victoria', 'content-type': 'application/json',
 };
-
 let sessionCookie = null;
 
 async function refreshSession() {
-  const body = { operationName: 'TenantConfig', variables: {}, query: 'query TenantConfig { tenantConfiguration { label } }' };
+  const body = { operationName: 'TenantConfig', variables: {},
+    query: 'query TenantConfig { tenantConfiguration { label } }' };
   for (let attempt = 1; attempt <= 10; attempt++) {
     if (attempt > 1) await sleep(attempt * 3000);
     try {
       const { rawCookies } = await doFetch(API_URL, body, HEADERS_MAIN);
       if (!rawCookies) continue;
-      const arr = (Array.isArray(rawCookies) ? rawCookies : [rawCookies]).map(c => c.split(';')[0].trim());
+      const arr = (Array.isArray(rawCookies) ? rawCookies : [rawCookies])
+        .map(c => c.split(';')[0].trim());
       const get = n => arr.find(p => p.startsWith(n + '=')) || null;
       const tier = get('phq_tier'), session = get('phq_session'), sub = get('phq_sub');
-      if (tier && session && sub) { sessionCookie = `${tier}; ${session}; ${sub}`; console.log(`  Session refreshed (attempt ${attempt})`); return; }
+      if (tier && session && sub) {
+        sessionCookie = `${tier}; ${session}; ${sub}`;
+        console.log(`  Session refreshed (attempt ${attempt})`);
+        return;
+      }
     } catch (_) {}
   }
   throw new Error('Failed to obtain session after 10 attempts');
 }
 
-async function gqlMain(operationName, query, variables) {
+// ─── Spectator query — nightly-crawl.js, verbatim ─────────────────────────────
+
+// ─── gameView (api.playhq.com) ────────────────────────────────────────────────
+// Query VERBATIM from a live browser request captured 2026-08-11. NOT trimmed: a
+// partial PlayHQ query breaks silently (house rule), so the whole operation with
+// every fragment is sent exactly as the site sends it; we simply read the few
+// fields we need from the response.
+const GV_QUERY = "query gameView($gameId: ID!, $gameStatisticsFilter: GameStatisticsFilter!) {\n  discoverGame(gameID: $gameId) {\n    id\n    alias\n    away {\n      ...TeamFragment\n      __typename\n    }\n    home {\n      ...TeamFragment\n      __typename\n    }\n    result {\n      winner {\n        name\n        value\n        __typename\n      }\n      outcome {\n        name\n        value\n        __typename\n      }\n      home {\n        score\n        outcome {\n          name\n          value\n          __typename\n        }\n        statistics {\n          count\n          type {\n            value\n            __typename\n          }\n          __typename\n        }\n        periods {\n          period {\n            label\n            value\n            __typename\n          }\n          type\n          closureStatus\n          statistics {\n            count\n            type {\n              label\n              value\n              __typename\n            }\n            __typename\n          }\n          __typename\n        }\n        gameOutcomeDescription\n        revisedTarget {\n          type\n          runs\n          overLimit\n          __typename\n        }\n        __typename\n      }\n      away {\n        score\n        outcome {\n          name\n          value\n          __typename\n        }\n        statistics {\n          count\n          type {\n            value\n            __typename\n          }\n          __typename\n        }\n        periods {\n          period {\n            label\n            value\n            __typename\n          }\n          type\n          closureStatus\n          statistics {\n            count\n            type {\n              label\n              value\n              __typename\n            }\n            __typename\n          }\n          __typename\n        }\n        revisedTarget {\n          type\n          runs\n          overLimit\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    status {\n      name\n      value\n      __typename\n    }\n    round {\n      id\n      name\n      abbreviatedName\n      grade {\n        id\n        name\n        day {\n          name\n          value\n          __typename\n        }\n        hideScores\n        season {\n          id\n          name\n          competition {\n            id\n            name\n            organisation {\n              ...OrganisationDetails\n              __typename\n            }\n            __typename\n          }\n          __typename\n        }\n        gameEvents {\n          participantEvents {\n            type\n            label\n            shortName\n            value\n            pointValue\n            applicableTo\n            advanced\n            __typename\n          }\n          periodEvents {\n            value\n            __typename\n          }\n          __typename\n        }\n        hasPeriodScores\n        periodScoresDisplayType {\n          name\n          value\n          __typename\n        }\n        periods {\n          shortName\n          value\n          __typename\n        }\n        playerPoints {\n          enforceTeamTotalCap\n          teamPlayerPointsCap\n          publicVisible\n          __typename\n        }\n        bestPlayers {\n          max\n          __typename\n        }\n        gameStatisticsConfiguration {\n          gameStatistics(filter: $gameStatisticsFilter) {\n            type\n            glossary {\n              default {\n                name\n                shortName\n                message\n                labelName\n                __typename\n              }\n              scoring {\n                name\n                shortName\n                message\n                labelName\n                __typename\n              }\n              __typename\n            }\n            value\n            pointValue\n            applicableTo\n            required\n            max\n            __typename\n          }\n          __typename\n        }\n        lineupRemainsWhenGameStarted\n        __typename\n      }\n      __typename\n    }\n    date\n    dates\n    allocation {\n      time\n      dateTimeList {\n        date\n        time\n        __typename\n      }\n      court {\n        id\n        abbreviatedName\n        name\n        venue {\n          id\n          name\n          latitude\n          longitude\n          address\n          suburb\n          state\n          postcode\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    statistics {\n      home {\n        ...GameViewGameTeamStatisticsFragment\n        __typename\n      }\n      away {\n        ...GameViewGameTeamStatisticsFragment\n        __typename\n      }\n      shared {\n        period {\n          label\n          shortName\n          value\n          __typename\n        }\n        type\n        status\n        statistics {\n          count\n          type {\n            value\n            __typename\n          }\n          __typename\n        }\n        side\n        players {\n          playerID\n          teamID\n          role\n          __typename\n        }\n        dismissalType\n        displayOrder\n        __typename\n      }\n      __typename\n    }\n    publishLineup\n    gameType {\n      name\n      value\n      maxBattersPerInnings\n      eScoringSettings {\n        dismissalsPerBatter\n        legalBallsPerOver\n        __typename\n      }\n      emergencyPlayersSettings {\n        enabled\n        __typename\n      }\n      playerPositionsSettings {\n        isInGamePositionsLineupVisible\n        __typename\n      }\n      clockType\n      __typename\n    }\n    formation {\n      template\n      __typename\n    }\n    __typename\n  }\n  tenantConfiguration {\n    label\n    statistics {\n      enabled\n      __typename\n    }\n    showPlayerPositionsInLineup\n    showDuckIconInBattingTable\n    periodType {\n      value\n      __typename\n    }\n    gameTypes {\n      gameType {\n        value\n        __typename\n      }\n      gameTypeFeatures {\n        lineupOrderingEnabled\n        __typename\n      }\n      __typename\n    }\n    ...TenantContactRolesConfiguration\n    __typename\n  }\n}\n\nfragment TeamFragment on DiscoverPossibleTeam {\n  ... on ProvisionalTeam {\n    name\n    pool {\n      id\n      name\n      __typename\n    }\n    __typename\n  }\n  ...DiscoverTeamFragment\n  __typename\n}\n\nfragment DiscoverTeamFragment on DiscoverTeam {\n  id\n  name\n  logo {\n    sizes {\n      url\n      dimensions {\n        width\n        height\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n  season {\n    id\n    name\n    competition {\n      id\n      name\n      __typename\n    }\n    __typename\n  }\n  organisation {\n    id\n    name\n    type\n    __typename\n  }\n  playerPointsCap\n  __typename\n}\n\nfragment OrganisationDetails on DiscoverOrganisation {\n  id\n  type\n  name\n  email\n  contactNumber\n  websiteUrl\n  address {\n    id\n    line1\n    suburb\n    postcode\n    state\n    country\n    __typename\n  }\n  logo {\n    sizes {\n      url\n      dimensions {\n        width\n        height\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n  contacts {\n    id\n    firstName\n    lastName\n    position\n    email\n    phone\n    __typename\n  }\n  shopVisible\n  __typename\n}\n\nfragment GameViewGameTeamStatisticsFragment on DiscoverGameTeamStatistics {\n  players {\n    playerNumber\n    player {\n      ... on DiscoverParticipant {\n        id\n        profile {\n          id\n          firstName\n          lastName\n          __typename\n        }\n        hasSeasonPermit\n        memberships {\n          ...ShortTermMembershipFields\n          __typename\n        }\n        __typename\n      }\n      ... on DiscoverParticipantFillInPlayer {\n        id\n        profile {\n          id\n          firstName\n          lastName\n          __typename\n        }\n        hasSeasonPermit\n        __typename\n      }\n      ... on DiscoverGamePermitFillInPlayer {\n        id\n        profile {\n          id\n          firstName\n          lastName\n          __typename\n        }\n        __typename\n      }\n      ... on DiscoverRegularFillInPlayer {\n        id\n        name\n        __typename\n      }\n      ... on DiscoverAnonymousParticipant {\n        id\n        name\n        hasGamePermit\n        hasSeasonPermit\n        __typename\n      }\n      __typename\n    }\n    statistics {\n      count\n      type {\n        value\n        __typename\n      }\n      __typename\n    }\n    periodStatistics {\n      period {\n        label\n        shortName\n        value\n        __typename\n      }\n      type\n      statistics {\n        type {\n          type\n          label\n          shortName\n          value\n          pointValue\n          applicableTo\n          advanced\n          __typename\n        }\n        count\n        details {\n          value\n          __typename\n        }\n        __typename\n      }\n      status\n      side\n      displayOrder\n      __typename\n    }\n    periods {\n      period {\n        label\n        shortName\n        value\n        __typename\n      }\n      overtimeSequenceNo\n      inGamePositions {\n        shortName\n        __typename\n      }\n      __typename\n    }\n    playerPoints\n    playerPosition {\n      positionType\n      shortName\n      order\n      __typename\n    }\n    captain {\n      name\n      shortName\n      __typename\n    }\n    lineupOrder\n    __typename\n  }\n  statistics {\n    count\n    type {\n      value\n      pointValue\n      __typename\n    }\n    __typename\n  }\n  periods {\n    period {\n      value\n      __typename\n    }\n    overtimeSequenceNo\n    statistics {\n      type {\n        value\n        __typename\n      }\n      count\n      __typename\n    }\n    teamEvents {\n      sequenceNo\n      playerID\n      statistic {\n        type {\n          value\n          __typename\n        }\n        count\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n  emergencyPlayers {\n    playerNumber\n    playerPoints\n    player {\n      ... on DiscoverParticipant {\n        id\n        profile {\n          id\n          firstName\n          lastName\n          __typename\n        }\n        hasSeasonPermit\n        __typename\n      }\n      ... on DiscoverParticipantFillInPlayer {\n        id\n        profile {\n          id\n          firstName\n          lastName\n          __typename\n        }\n        hasSeasonPermit\n        __typename\n      }\n      ... on DiscoverGamePermitFillInPlayer {\n        id\n        profile {\n          id\n          firstName\n          lastName\n          __typename\n        }\n        __typename\n      }\n      ... on DiscoverAnonymousParticipant {\n        id\n        name\n        hasGamePermit\n        hasSeasonPermit\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n  bestPlayers {\n    participant {\n      ... on DiscoverParticipant {\n        id\n        profile {\n          id\n          firstName\n          lastName\n          __typename\n        }\n        __typename\n      }\n      ... on DiscoverAnonymousParticipant {\n        name\n        __typename\n      }\n      __typename\n    }\n    ranking\n    __typename\n  }\n  coinTossWinningResult {\n    preference\n    __typename\n  }\n  __typename\n}\n\nfragment ShortTermMembershipFields on Membership {\n  history {\n    startDate\n    expiryDate\n    purchaseDate\n    __typename\n  }\n  categoryBasedFee {\n    tenantPeriod {\n      period\n      isShortTerm\n      __typename\n    }\n    __typename\n  }\n  organisation {\n    id\n    type\n    name\n    __typename\n  }\n  __typename\n}\n\nfragment TenantContactRolesConfiguration on TenantConfiguration {\n  contactRoles {\n    name\n    value\n    __typename\n  }\n  __typename\n}\n";
+
+// Concurrency: this is the MAIN api, not spectator, and this query is HEAVY — an
+// ~11 KB operation returning a large document, so it is nothing like the same
+// number of concurrent calls against publicProfileStatistics.
+// MEASURED 2026-08-11: 25 ran a 98% hit rate for ~140 games and then hit a wall
+// it never recovered from — sustained 403s, the retry path refreshing the session
+// over and over, transient failures reaching ~87% of all calls. 5 ran 200/200
+// clean in 52 s with zero failures. 5 IS THE DEFAULT AND SHOULD STAY: the nightly
+// crawl depends on this same endpoint, so a throttling regime provoked here
+// damages far more than this backfill. Raise it only with a measured probe.
+const CONCURRENCY_GAMEVIEW = Number((process.argv.find(a => a.startsWith('--concurrency=')) || '').replace('--concurrency=', '')) || 5;
+
+// Same classified-outcome contract as gqlSpectator below.
+async function gqlGameView(gameId) {
   if (!sessionCookie) await refreshSession();
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    let status, body, rawText;
-    try {
-      ({ status, body, rawText } = await doFetch(API_URL, { operationName, variables, query }, { ...HEADERS_MAIN, 'Cookie': sessionCookie }));
-    } catch (_) {
-      if (attempt < 2) { await sleep(1000); continue; }
-      return { kind: 'transient', data: null };
-    }
+  const body = {
+    operationName: 'gameView',
+    variables: { gameId, gameStatisticsFilter: { classification: 'TOTAL' } },
+    query: GV_QUERY,
+  };
+  try {
+    const { status, body: resp } = await doFetch(API_URL, body, { ...HEADERS_MAIN, 'Cookie': sessionCookie });
     if (status === 403) {
-      const isWaf = rawText && (rawText.includes('DOCTYPE') || rawText.includes('Request blocked'));
-      if (isWaf) return { kind: 'blocked', data: null };
       await refreshSession();
-      continue;
+      const retry = await doFetch(API_URL, body, { ...HEADERS_MAIN, 'Cookie': sessionCookie });
+      if (retry.status === 404) return { ok: false, permanent: true, why: '404' };
+      if (retry.status !== 200 || retry.body.errors) return { ok: false, permanent: false, why: '403-retry-' + retry.status };
+      const g403 = retry.body.data?.discoverGame;
+      return g403 ? { ok: true, game: g403 } : { ok: false, permanent: true, why: 'no-game' };
     }
-    if (status === 429 || status === 503) return { kind: 'transient', data: null };
-    if (status !== 200) { if (attempt < 2) { await sleep(1000); continue; } return { kind: 'transient', data: null }; }
-    if (body && body.errors) return { kind: 'transient', data: null };
-    return { kind: 'ok', data: (body && body.data) || null };
-  }
-  return { kind: 'transient', data: null };
+    if (status === 404) return { ok: false, permanent: true, why: '404' };
+    if (status !== 200) return { ok: false, permanent: false, why: 'http-' + status };
+    if (resp.errors) {
+      const msg = String((resp.errors[0] || {}).message || '').slice(0, 80);
+      const perm = /could not be found|not found|does not exist|no such|invalid.*id/i.test(msg);
+      return { ok: false, permanent: perm, why: 'graphql:' + (msg || 'nomsg') };
+    }
+    const g = resp.data?.discoverGame;
+    return g ? { ok: true, game: g } : { ok: false, permanent: true, why: 'no-game' };
+  } catch (e) { return { ok: false, permanent: false, why: 'network-' + (e.code || e.message || 'err') }; }
 }
 
-// ─── Pacing: copied from close-empty-seasons.js. A fixed sleep with no retry got
-//     that script walled after five seasons on 2026-09-08 (T52). ───────────────
-const PACE_MIN_MS = 150, PACE_MAX_MS = 4000;
-const BLOCK_RETRIES = 6, BLOCK_BACKOFF_MS = 5000, BLOCK_BACKOFF_CAP_MS = 60000;
-let paceMs = PACE_MIN_MS, consecutiveBlocks = 0, cleanRun = 0, totalBlocks = 0;
 
-async function gqlPaced(operationName, query, variables) {
-  for (let attempt = 1; attempt <= BLOCK_RETRIES; attempt++) {
-    const r = await gqlMain(operationName, query, variables);
-    if (r.kind !== 'blocked') {
-      consecutiveBlocks = 0;
-      if (++cleanRun >= 25 && paceMs > PACE_MIN_MS) { paceMs = Math.max(PACE_MIN_MS, Math.floor(paceMs * 0.75)); cleanRun = 0; }
-      await sleep(paceMs);
-      return r;
-    }
-    totalBlocks++; consecutiveBlocks++; cleanRun = 0;
-    if (consecutiveBlocks >= 2) paceMs = Math.min(PACE_MAX_MS, Math.max(PACE_MIN_MS * 2, paceMs * 2));
-    if (attempt < BLOCK_RETRIES) {
-      const backoff = Math.min(BLOCK_BACKOFF_CAP_MS, attempt * BLOCK_BACKOFF_MS);
-      console.log(`    ⚠ blocked (${operationName}) — retry ${attempt}/${BLOCK_RETRIES - 1} in ${backoff / 1000}s, pace now ${paceMs}ms`);
-      await sleep(backoff);
-    }
-  }
-  return { kind: 'blocked', data: null };
-}
-
-// ─── Queries: verbatim from nightly-crawl.js ────────────────────────────────
-const Q_GRADE_ROUNDS = `query gradeRounds($gradeID: ID!) {
-  discoverGrade(gradeID: $gradeID) {
-    id name hideScores
-    rounds { id name abbreviatedName current number isFinalsRound }
-    season { id competition { id organisation { id name } } }
-  }
-}`;
-
-const Q_FIXTURE_BY_ROUND = `query discoverFixtureByRound($roundID: ID!) {
-  discoverFixtureByRound(roundID: $roundID) {
-    games {
-      id date __typename
-      status { value }
-      result {
-        outcome { name value }
-        home { outcome { name value } statistics { count type { value } } }
-        away { outcome { name value } statistics { count type { value } } }
-      }
-    }
-  }
-}`;
+// ─── End of the verbatim block. ──────────────────────────────────────────────
 
 async function main() {
   log(`audit-nonfinal-games  READ-ONLY${COUNT_ONLY ? '  (COUNT ONLY — no API calls)' : ''}${ONLY_STATUS ? `  status=${ONLY_STATUS}` : ''}`);
@@ -219,36 +219,36 @@ async function main() {
   const index = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf8'));
   const meta  = index.seasons || {};
 
-  // ── Phase 1: count ────────────────────────────────────────────────────────
+  // ── Phase 1: count. No network. This alone answers "is anything frozen". ───
   const files = fs.readdirSync(GAMES_DIR).filter(f => f.endsWith('.json'));
   let totalGames = 0, filesRead = 0, noMeta = 0;
-  const byStatus = new Map();                 // status -> { locked, unlocked, unknown }
-  const perSeason = [];                       // { sid, locked, nonFinal, total, statuses }
+  const byStatus = new Map();
+  const perSeason = [];
 
   for (const fname of files) {
     const sid = fname.replace('.json', '');
     let gf;
     try { gf = JSON.parse(fs.readFileSync(path.join(GAMES_DIR, fname), 'utf8')); } catch { continue; }
     filesRead++;
-    const games = Object.values(gf.games || {});
-    totalGames += games.length;
+    const entries = Object.entries(gf.games || {});
+    totalGames += entries.length;
 
     const s = meta[sid];
     const bucket = !s ? 'unknown' : (s.locked === true ? 'locked' : 'unlocked');
     if (!s) noMeta++;
 
-    let nonFinal = 0;
+    const nonFinalIds = [];
     const statuses = {};
-    for (const g of games) {
+    for (const [gid, g] of entries) {
       const st = g.st === undefined ? '(absent)' : String(g.st);
       if (!byStatus.has(st)) byStatus.set(st, { locked: 0, unlocked: 0, unknown: 0 });
       byStatus.get(st)[bucket]++;
       if (TERMINAL.has(st)) continue;
       if (ONLY_STATUS && st !== ONLY_STATUS) continue;
-      nonFinal++;
+      nonFinalIds.push({ gid, st });
       statuses[st] = (statuses[st] || 0) + 1;
     }
-    if (nonFinal) perSeason.push({ sid, locked: bucket === 'locked', unknown: bucket === 'unknown', nonFinal, total: games.length, statuses, s });
+    if (nonFinalIds.length) perSeason.push({ sid, locked: bucket === 'locked', nonFinalIds, total: entries.length, statuses, s });
   }
 
   console.log(`  games files read      : ${filesRead} of ${files.length}`);
@@ -271,156 +271,98 @@ async function main() {
   console.log(`  non-final in unlocked seasons : ${recoverable}   ← tonight's nightly still covers these`);
   console.log(`${'═'.repeat(92)}`);
 
-  const lockedSeasons = perSeason.filter(x => x.locked).sort((a, b) => b.nonFinal - a.nonFinal);
+  const lockedSeasons = perSeason.filter(x => x.locked).sort((a, b) => b.nonFinalIds.length - a.nonFinalIds.length);
   console.log(`\n─── WORST LOCKED SEASONS ───────────────────────────────────────────────────────`);
   if (!lockedSeasons.length) console.log('    (none — nothing is frozen)');
   for (const x of lockedSeasons.slice(0, 25)) {
     const st = Object.entries(x.statuses).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}=${v}`).join(' ');
-    console.log(`    ${x.sid}  ${String(x.nonFinal).padStart(6)}/${String(x.total).padEnd(6)} non-final  ended ${String(x.s?.endDate || '?').padEnd(10)}  ${st.slice(0, 30).padEnd(30)}  ${(x.s?.fullName || '').slice(0, 34)}`);
+    console.log(`    ${x.sid}  ${String(x.nonFinalIds.length).padStart(6)}/${String(x.total).padEnd(6)} non-final  ended ${String(x.s?.endDate || '?').padEnd(10)}  ${st.slice(0, 30).padEnd(30)}  ${(x.s?.fullName || '').slice(0, 34)}`);
   }
   if (lockedSeasons.length > 25) console.log(`    … and ${lockedSeasons.length - 25} more`);
 
   if (COUNT_ONLY || !lockedSeasons.length) {
-    if (COUNT_ONLY) log('count only — PlayHQ was not asked. Drop --count-only to check the worst locked seasons.');
+    if (COUNT_ONLY) log('count only — PlayHQ was not asked. Drop --count-only to check the canonical record.');
     else log('nothing frozen — nothing to ask PlayHQ about.');
     return;
   }
 
-  // ── Phase 2: ask PlayHQ about the worst locked seasons ────────────────────
+  // ── Phase 2: ask the CANONICAL record, per game. ──────────────────────────
+  // No grades, no rounds, no season listing — just the game id we already hold.
   const queue = lockedSeasons.slice(0, MAX_SEASONS);
-  console.log(`\n─── ASKING PLAYHQ ABOUT THE ${queue.length} WORST LOCKED SEASON(S) ─────────────────────────`);
-  console.log(`    grades capped at ${MAX_GRADES} per season; a season whose grades are not ALL queried`);
-  console.log(`    reports coverage instead of a count, because a game in a grade we never asked`);
-  console.log(`    about is not a game PlayHQ has left non-final.`);
+  const sample = [];
+  for (const x of queue) for (const g of x.nonFinalIds.slice(0, PER_SEASON)) sample.push({ sid: x.sid, ...g });
+
+  console.log(`\n─── ASKING discoverGame ABOUT ${sample.length} GAME(S) ─────────────────────────────────`);
+  console.log(`    ${queue.length} season(s), up to ${PER_SEASON} games each, concurrency ${CONCURRENCY_GAMEVIEW}`);
   await refreshSession();
 
-  let stillNonFinal = 0, nowFinished = 0, noAnswer = 0, partialCoverage = 0, unanswered = 0;
+  let stillNonFinal = 0, nowFinished = 0, gone = 0, failed = 0;
+  const bySeason = new Map();
   const examples = [];
 
-  for (const x of queue) {
-    const gradesTotal = (x.s?.grades || []).length;
-    const grades = (x.s?.grades || []).slice(0, MAX_GRADES);
-    if (!grades.length) { console.log(`  ${x.sid}: no grades in the index — cannot ask`); noAnswer++; continue; }
-
-    let gf;
-    try { gf = JSON.parse(fs.readFileSync(path.join(GAMES_DIR, `${x.sid}.json`), 'utf8')); } catch { continue; }
-    const ours = new Map(Object.entries(gf.games || {}).filter(([, g]) => !TERMINAL.has(String(g.st))));
-
-    // ⚠️ INSTRUMENTED 2026-09-10. REVISION a REPORTED A CONCLUSION FROM ZERO
-    // QUESTIONS. It printed "still non-final 0 / FINISHED at PlayHQ 0 / failures 0"
-    // for all eight seasons and then concluded "nothing PlayHQ has finished is
-    // frozen here" — on the basis of nothing having been asked. Every counter was a
-    // real zero and the sentence read them as an answer, which is precisely the
-    // failure this whole family of tools exists to prevent.
-    //
-    // The coverage gate did not catch it because gradesOk === gradesTotal is
-    // satisfied when both are zero. So the pipeline is now counted at every stage:
-    // grades in the index, rounds returned, games PlayHQ served, and how many of
-    // those matched an id we hold. A stage that reports zero names itself.
-    //
-    // The likeliest cause is the last stage. `ours` is keyed by the game ids in
-    // games/bv, and the uuid-truncation migration rewrote ids in those files. If we
-    // hold truncated ids and PlayHQ serves full ones, `ours.has(g.id)` is false for
-    // every game and the loop skips everything in silence. Both id forms are sampled
-    // below so the shapes can be compared rather than guessed at.
-    let asked = 0, sStill = 0, sDone = 0, gradesOk = 0, sFail = 0;
-    let roundsSeen = 0, gamesServed = 0, matched = 0, gradesGone = 0;
-    const idSamples = [];
-    for (const gr of grades) {
-      const r1 = await gqlPaced('gradeRounds', Q_GRADE_ROUNDS, { gradeID: gr.id });
-      if (r1.kind !== 'ok') { sFail++; continue; }
-
-      // ⚠️ A GRADE PLAYHQ NO LONGER SERVES RETURNS ok WITH discoverGrade: null.
-      // Revision a treated that as a covered grade: `rounds` came out empty, the
-      // round loop never ran, roundsOk stayed true and gradesOk incremented — so
-      // eight seasons reported FULL COVERAGE, zero failures and zero questions, and
-      // the summary read that as "nothing is frozen". An absent grade is a failure
-      // to ASK, not an answer, and it is now counted as one.
-      if (!r1.data || !r1.data.discoverGrade) { gradesGone++; continue; }
-
-      const rounds = (r1.data.discoverGrade.rounds) || [];
-      roundsSeen += rounds.length;
-      let roundsOk = true;
-      for (const rd of rounds) {
-        const r2 = await gqlPaced('discoverFixtureByRound', Q_FIXTURE_BY_ROUND, { roundID: rd.id });
-        if (r2.kind !== 'ok') { roundsOk = false; sFail++; continue; }
-        const served = (r2.data?.discoverFixtureByRound?.games) || [];
-        gamesServed += served.length;
-        for (const g of served) {
-          if (idSamples.length < 3) idSamples.push(g.id);
-          if (!ours.has(g.id)) continue;
-          matched++;
-          asked++;
-          const theirs = g.status?.value || '(none)';
-          const hasResult = !!(g.result && ((g.result.home?.statistics?.length) || g.result.outcome?.value));
-          if (TERMINAL.has(String(theirs)) || hasResult) {
-            sDone++; nowFinished++;
-            if (examples.length < 15) examples.push({ sid: x.sid, gid: g.id, ours: ours.get(g.id).st, theirs, hasResult });
-          } else { sStill++; stillNonFinal++; }
-          ours.delete(g.id);
-        }
+  for (let i = 0; i < sample.length; i += CONCURRENCY_GAMEVIEW) {
+    const batch = sample.slice(i, i + CONCURRENCY_GAMEVIEW);
+    const results = await Promise.all(batch.map(async (item) => ({ item, r: await gqlGameView(item.gid) })));
+    for (const { item, r } of results) {
+      if (!bySeason.has(item.sid)) bySeason.set(item.sid, { asked: 0, still: 0, done: 0, gone: 0, fail: 0 });
+      const b = bySeason.get(item.sid);
+      b.asked++;
+      if (!r.ok) {
+        // permanent means PlayHQ does not hold the game at all — a real answer.
+        // Anything else is a failure to ask and is never counted as one.
+        if (r.permanent) { gone++; b.gone++; }
+        else             { failed++; b.fail++; }
+        continue;
       }
-      if (roundsOk) gradesOk++;
+      const theirs = r.game?.status?.value || '(none)';
+      const hs = r.game?.result?.home?.score, as = r.game?.result?.away?.score;
+      const hasScore = hs != null || as != null;
+      if (TERMINAL.has(String(theirs)) || hasScore) {
+        nowFinished++; b.done++;
+        if (examples.length < 20) examples.push({ sid: item.sid, gid: item.gid, ours: item.st, theirs, score: hasScore ? `${hs}-${as}` : 'none' });
+      } else { stillNonFinal++; b.still++; }
     }
-    // Zero grades, zero rounds and zero served games are three different failures
-    // and must never share a line with a real answer.
-    const full = gradesTotal > 0 && gradesOk === gradesTotal;
-    if (!full) partialCoverage++;
-    if (asked === 0) {
-      unanswered++;
-      const why = gradesTotal === 0 ? 'NO GRADES in the index for this season'
-                : gradesGone === grades.length ? `PlayHQ NO LONGER SERVES any of the ${grades.length} grade(s) asked — discoverGrade returned null`
-                : gradesGone > 0    ? `${gradesGone} of ${grades.length} grade(s) no longer served by PlayHQ`
-                : gradesOk === 0    ? `all ${gradesTotal} grade lookup(s) failed`
-                : roundsSeen === 0  ? `${gradesOk} grade(s) returned but NO ROUNDS`
-                : gamesServed === 0 ? `${roundsSeen} round(s) returned but NO GAMES`
-                :                     `PlayHQ served ${gamesServed} game(s), NONE matched an id we hold`;
-      console.log(`  ${x.sid}  ⚠ NOTHING ASKED — ${why}`);
-      console.log(`      grades ${gradesOk}/${gradesTotal} covered, ${gradesGone} no longer served  rounds ${roundsSeen}  games served ${gamesServed}  matched ${matched}  failures ${sFail}`);
-      if (idSamples.length) {
-        const oursSample = [...ours.keys()].slice(0, 3);
-        console.log(`      PlayHQ game ids : ${idSamples.join(', ')}`);
-        console.log(`      our game ids    : ${oursSample.join(', ')}`);
-        const pl = idSamples[0] ? idSamples[0].length : 0;
-        const ol = oursSample[0] ? oursSample[0].length : 0;
-        if (pl && ol && pl !== ol) console.log(`      ⚠ ID LENGTHS DIFFER: PlayHQ ${pl} chars, ours ${ol} — the ids cannot match`);
-      }
-      continue;
-    }
-    console.log(`  ${x.sid}  asked ${String(asked).padStart(5)}  →  still non-final ${String(sStill).padStart(5)}   FINISHED at PlayHQ ${String(sDone).padStart(5)}   failures ${sFail}   grades ${gradesOk}/${gradesTotal}${gradesGone ? ` (${gradesGone} gone)` : ''}  served ${gamesServed}  matched ${matched}${full ? '' : '   [PARTIAL COVERAGE]'}`);
+    await sleep(200);
   }
 
+  console.log('');
+  for (const x of queue) {
+    const b = bySeason.get(x.sid);
+    if (!b) continue;
+    const answered = b.still + b.done + b.gone;
+    if (answered === 0) { console.log(`  ${x.sid}  ⚠ NOTHING ANSWERED — ${b.fail} call(s) failed, no result either way`); continue; }
+    console.log(`  ${x.sid}  asked ${String(b.asked).padStart(4)}  →  still non-final ${String(b.still).padStart(4)}   FINISHED at PlayHQ ${String(b.done).padStart(4)}   not held by PlayHQ ${String(b.gone).padStart(4)}   failures ${b.fail}`);
+  }
+
+  const answeredTotal = stillNonFinal + nowFinished + gone;
   console.log(`\n${'═'.repeat(92)}`);
-  console.log(`  still non-final at PlayHQ : ${stillNonFinal}   → the game really was left mid-scoring; nothing to recover`);
+  console.log(`  games asked about         : ${sample.length}`);
+  console.log(`  still non-final at PlayHQ : ${stillNonFinal}   → PlayHQ never completed it either; nothing to recover`);
   console.log(`  FINISHED at PlayHQ        : ${nowFinished}   → WE MISSED IT. A real capture gap.`);
-  console.log(`  seasons we could not ask  : ${noAnswer}`);
-  console.log(`  seasons where NOTHING was asked : ${unanswered}   ← NOT a finding; see the reason on each line above`);
-  console.log(`  seasons partially covered : ${partialCoverage}   (raise --max-grades to close these)`);
-  console.log(`  CloudFront blocks absorbed: ${totalBlocks}`);
+  console.log(`  not held by PlayHQ at all : ${gone}   → the game no longer exists upstream`);
+  console.log(`  failed (no answer)        : ${failed}   ← NOT a finding either way`);
   console.log(`${'═'.repeat(92)}`);
 
   if (examples.length) {
-    console.log(`\n  games PlayHQ has finished and we hold as non-final:`);
-    for (const e of examples) console.log(`    season ${e.sid}  game ${e.gid}   ours=${e.ours}  playhq=${e.theirs}  result=${e.hasResult ? 'yes' : 'no'}`);
+    console.log(`\n  games PlayHQ has a result for that we hold as non-final:`);
+    for (const e of examples) console.log(`    season ${e.sid}  game ${e.gid}   ours=${e.ours}  playhq=${e.theirs}  score=${e.score}`);
   }
 
-  // A conclusion may only be drawn from questions that were actually put.
-  if (stillNonFinal + nowFinished === 0) {
-    console.log(`\n  \u26a0 NO GAME WAS ASKED ABOUT. This run establishes NOTHING about whether those`);
-    console.log(`    games are finished at PlayHQ — do not read the zeros above as an answer.`);
-    console.log(`    Revision a printed a conclusion here from exactly this state. Read the`);
-    console.log(`    per-season reasons: no grades, no rounds, no games served, or ids that`);
-    console.log(`    cannot match. Fix that before drawing anything from this tool.`);
+  // A conclusion may only be drawn from questions that were actually answered.
+  if (answeredTotal === 0) {
+    console.log(`\n  \u26a0 NOT ONE GAME WAS ANSWERED. This run establishes NOTHING — do not read the`);
+    console.log(`    zeros above as a finding. ${failed} call(s) failed. Re-run.`);
   } else if (nowFinished > 0) {
-    console.log(`\n  \u26a0 ${nowFinished} game(s) are finished at PlayHQ and non-final here, inside LOCKED`);
-    console.log(`    seasons the nightly will never revisit. Locking those was premature. Reopen by`);
-    console.log(`    clearing locked/lockedAt/lockedReason on the affected ids, let a nightly run,`);
-    console.log(`    and consider whether lock-quiet-seasons should refuse a season holding`);
-    console.log(`    non-final games at all.`);
+    const pct = (nowFinished / answeredTotal * 100).toFixed(1);
+    console.log(`\n  \u26a0 ${nowFinished} of ${answeredTotal} answered (${pct}%) ARE FINISHED at PlayHQ and non-final here,`);
+    console.log(`    inside LOCKED seasons the nightly will never revisit. That is a real capture`);
+    console.log(`    gap. Scaled across ${frozen} frozen games it is roughly ${Math.round(frozen * nowFinished / answeredTotal)}.`);
+    console.log(`    Reopen the affected seasons by clearing locked/lockedAt/lockedReason, or`);
+    console.log(`    backfill them per game — discover-game-backfill.js already does exactly this.`);
   } else {
-    console.log(`\n  Nothing PlayHQ has finished is frozen here. LIVE/PENDING in a locked season is`);
-    console.log(`  a game PlayHQ itself never completed, the same finding as the PENDING work on`);
-    console.log(`  2026-09-08 (685 asked, 0 finished).`);
+    console.log(`\n  Nothing PlayHQ holds a result for is frozen here, across ${answeredTotal} answered game(s).`);
+    console.log(`  A non-final game in a locked season is one PlayHQ itself never completed — the`);
+    console.log(`  same finding as the PENDING work on 2026-09-08 (685 asked, 0 finished).`);
   }
   log('read-only — nothing written, nothing committed.');
 }
