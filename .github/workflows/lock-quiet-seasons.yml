@@ -39,12 +39,35 @@ name: Lock Quiet Seasons (season lifecycle)
 # finished season ever moves — the only evidence that could ever justify a window
 # shorter than three months. Raise lock_after_months to make the streak gate again.
 #
-# NO CONCURRENCY LOCK, DELIBERATELY. It writes sports-index.json, which the nightly
-# and both sweeps also write — but `data-write` is a trap here (T19): GitHub allows
-# ONE waiter per group, and adding three build workflows to that group in August 2026
-# made each new arrival evict the previous waiter until all three stopped running.
-# Push contention is handled by the script's 60-attempt retry with jitter, which
-# THROWS on exhaustion. The loop decides the outcome, never the clock.
+# ⚠️ data-write LOCK ADDED 2026-09-09. IT SHIPPED WITHOUT ONE AND THAT WAS WRONG.
+#
+# The original reasoning cited T19: GitHub allows ONE waiter per concurrency group,
+# and adding three build workflows to `data-write` in August 2026 made each new
+# arrival evict the previous waiter until all three stopped running.
+#
+# That harm does not apply here. Those three were DISPATCHED in a burst at the end of
+# a matrix chain, so an evicted waiter lost its run permanently. This is a DAILY CRON:
+# if it is evicted while waiting it simply does not run today, and tomorrow's pass
+# does the same work from the same fingerprints. Missing a day costs nothing.
+#
+# What the missing lock did cost is real. Every writer of sports-index.json uses
+# `merge -X ours`, so two concurrent writers do NOT produce a conflict the push retry
+# can catch — whoever pushes second keeps its own copy of the file and SILENTLY
+# DISCARDS the other's changes. The retry loop protects against a rejected push, not
+# against that. Four things write this file: discover-org-seasons (19:00 UTC daily),
+# close-empty-seasons (21:30 UTC Sundays), the matrix `reduce` job, and this. The
+# nominal gaps looked ample until 2026-09-09, when this cron started at 22:41 instead
+# of 20:30 — GitHub queues scheduled runs under load, and a two-hour drift closes a
+# ninety-minute gap.
+#
+# nightly-crawl.yml also holds data-write, for up to five hours, and does NOT write
+# sports-index.json — so this job will sometimes wait for something that is not a
+# conflict. That is the price of using the group the other three index writers
+# already share, and it is worth paying: a split group would leave this racing the
+# matrix reduce, which is a real conflict.
+concurrency:
+  group: data-write
+  cancel-in-progress: false
 #
 # NO actions/setup-node. This job makes no network calls, and preinstalled node is
 # what every other script here runs on.

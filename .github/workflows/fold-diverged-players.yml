@@ -26,12 +26,13 @@ on:
         default: false
         type: boolean
       mode:
-        description: "dry-run = scan and report diverged files only (nothing written). apply = fold them to their api-id paths, move index entries, repoint orphaned aliases, single commit. repoint-only = do NOT fold; repair just the alias values orphaned by a PREVIOUS fold, reconstructing the mapping from the player files themselves (each file's spectatorIds[]) — it needs no report and no extra input. Normally triggered automatically by matrix completion with mode=apply. 2026-08-31: the merge keeper changed — run dry-run once and read the two new summary rows before letting apply run again."
+        description: "dry-run = scan and report diverged files only (nothing written). apply = fold them to their api-id paths, move index entries, repoint orphaned aliases, single commit. repoint-only = do NOT fold; repair just the alias values orphaned by a PREVIOUS fold, reconstructing the mapping from the player files themselves (each file's spectatorIds[]) — it needs no report and no extra input. repoint-only-dry = the same scan, reporting what it would repoint, writing nothing. Normally triggered automatically by matrix completion with mode=apply. 2026-08-31: the merge keeper changed — run dry-run once and read the two new summary rows before letting apply run again."
         type: choice
         options:
           - dry-run
           - apply
           - repoint-only
+          - repoint-only-dry
         default: dry-run
 
 permissions:
@@ -80,10 +81,16 @@ jobs:
       # 2026-07-30 repair fix 0 of 284 dangling aliases. It is now advisory only.
       - name: Run fold
         run: |
+          # ⚠️ repoint-only-dry ADDED 2026-09-09. Until then repoint-only could NOT be
+          # previewed: this case passed --repoint-only alone, so --dry-run was never
+          # set and that branch always wrote and committed. Selecting mode=dry-run ran
+          # the FOLD's dry run — a different code path that says nothing about aliases
+          # — so there was no way to see what a repoint would do before doing it.
           case "${{ github.event.inputs.mode }}" in
-            apply)        node scripts/fold-diverged-players.js ;;
-            repoint-only) node scripts/fold-diverged-players.js --repoint-only ;;
-            *)            node scripts/fold-diverged-players.js --dry-run ;;
+            apply)            node scripts/fold-diverged-players.js ;;
+            repoint-only)     node scripts/fold-diverged-players.js --repoint-only ;;
+            repoint-only-dry) node scripts/fold-diverged-players.js --repoint-only --dry-run ;;
+            *)                node scripts/fold-diverged-players.js --dry-run ;;
           esac
 
       # ── Hand the un-checked players back to the matrix ──────────────────────
@@ -107,6 +114,8 @@ jobs:
       # post-drain-chain has released it, so nightly-crawl and its win-loss job are
       # finished. That is the race nightly-crawl.yml's `needs: [crawl, team-stats,
       # win-loss]` ordering exists to prevent, and it is not in play here.
+      # Both dispatch steps are gated on mode == 'apply', so neither repoint-only nor
+      # repoint-only-dry can trigger a re-fetch chain.
       - name: Install dispatch retry helper
         if: ${{ github.event.inputs.mode == 'apply' && github.event.inputs.no_refetch_dispatch != 'true' }}
         # Copied VERBATIM from fetch-profile-stats-matrix.yml, the proven site —
