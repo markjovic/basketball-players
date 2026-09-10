@@ -368,7 +368,29 @@ async function main() {
     // and on 2026-09-10 it was reported SPENT. It publishes the site.
     // Being dispatched is evidence of use that does not depend on the document
     // being maintained, which is the whole reason to prefer it.
-    const dispatchedBy = wf.filter(o => o.file !== w.file && o.body.includes(w.file)).map(o => o.file);
+    // ⚠️ A MENTION IS NOT A DISPATCH. The first version matched the filename
+    // anywhere in another workflow's body, which counted COMMENTS. On 2026-09-10
+    // close-empty-seasons.yml and lock-quiet-seasons.yml each reported the other as
+    // its dispatcher — neither dispatches anything, they simply reference each other
+    // in prose I had written. cleanup-repo.yml reported audit-tooling-inventory.yml
+    // as a dispatcher for the same reason: a header sentence saying deletion stays
+    // with cleanup-repo.
+    //
+    // Harmless there, because all of those are live anyway. Not harmless in general:
+    // this signal OVERRIDES the manifest, so a stray mention in a comment can mark a
+    // dead workflow as live. backfill.yml was reported LIVE with six dispatchers
+    // while simultaneously appearing in the BROKEN list because backfill.js does not
+    // exist — a workflow that calls a missing script cannot be live.
+    //
+    // A dispatch is `gh workflow run <name>` on a line that is not a comment.
+    const dispatchedBy = wf.filter(o => {
+      if (o.file === w.file) return false;
+      return o.body.split('\n').some(line => {
+        const t = line.trim();
+        if (t.startsWith('#')) return false;
+        return /gh\s+workflow\s+run/.test(line) && line.includes(w.file);
+      });
+    }).map(o => o.file);
     const wman = manifestOf(w.file);
     workflows.push({ path: `.github/workflows/${w.file}`, displayName: w.displayName, klass,
                      invokes: w.invokes, missingScripts: missing, hasSchedule: w.hasSchedule,
@@ -425,6 +447,10 @@ async function main() {
     const inLive = x.manifestSection === '2.1' || x.manifestSection === '3.1' || x.manifestSection === '3.2';
     const inTool = x.manifestSection === '2.2' || x.manifestSection === '3.3';
     if (x.klass === 'SCHEDULED' || inLive)          return 'LIVE — runs on a schedule or in the nightly chain';
+    // A workflow calling a script that is not in the repo cannot be live, whoever
+    // dispatches it. Checked BEFORE the dispatch signal so a chain member that has
+    // lost its script is not protected by the chain.
+    if (x.klass && x.klass.startsWith('BROKEN'))    return 'BROKEN — calls a script that is not in the repo';
     if (x.dispatchedBy && x.dispatchedBy.length)    return `LIVE — dispatched by ${x.dispatchedBy.join(', ')}`;
     if (x.klass.startsWith('LIBRARY (required'))    return 'LIVE — required by another script';
     if (inTool)                                     return 'KEEP — recorded in the manifest as an on-demand tool';
