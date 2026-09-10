@@ -99,7 +99,19 @@ jobs:
   team-stats:
     needs: crawl
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # ⚠️ RAISED 60 -> 240 on 2026-09-09. IT MUST STAY ABOVE THE PUSH RETRY BUDGET (T55).
+    # build-team-stats.js's gitCommit is the house loop: 60 attempts with 1-91s random
+    # jitter, which is ~89 minutes of sleeping plus ~20 minutes of fetch/merge/push
+    # cycles — about 109 minutes for a SINGLE commit. And it commits every 50 seasons
+    # (COMMIT_EVERY), so a run makes several. 60 sat inside that budget from the day
+    # the loop was added on 2026-07-28: contention killed the job mid-retry and the log
+    # showed a timeout instead of the real push error.
+    #
+    # Also fixed the same day: its stage/commit failure used to print and return, so
+    # only a push failure could turn the job red.
+    #
+    # If COMMIT_EVERY, the attempt count or the jitter range change, re-check this.
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
         with:
@@ -157,7 +169,17 @@ jobs:
   venue-lookup:
     needs: crawl
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # ⚠️ RAISED 30 -> 180 on 2026-09-09, BECAUSE THE SCRIPT CHANGED (T55).
+    # 30 was correct for the loop update-venue-lookup.js used to have: 10 attempts with
+    # a short backoff, about 8 minutes worst case. But that loop also SWALLOWED a total
+    # push failure and returned, so the job went green having written nothing, and its
+    # merge was missing --no-stat (the ENOBUFS class). It is now on the house pattern —
+    # 60 attempts, 1-91s jitter, throws on exhaustion — which is ~109 minutes worst
+    # case, and 30 would now kill it mid-retry.
+    #
+    # This is the trap in both directions: raising a retry loop makes a timeout that
+    # was correct yesterday wrong today. Change one, re-check the other.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
         with:
