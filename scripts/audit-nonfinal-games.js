@@ -1,5 +1,6 @@
 // scripts/audit-nonfinal-games.js
-// REVISION 2026-09-10a — first version.
+// REVISION 2026-09-10b — instruments the ask phase; 10a reported a conclusion from
+// zero questions.
 //
 // READ-ONLY. Counts every game that has not reached a terminal state, splits them by
 // whether their season is locked, and then asks PlayHQ what it says about the worst
@@ -293,7 +294,7 @@ async function main() {
   console.log(`    about is not a game PlayHQ has left non-final.`);
   await refreshSession();
 
-  let stillNonFinal = 0, nowFinished = 0, noAnswer = 0, partialCoverage = 0;
+  let stillNonFinal = 0, nowFinished = 0, noAnswer = 0, partialCoverage = 0, unanswered = 0;
   const examples = [];
 
   for (const x of queue) {
@@ -305,17 +306,50 @@ async function main() {
     try { gf = JSON.parse(fs.readFileSync(path.join(GAMES_DIR, `${x.sid}.json`), 'utf8')); } catch { continue; }
     const ours = new Map(Object.entries(gf.games || {}).filter(([, g]) => !TERMINAL.has(String(g.st))));
 
+    // ⚠️ INSTRUMENTED 2026-09-10. REVISION a REPORTED A CONCLUSION FROM ZERO
+    // QUESTIONS. It printed "still non-final 0 / FINISHED at PlayHQ 0 / failures 0"
+    // for all eight seasons and then concluded "nothing PlayHQ has finished is
+    // frozen here" — on the basis of nothing having been asked. Every counter was a
+    // real zero and the sentence read them as an answer, which is precisely the
+    // failure this whole family of tools exists to prevent.
+    //
+    // The coverage gate did not catch it because gradesOk === gradesTotal is
+    // satisfied when both are zero. So the pipeline is now counted at every stage:
+    // grades in the index, rounds returned, games PlayHQ served, and how many of
+    // those matched an id we hold. A stage that reports zero names itself.
+    //
+    // The likeliest cause is the last stage. `ours` is keyed by the game ids in
+    // games/bv, and the uuid-truncation migration rewrote ids in those files. If we
+    // hold truncated ids and PlayHQ serves full ones, `ours.has(g.id)` is false for
+    // every game and the loop skips everything in silence. Both id forms are sampled
+    // below so the shapes can be compared rather than guessed at.
     let asked = 0, sStill = 0, sDone = 0, gradesOk = 0, sFail = 0;
+    let roundsSeen = 0, gamesServed = 0, matched = 0, gradesGone = 0;
+    const idSamples = [];
     for (const gr of grades) {
       const r1 = await gqlPaced('gradeRounds', Q_GRADE_ROUNDS, { gradeID: gr.id });
       if (r1.kind !== 'ok') { sFail++; continue; }
-      const rounds = (r1.data?.discoverGrade?.rounds) || [];
+
+      // ⚠️ A GRADE PLAYHQ NO LONGER SERVES RETURNS ok WITH discoverGrade: null.
+      // Revision a treated that as a covered grade: `rounds` came out empty, the
+      // round loop never ran, roundsOk stayed true and gradesOk incremented — so
+      // eight seasons reported FULL COVERAGE, zero failures and zero questions, and
+      // the summary read that as "nothing is frozen". An absent grade is a failure
+      // to ASK, not an answer, and it is now counted as one.
+      if (!r1.data || !r1.data.discoverGrade) { gradesGone++; continue; }
+
+      const rounds = (r1.data.discoverGrade.rounds) || [];
+      roundsSeen += rounds.length;
       let roundsOk = true;
       for (const rd of rounds) {
         const r2 = await gqlPaced('discoverFixtureByRound', Q_FIXTURE_BY_ROUND, { roundID: rd.id });
         if (r2.kind !== 'ok') { roundsOk = false; sFail++; continue; }
-        for (const g of (r2.data?.discoverFixtureByRound?.games) || []) {
+        const served = (r2.data?.discoverFixtureByRound?.games) || [];
+        gamesServed += served.length;
+        for (const g of served) {
+          if (idSamples.length < 3) idSamples.push(g.id);
           if (!ours.has(g.id)) continue;
+          matched++;
           asked++;
           const theirs = g.status?.value || '(none)';
           const hasResult = !!(g.result && ((g.result.home?.statistics?.length) || g.result.outcome?.value));
@@ -328,15 +362,39 @@ async function main() {
       }
       if (roundsOk) gradesOk++;
     }
-    const full = gradesOk === gradesTotal;
+    // Zero grades, zero rounds and zero served games are three different failures
+    // and must never share a line with a real answer.
+    const full = gradesTotal > 0 && gradesOk === gradesTotal;
     if (!full) partialCoverage++;
-    console.log(`  ${x.sid}  asked ${String(asked).padStart(5)}  →  still non-final ${String(sStill).padStart(5)}   FINISHED at PlayHQ ${String(sDone).padStart(5)}   failures ${sFail}${full ? '' : `   [COVERAGE ${gradesOk}/${gradesTotal} grades]`}`);
+    if (asked === 0) {
+      unanswered++;
+      const why = gradesTotal === 0 ? 'NO GRADES in the index for this season'
+                : gradesGone === grades.length ? `PlayHQ NO LONGER SERVES any of the ${grades.length} grade(s) asked — discoverGrade returned null`
+                : gradesGone > 0    ? `${gradesGone} of ${grades.length} grade(s) no longer served by PlayHQ`
+                : gradesOk === 0    ? `all ${gradesTotal} grade lookup(s) failed`
+                : roundsSeen === 0  ? `${gradesOk} grade(s) returned but NO ROUNDS`
+                : gamesServed === 0 ? `${roundsSeen} round(s) returned but NO GAMES`
+                :                     `PlayHQ served ${gamesServed} game(s), NONE matched an id we hold`;
+      console.log(`  ${x.sid}  ⚠ NOTHING ASKED — ${why}`);
+      console.log(`      grades ${gradesOk}/${gradesTotal} covered, ${gradesGone} no longer served  rounds ${roundsSeen}  games served ${gamesServed}  matched ${matched}  failures ${sFail}`);
+      if (idSamples.length) {
+        const oursSample = [...ours.keys()].slice(0, 3);
+        console.log(`      PlayHQ game ids : ${idSamples.join(', ')}`);
+        console.log(`      our game ids    : ${oursSample.join(', ')}`);
+        const pl = idSamples[0] ? idSamples[0].length : 0;
+        const ol = oursSample[0] ? oursSample[0].length : 0;
+        if (pl && ol && pl !== ol) console.log(`      ⚠ ID LENGTHS DIFFER: PlayHQ ${pl} chars, ours ${ol} — the ids cannot match`);
+      }
+      continue;
+    }
+    console.log(`  ${x.sid}  asked ${String(asked).padStart(5)}  →  still non-final ${String(sStill).padStart(5)}   FINISHED at PlayHQ ${String(sDone).padStart(5)}   failures ${sFail}   grades ${gradesOk}/${gradesTotal}${gradesGone ? ` (${gradesGone} gone)` : ''}  served ${gamesServed}  matched ${matched}${full ? '' : '   [PARTIAL COVERAGE]'}`);
   }
 
   console.log(`\n${'═'.repeat(92)}`);
   console.log(`  still non-final at PlayHQ : ${stillNonFinal}   → the game really was left mid-scoring; nothing to recover`);
   console.log(`  FINISHED at PlayHQ        : ${nowFinished}   → WE MISSED IT. A real capture gap.`);
   console.log(`  seasons we could not ask  : ${noAnswer}`);
+  console.log(`  seasons where NOTHING was asked : ${unanswered}   ← NOT a finding; see the reason on each line above`);
   console.log(`  seasons partially covered : ${partialCoverage}   (raise --max-grades to close these)`);
   console.log(`  CloudFront blocks absorbed: ${totalBlocks}`);
   console.log(`${'═'.repeat(92)}`);
@@ -346,7 +404,14 @@ async function main() {
     for (const e of examples) console.log(`    season ${e.sid}  game ${e.gid}   ours=${e.ours}  playhq=${e.theirs}  result=${e.hasResult ? 'yes' : 'no'}`);
   }
 
-  if (nowFinished > 0) {
+  // A conclusion may only be drawn from questions that were actually put.
+  if (stillNonFinal + nowFinished === 0) {
+    console.log(`\n  \u26a0 NO GAME WAS ASKED ABOUT. This run establishes NOTHING about whether those`);
+    console.log(`    games are finished at PlayHQ — do not read the zeros above as an answer.`);
+    console.log(`    Revision a printed a conclusion here from exactly this state. Read the`);
+    console.log(`    per-season reasons: no grades, no rounds, no games served, or ids that`);
+    console.log(`    cannot match. Fix that before drawing anything from this tool.`);
+  } else if (nowFinished > 0) {
     console.log(`\n  \u26a0 ${nowFinished} game(s) are finished at PlayHQ and non-final here, inside LOCKED`);
     console.log(`    seasons the nightly will never revisit. Locking those was premature. Reopen by`);
     console.log(`    clearing locked/lockedAt/lockedReason on the affected ids, let a nightly run,`);
