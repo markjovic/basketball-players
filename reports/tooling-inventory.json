@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-09-10T10:02:19.804Z",
+  "generatedAt": "2026-09-10T10:08:43.987Z",
   "docsPresent": {
     "manifest": true,
-    "context": false,
-    "tasks": false
+    "context": true,
+    "tasks": true
   },
   "counts": {
     "scripts": 119,
@@ -171,10 +171,10 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "lastCommit": "2026-09-10T19:52:05+10:00",
+      "lastCommit": "2026-09-10T20:04:01+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 26825
+      "bytes": 27198
     },
     {
       "path": "scripts/audit-uuid-collisions.js",
@@ -1670,7 +1670,7 @@
         "redirect-exposure.yml"
       ],
       "requiredBy": [],
-      "documented": false,
+      "documented": true,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -2126,7 +2126,7 @@
         "size-report.yml"
       ],
       "requiredBy": [],
-      "documented": false,
+      "documented": true,
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
@@ -4454,7 +4454,7 @@
       "manifestClass": null,
       "manifestPurpose": null,
       "lastCommit": "2026-08-24T20:03:45+10:00",
-      "ageDays": 16,
+      "ageDays": 17,
       "recent": false,
       "bytes": 3315
     },
