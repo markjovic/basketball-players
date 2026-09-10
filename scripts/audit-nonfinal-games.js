@@ -1,6 +1,6 @@
 // scripts/audit-nonfinal-games.js
-// REVISION 2026-09-10c — the ask phase now uses gameView/discoverGame. Revisions a
-// and b asked the WRONG ENDPOINT ENTIRELY and established nothing.
+// REVISION 2026-09-10d — samples game ids and a URL for EVERY outcome, and stops
+// describing a withdrawn game as one PlayHQ never completed.
 //
 // READ-ONLY. Counts every game that has not reached a terminal state, splits them by
 // whether their season is locked, then asks PlayHQ's CANONICAL record what it says
@@ -299,6 +299,11 @@ async function main() {
   let stillNonFinal = 0, nowFinished = 0, gone = 0, failed = 0;
   const bySeason = new Map();
   const examples = [];
+  // ⚠️ ids were sampled for the FINISHED bucket only, and that bucket has been empty
+  // on every run — so the log named no game at all and a season could not be checked
+  // by hand without opening a games file. Every outcome now carries examples.
+  const sampleIds = { still: [], gone: [], failed: [] };
+  const GC = (gid) => `https://www.playhq.com/basketball-victoria/org/a/a/a/game-centre/${gid}`;
 
   for (let i = 0; i < sample.length; i += CONCURRENCY_GAMEVIEW) {
     const batch = sample.slice(i, i + CONCURRENCY_GAMEVIEW);
@@ -310,8 +315,8 @@ async function main() {
       if (!r.ok) {
         // permanent means PlayHQ does not hold the game at all — a real answer.
         // Anything else is a failure to ask and is never counted as one.
-        if (r.permanent) { gone++; b.gone++; }
-        else             { failed++; b.fail++; }
+        if (r.permanent) { gone++; b.gone++; if (sampleIds.gone.length < 6) sampleIds.gone.push({ ...item, why: r.why }); }
+        else             { failed++; b.fail++; if (sampleIds.failed.length < 6) sampleIds.failed.push({ ...item, why: r.why }); }
         continue;
       }
       const theirs = r.game?.status?.value || '(none)';
@@ -320,7 +325,10 @@ async function main() {
       if (TERMINAL.has(String(theirs)) || hasScore) {
         nowFinished++; b.done++;
         if (examples.length < 20) examples.push({ sid: item.sid, gid: item.gid, ours: item.st, theirs, score: hasScore ? `${hs}-${as}` : 'none' });
-      } else { stillNonFinal++; b.still++; }
+      } else {
+        stillNonFinal++; b.still++;
+        if (sampleIds.still.length < 6) sampleIds.still.push({ ...item, theirs });
+      }
     }
     await sleep(200);
   }
@@ -344,8 +352,20 @@ async function main() {
   console.log(`${'═'.repeat(92)}`);
 
   if (examples.length) {
-    console.log(`\n  games PlayHQ has a result for that we hold as non-final:`);
-    for (const e of examples) console.log(`    season ${e.sid}  game ${e.gid}   ours=${e.ours}  playhq=${e.theirs}  score=${e.score}`);
+    console.log(`\n  games PlayHQ HAS A RESULT for that we hold as non-final — check these first:`);
+    for (const e of examples) console.log(`    ${e.sid}  ours=${e.ours} playhq=${e.theirs} score=${e.score}\n      ${GC(e.gid)}`);
+  }
+  if (sampleIds.still.length) {
+    console.log(`\n  STILL SERVED but never completed — open these to see a live PlayHQ page:`);
+    for (const e of sampleIds.still) console.log(`    ${e.sid}  ours=${e.st} playhq=${e.theirs}\n      ${GC(e.gid)}`);
+  }
+  if (sampleIds.gone.length) {
+    console.log(`\n  NOT HELD by PlayHQ — these should 404 or redirect:`);
+    for (const e of sampleIds.gone) console.log(`    ${e.sid}  ours=${e.st}  (${e.why})\n      ${GC(e.gid)}`);
+  }
+  if (sampleIds.failed.length) {
+    console.log(`\n  FAILED to answer — re-run; these are not a finding:`);
+    for (const e of sampleIds.failed) console.log(`    ${e.sid}  ours=${e.st}  (${e.why})`);
   }
 
   // A conclusion may only be drawn from questions that were actually answered.
@@ -360,9 +380,25 @@ async function main() {
     console.log(`    Reopen the affected seasons by clearing locked/lockedAt/lockedReason, or`);
     console.log(`    backfill them per game — discover-game-backfill.js already does exactly this.`);
   } else {
+    // ⚠️ THIS USED TO SAY "PlayHQ itself never completed" FOR EVERYTHING, WHICH IS
+    // TRUE OF ONLY ONE OF THE TWO OUTCOMES. On 2026-09-10, 320 games across 40
+    // seasons split 232 not-held / 88 still-non-final — and the split was perfectly
+    // clean, every season 8/8 one way or 8/8 the other. Those are different facts
+    // about different competitions and collapsing them into one sentence is how a
+    // summary line gets quoted back later as the finding.
     console.log(`\n  Nothing PlayHQ holds a result for is frozen here, across ${answeredTotal} answered game(s).`);
-    console.log(`  A non-final game in a locked season is one PlayHQ itself never completed — the`);
-    console.log(`  same finding as the PENDING work on 2026-09-08 (685 asked, 0 finished).`);
+    console.log(`  Two DIFFERENT reasons, and they are not interchangeable:`);
+    if (gone) {
+      console.log(`    ${gone} game(s) are NOT HELD BY PLAYHQ AT ALL — the competition has been withdrawn`);
+      console.log(`      upstream. There is nothing to fetch, now or ever, and we hold the only copy.`);
+      console.log(`      These correlate with seasons showing no endDate: no organisation lists them.`);
+    }
+    if (stillNonFinal) {
+      console.log(`    ${stillNonFinal} game(s) ARE still served and PlayHQ still calls them non-final —`);
+      console.log(`      run and never scored. Same finding as the PENDING work on 2026-09-08`);
+      console.log(`      (685 asked, 0 finished), reached through a different endpoint.`);
+    }
+    console.log(`  Both lead to the same decision: nothing is recoverable, and locking cost nothing.`);
   }
   log('read-only — nothing written, nothing committed.');
 }
