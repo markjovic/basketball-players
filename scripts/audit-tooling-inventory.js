@@ -207,22 +207,27 @@ function lastRunDays() {
   const out = new Map();
   const repo = process.env.GITHUB_REPOSITORY;
   if (!repo) { console.log('  ⚠ GITHUB_REPOSITORY unset — run history unavailable (local run?)'); return out; }
+  // ⚠️ execFileSync, NOT execSync. This file imports execFileSync only, and the
+  // first version of this function used execSync — it threw "execSync is not
+  // defined" on every run, which the catch reported as "could not read workflow run
+  // history" and every verdict silently fell back to the structural inference this
+  // function exists to replace. Argument arrays, no shell, no interpolation.
+  const gh = (args) => execFileSync('gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 120000 });
   try {
-    const raw = execSync(
-      `gh api "repos/${repo}/actions/workflows?per_page=100" --paginate --jq '.workflows[] | [.path, .id] | @tsv'`,
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 120000 });
+    const raw = gh(['api', `repos/${repo}/actions/workflows?per_page=100`, '--paginate',
+                    '--jq', '.workflows[] | [.path, .id] | @tsv']);
     for (const line of raw.trim().split('\n').filter(Boolean)) {
       const [wpath, id] = line.split('\t');
       const file = String(wpath).replace(/^.*\//, '');
       let iso = '';
       try {
-        iso = execSync(
-          `gh api "repos/${repo}/actions/workflows/${id}/runs?per_page=1" --jq '.workflow_runs[0].created_at // empty'`,
-          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000 }).trim();
+        iso = gh(['api', `repos/${repo}/actions/workflows/${id}/runs?per_page=1`,
+                  '--jq', '.workflow_runs[0].created_at // empty']).trim();
       } catch (_) {}
       out.set(file, { days: iso ? Math.round((Date.now() - Date.parse(iso)) / 86400000) : null, iso: iso || null });
     }
-    console.log(`  workflow run history: ${out.size} workflow(s) queried`);
+    const withRuns = [...out.values()].filter(v => v.days !== null).length;
+    console.log(`  workflow run history: ${out.size} workflow(s) queried, ${withRuns} have run at least once`);
   } catch (e) {
     console.log(`  ⚠ could not read workflow run history: ${String(e.message).slice(0, 90)}`);
     console.log('    Verdicts fall back to structure alone, which has been wrong three times.');
