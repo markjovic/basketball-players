@@ -78,8 +78,12 @@ function gitCommit(message, dirs) {
     console.log(`  staging: ${staged}`);
     execSync(`git commit -q -m "${message.replace(/"/g, "'")}"`, { stdio: 'pipe', cwd: ROOT });
   } catch (e) {
-    console.error('  git error (stage/commit):', e.stderr?.toString().slice(0, 200) || e.message.slice(0, 200));
-    return;
+    // ⚠️ 2026-09-09: this used to print and RETURN. The push loop below throws on
+    // exhaustion, but a failure to STAGE or COMMIT exited zero — so a run could print
+    // "complete — N files" and go green having committed nothing, which is the exact
+    // outcome the 2026-07-28 rewrite set out to prevent and only half achieved.
+    const detail = e.stderr?.toString().slice(0, 200) || e.message.slice(0, 200);
+    throw new Error(`git stage/commit failed: ${detail}`);
   }
   for (let attempt = 1; attempt <= 60; attempt++) {
     try { execSync('git merge --abort', { stdio: 'pipe', cwd: ROOT }); } catch (_) { /* none in progress */ }

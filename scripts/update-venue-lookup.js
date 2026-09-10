@@ -36,27 +36,55 @@ const COMMIT_EVERY   = 100;  // venue date files written before commit
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// ⚠️ REWRITTEN 2026-09-09. THE PREVIOUS VERSION COULD LOSE A WHOLE RUN IN SILENCE.
+//
+// 1. THREE SWALLOWED FAILURES. `git add` was wrapped in `catch (_) {}`, the commit in
+//    `catch (_) { return; }`, and a total push failure printed "Push failed after 10
+//    attempts" and RETURNED. Every one of those exits ZERO, so the job showed green
+//    having written nothing. Same fault found the same week in build-venue-indexes.js,
+//    update-team-index.js and build-search-index.js.
+//
+// 2. `git merge -X ours FETCH_HEAD --no-edit` WITH NO `--no-stat`. git merge prints a
+//    full diffstat by default, scaling with everything landed on main since the last
+//    fetch — the ENOBUFS class this repo's rules name explicitly, and what killed a
+//    merge mid-flight at 25,593 changed files.
+//
+// 3. TEN ATTEMPTS, NOT SIXTY. The house loop is 60 with 1-91s jitter. Ten attempts at
+//    up to ~45s is roughly seven minutes of patience against a matrix storm that runs
+//    for the best part of an hour.
+//
+// Now the house pattern: per-path add, staged shortstat printed, commit BEFORE merge,
+// merge --abort before each retry, 60 attempts with random jitter, and it THROWS on
+// exhaustion. A lost run must show red.
+//
+// NOTE FOR WHOEVER CHANGES THE ATTEMPT COUNT: the nightly's venue-lookup job timeout
+// must stay ABOVE this loop's worst case (T55). 60 attempts x up to 91s is ~90
+// minutes of sleeping alone.
 async function gitCommit(message) {
   if (DRY_RUN) { console.log(`  [dry-run] would commit: ${message}`); return; }
-  try { execSync('git add venue-lookup/', { stdio: 'pipe', cwd: ROOT }); } catch (_) {}
-  const staged = (() => {
-    try { return execSync('git diff --staged --stat', { stdio: 'pipe', cwd: ROOT }).toString().trim(); }
-    catch (_) { return ''; }
-  })();
-  if (!staged) { return; }
-  try { execSync(`git commit -m "${message.replace(/"/g, "'")}"`, { stdio: 'pipe', cwd: ROOT }); }
-  catch (_) { return; }
-  const MAX = 10;
-  for (let attempt = 1; attempt <= MAX; attempt++) {
+
+  execSync('git add -- venue-lookup/', { stdio: 'pipe', cwd: ROOT, maxBuffer: 512 * 1024 * 1024 });
+
+  const staged = execSync('git diff --staged --shortstat',
+    { stdio: 'pipe', cwd: ROOT, maxBuffer: 10 * 1024 * 1024 }).toString().trim();
+  if (!staged) { console.log('  staging: no changes — nothing to commit'); return; }
+  console.log(`  staging: ${staged}`);
+
+  execSync(`git commit -q -m "${message.replace(/"/g, "'")}"`, { stdio: 'pipe', cwd: ROOT });
+
+  for (let attempt = 1; attempt <= 60; attempt++) {
+    try { execSync('git merge --abort', { stdio: 'pipe', cwd: ROOT }); } catch (_) { /* none in progress */ }
     try {
-      execSync('git fetch origin main',                   { stdio: 'pipe', cwd: ROOT });
-      execSync('git merge -X ours FETCH_HEAD --no-edit', { stdio: 'pipe', cwd: ROOT });
-      execSync('git push origin main',                   { stdio: 'pipe', cwd: ROOT });
-      console.log(`  ✓ Committed: ${message}`);
+      execSync('git fetch origin main',                            { stdio: 'pipe', cwd: ROOT });
+      execSync('git merge -X ours FETCH_HEAD --no-edit --no-stat', { stdio: 'pipe', cwd: ROOT });
+      execSync('git push origin main',                             { stdio: 'pipe', cwd: ROOT });
+      console.log(`  ✔ pushed (attempt ${attempt}): ${message}`);
       return;
-    } catch (_) {
-      if (attempt === MAX) { console.error(`  Push failed after ${MAX} attempts`); return; }
-      await sleep(Math.floor(Math.random() * 15000) + attempt * 3000);
+    } catch (e) {
+      const detail = (e.stderr || e.stdout || '').toString().trim().slice(0, 200) || e.message.slice(0, 200);
+      if (attempt === 60) throw new Error(`push failed after 60 attempts: ${detail}`);
+      const s = 1 + Math.floor(Math.random() * 91);
+      execSync(`sleep ${s}`, { stdio: 'pipe', cwd: ROOT });
     }
   }
 }
