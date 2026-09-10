@@ -184,6 +184,53 @@ async function gitCommit(message, dirs) {
 }
 // ─── Git helpers ──────────────────────────────────────────────────────────────
 
+// ─── When did it LAST ACTUALLY RUN? ─────────────────────────────────────────
+// ADDED 2026-09-10, after three attempts to infer a workflow's usefulness from
+// structure produced three different wrong answers — including calling deploy-pages
+// (which publishes the site) and cleanup-repo (the deletion tool itself) spent.
+//
+// A workflow can be live through a cron, a `workflow_run` on other workflows, a
+// `gh workflow run` in a shell, a helper script wrapping that call, or a person
+// pressing the button. The last leaves NO trace in the repository —
+// overnight-chain.yml is deliberately built as sequential jobs rather than
+// dispatches so it cannot displace itself, and that same decision makes it
+// structurally invisible.
+//
+// GitHub knows. A workflow that has not run in months is spent however it is
+// triggered; one that ran last night is live even when nothing in the repo explains
+// why. Evidence, not inference, and it needs no maintenance.
+//
+// Needs `actions: read` and the gh CLI (preinstalled on runners). Without it every
+// workflow reports an unknown date and the verdict falls back to structure — worse,
+// but it SAYS SO rather than pretending.
+function lastRunDays() {
+  const out = new Map();
+  const repo = process.env.GITHUB_REPOSITORY;
+  if (!repo) { console.log('  ⚠ GITHUB_REPOSITORY unset — run history unavailable (local run?)'); return out; }
+  try {
+    const raw = execSync(
+      `gh api "repos/${repo}/actions/workflows?per_page=100" --paginate --jq '.workflows[] | [.path, .id] | @tsv'`,
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 120000 });
+    for (const line of raw.trim().split('\n').filter(Boolean)) {
+      const [wpath, id] = line.split('\t');
+      const file = String(wpath).replace(/^.*\//, '');
+      let iso = '';
+      try {
+        iso = execSync(
+          `gh api "repos/${repo}/actions/workflows/${id}/runs?per_page=1" --jq '.workflow_runs[0].created_at // empty'`,
+          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000 }).trim();
+      } catch (_) {}
+      out.set(file, { days: iso ? Math.round((Date.now() - Date.parse(iso)) / 86400000) : null, iso: iso || null });
+    }
+    console.log(`  workflow run history: ${out.size} workflow(s) queried`);
+  } catch (e) {
+    console.log(`  ⚠ could not read workflow run history: ${String(e.message).slice(0, 90)}`);
+    console.log('    Verdicts fall back to structure alone, which has been wrong three times.');
+    console.log('    This needs `actions: read` permission and the gh CLI.');
+  }
+  return out;
+}
+
 function lastCommitISO(relPath) {
   try {
     const out = execFileSync('git', ['log', '-1', '--format=%cI', '--', relPath],
@@ -278,6 +325,8 @@ async function main() {
   if (!docsPresent.manifest) console.log('    script will read as undocumented. Treat that column as unknown, not as fact.\n');
 
   // Workflow bodies, once.
+  const runHistory = lastRunDays();
+
   const wf = workflowFiles.map(f => {
     const body = readText(path.join(WORKFLOWS_DIR, f));
     const nameMatch = body.match(/^name:\s*(.+)$/m);
@@ -383,6 +432,7 @@ async function main() {
     // exist — a workflow that calls a missing script cannot be live.
     //
     // A dispatch is `gh workflow run <name>` on a line that is not a comment.
+    const run = runHistory.get(w.file) || { days: null, iso: null };
     const dispatchedBy = wf.filter(o => {
       if (o.file === w.file) return false;
       return o.body.split('\n').some(line => {
@@ -394,6 +444,7 @@ async function main() {
     const wman = manifestOf(w.file);
     workflows.push({ path: `.github/workflows/${w.file}`, displayName: w.displayName, klass,
                      invokes: w.invokes, missingScripts: missing, hasSchedule: w.hasSchedule,
+                     triggers: w.triggers, lastRunDays: run.days, lastRunAt: run.iso,
                      manifestSection: wman ? wman.section : null,
                      manifestClass:   manLabel(wman),
                      manifestPurpose: wman ? wman.purpose : null,
@@ -443,15 +494,41 @@ async function main() {
   // The verdict is advisory. It reads the manifest as authority, and a manifest that
   // has not been maintained will under-list §2.2 and over-report SPENT. That is why
   // the stale-row count above matters, and why nothing here is deleted automatically.
+  // Run history outranks every structural signal, because it is the only one that
+  // cannot be wrong about how a workflow is triggered.
+  const RUN_LIVE_DAYS = Math.max(DAYS, 30);   // ran this recently => live
+  const RUN_DEAD_DAYS = 120;                  // has not run in this long => spent
   const verdictOf = (x) => {
+    // BROKEN first, even above run history: a workflow that ran yesterday AND calls
+    // a script that is not in the repo is defective, and that is the thing worth
+    // knowing. It ran; it did not work.
+    if (x.klass && x.klass.startsWith('BROKEN')) {
+      return `BROKEN — calls a script that is not in the repo${typeof x.lastRunDays === 'number' ? ` (last ran ${x.lastRunDays}d ago)` : ''}`;
+    }
+    if (typeof x.lastRunDays === 'number') {
+      if (x.lastRunDays <= RUN_LIVE_DAYS)  return `LIVE — actually ran ${x.lastRunDays}d ago`;
+      if (x.lastRunDays >= RUN_DEAD_DAYS)  return `SPENT — has not run in ${x.lastRunDays} days`;
+      // Between the two: it ran, but not recently. Structure decides, and the date
+      // is carried into the answer so nobody has to go and look it up.
+      const struct = structuralVerdict(x);
+      return `${struct}  [last ran ${x.lastRunDays}d ago]`;
+    }
+    const inLive = x.manifestSection === '2.1' || x.manifestSection === '3.1' || x.manifestSection === '3.2';
+    const inTool = x.manifestSection === '2.2' || x.manifestSection === '3.3';
+    return structuralVerdict(x);
+  };
+
+  // The old, inference-only path. Still used when GitHub has no run history for a
+  // workflow — a newly added one, or a run with no actions:read permission.
+  function structuralVerdict(x) {
     const inLive = x.manifestSection === '2.1' || x.manifestSection === '3.1' || x.manifestSection === '3.2';
     const inTool = x.manifestSection === '2.2' || x.manifestSection === '3.3';
     if (x.klass === 'SCHEDULED' || inLive)          return 'LIVE — runs on a schedule or in the nightly chain';
     // A workflow calling a script that is not in the repo cannot be live, whoever
     // dispatches it. Checked BEFORE the dispatch signal so a chain member that has
     // lost its script is not protected by the chain.
-    if (x.klass && x.klass.startsWith('BROKEN'))    return 'BROKEN — calls a script that is not in the repo';
     if (x.dispatchedBy && x.dispatchedBy.length)    return `LIVE — dispatched by ${x.dispatchedBy.join(', ')}`;
+    if (x.triggers && x.triggers.length)            return `LIVE — triggered by ${x.triggers.join(', ')}`;
     if (x.klass.startsWith('LIBRARY (required'))    return 'LIVE — required by another script';
     if (inTool)                                     return 'KEEP — recorded in the manifest as an on-demand tool';
     if (x.klass.startsWith('ORPHAN'))               return 'ORPHAN — nothing references it and no document mentions it';
