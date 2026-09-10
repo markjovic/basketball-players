@@ -1,20 +1,20 @@
 # REPO_MANIFEST.md — Basketball Victoria Stats System
- 
+
 **Canonical reference for `markjovic/sports-players-stats` and `markjovic/stattrack`.**
 Generated 2026-07-16 from a full read of all 78 scripts + 88 workflows, with the JSON
 writer→reader graph derived mechanically (grep of every `readFileSync`/`writeFileSync`/
 `unlinkSync` call), not from memory. This file is intended to replace re-uploading scripts
 into each new conversation: it documents every file's purpose, trigger, schedule, reads,
 writes, and how the pieces chain together.
- 
+
 > **Confidence markers:** every entry here was read in full ([V]-grade in the audit).
 > The only files NOT documented are ~40 already-deleted files listed on `cleanup-repo.yml`'s
 > manifest that never existed in any working tree during this audit — they are gone, not missing.
- 
+
 ---
- 
+
 ## 0. HOW TO READ THIS DOCUMENT
- 
+
 - **§1 Live core** — what actually runs on a schedule and how the jobs chain. Read this first.
 - **§2 Scripts** — every `scripts/*.js|*.cjs`, grouped by role, with reads/writes/trigger.
 - **§3 Workflows** — every `.github/workflows/*.yml`, with trigger, schedule, and the script it runs.
@@ -22,14 +22,15 @@ writes, and how the pieces chain together.
 - **§5 Progress files** — the resumable-checkpoint dotfiles and their delete-on-success behaviour.
 - **§6 Known issues & open decisions** — live bugs, contradictions, and design calls awaiting Mark.
 - **§7 Conventions** — the non-negotiable git/workflow/code rules this repo enforces.
+
 Legend for verdicts: **LIVE** (runs in steady state) · **TOOL** (on-demand ops utility, keep) ·
 **FIX** (live but has a bug to correct). Files that were completed one-offs have been DELETED (see the
 "removed in cleanup" records in §2.3 / §3.4 / §4.3); they are not listed as live files.
- 
+
 ---
- 
+
 ## 1. THE LIVE CORE (what runs automatically)
- 
+
 ### 1.1 Schedules
 | Workflow | Schedule (UTC) | Local (AEST) | Purpose |
 |---|---|---|---|
@@ -49,15 +50,15 @@ Legend for verdicts: **LIVE** (runs in steady state) · **TOOL** (on-demand ops 
 | `discover-fixtures.yml` | **cron 20:00 UTC Mon** (06:00 Tue AEST) — MOVED here 2026-08-10 | — | Weekly future-fixtures sweep; schedule mode = `--current-only` + stats chain (T27) |
 | `spectator-backfill.yml` | cron 10:00 UTC Sat — **COMMENTED OUT for the re-sweep campaign** (2026-08-08); re-enable at campaign end (OUTSTANDING §2.9) | — | Permanent weekly tail: sweeps games that aged past the 30-day guard |
 | `deploy-archive-pages.yml` | **cron 18:00 UTC Sat** (04:00 Sun AEST) + dispatched by graduation and backfill tails | — | **Lives in `markjovic/sports-players-stats-archive`**, builds the ARCHIVE origin from THIS repo's checkout (locked OR archivedAt — union rule) |
- 
+
 `deploy-pages.yml` trigger location, recorded precisely (2026-08-07 — the imprecision cost a session
 detour): `workflow_dispatch` + `workflow_run` on five workflow **NAMES** (Weekly Indexes, Build
 Leaderboards (Full), Build Search Index, Build Single-Game Records, Fold diverged players) — the
 dispatch is NOT in nightly-crawl.yml; the chaining happens via those terminals' completions, plus
 explicit dispatches from post-drain-chain and graduate-seasons.
- 
+
 Everything else is `workflow_dispatch` (manual) only.
- 
+
 ### 1.2 The nightly chain (topology)
 ```
 nightly-crawl (cron 15:00 UTC daily)  [concurrency: data-write]
@@ -102,7 +103,7 @@ nightly-crawl (cron 15:00 UTC daily)  [concurrency: data-write]
 └─ retrigger (if games_remaining≠0; stops after 3 zero-progress runs)
      └─ gh workflow run nightly-crawl.yml (self, consecutive_zeros incremented)
 ```
- 
+
 ### 1.3 The profile-stats matrix and the FOLD (critical operational detail)
 ```
 fetch-profile-stats-matrix (self-retriggers; run cap 150; 3 zero-written runs = "stuck"=DONE)
@@ -127,7 +128,7 @@ fetch-profile-stats-matrix (self-retriggers; run cap 150; 3 zero-written runs = 
      │        never see tonight's stats, so rosters lagged the player view by a day
      └─ if run≥150 → max_runs (exit 1, manual intervention)
 ```
- 
+
 > **THE FOLD TRIGGER — how it actually fires (corrected 2026-07-16):**
 > The fold is the 4th terminal action when the matrix reaches `status=stuck` (3 consecutive
 > zero-written runs). Crucially, the matrix **preserves its targeted shard set across self-retriggers**
@@ -145,24 +146,24 @@ fetch-profile-stats-matrix (self-retriggers; run cap 150; 3 zero-written runs = 
 > `stuck`, and the fold is skipped for that cycle. Also, a cycle that keeps finding just enough to write
 > on every run could hit the run cap (150) before stringing 3 zeros — unlikely on a small targeted set.
 > Neither is a wiring gap; both are reliability edges of a multi-dispatch chain. See §6.2.
- 
+
 ### 1.4 The event-driven fold (steady-state identity maintenance)
 `fold-diverged-players.yml` (mode=apply) reads every player file, finds those carrying an `apiId`
 (diverged/recovered players whose filename is still their old spectator id), moves them to their
 api-id path, relocates the index entry, and commits once. This is permanent steady-state, not
 migration residue: PlayHQ mints fresh spectator ids per person over time (the "Micaela Chang" case
 had 3), so stub→recover→alias→fold recurs. No schedule; event-driven only.
- 
+
 ---
- 
+
 ## 1z. SESSION 2026-08-23/24 — THE ALIAS TABLE, VERIFIED
- 
+
 The standing assumption was that `players/aliases` is correct. It had never been tested. Every entry
 was written by matching NAMES, and the matcher never checked whether the profile it picked actually
 credits the games the alias goes on to deliver.
- 
+
 **Three tiers of evidence, weakest last, each only reached when the one before ran out:**
- 
+
 1. **Credits** (`probe-alias-credits`) — does PlayHQ credit the target with these games?
    81,685 audited: **77,142 supported (98.9%)**, 874 not, 3,517 no answer.
 2. **Identity** (`probe-alias-names`) — who does the SPECTATOR box score say the id is?
@@ -172,15 +173,16 @@ credits the games the alias goes on to deliver.
 3. **Registrations** (`probe-shared-name-aliases`, OFFLINE) — which same-named candidate held a
    registration for that game's season to one of the two teams playing it?
    87 examined: 24 confirmed, **23 to repoint**, 4 ambiguous, 36 none-fit.
+
 **Applied:** 88 repoints, each re-verified against PlayHQ at apply time, then `build-player-games`
 rebuilt 27,373 player files. The 23 from tier 3 are pending §1.1 of OUTSTANDING_TASKS.
- 
+
 **The case that exposed it.** `900f4fe6-bec3` appears in PlayHQ box scores as "Jida McCrae-Cooper" and
 is NOT a PlayHQ profile — exactly what aliases exist for. Ours pointed it at `d6c25c0c`, a different
 profile with a similar name, while `60eeeaa9-ab28` is the one PlayHQ credits with those games. Roughly
 198 appearances sat on the wrong player, and `size-report` had been listing that alias third in its
 "worst offenders" table for days.
- 
+
 **How much of the session was wasted, and on what.** Five diagnostics each had their own id comparison
 and all five were wrong the same way (T37), producing a false split-identity finding and a false "185
 pairs are two people". A five-hour audit resolved almost nothing because the session went stale and
@@ -188,16 +190,16 @@ only the main loop refreshed it (T39). Three separate tools aborted on their fir
 report they read lived in a workflow artifact rather than the repo. Every one of those was the same
 fault class fixed one instance at a time. The two checks now at the top of `claude_context.md` exist
 to stop that, and they are checks to perform, not principles to hold.
- 
+
 ---
- 
+
 ## 2. SCRIPTS (`scripts/*.js`, `scripts/lib/*.cjs`)
- 
+
 All scripts use `const ROOT = path.join(__dirname, '..')`. CJS by default; ESM for
 build-finals-stats, build-leaderboards, build-player-games, build-records (they use `import`).
- 
+
 ### 2.1 Live pipeline (run on schedule / by the nightly chain) — KEEP
- 
+
 | Script | Purpose | Triggered by | Reads | Writes |
 |---|---|---|---|---|
 | `nightly-crawl.js` | Ingest new/changed games for active seasons; reclassify hidden; stub new players; flag stat-rechecks; **2026-07-21: `--rounds-forward=N|all` fetches future rounds (default 0); no-current-round grades fetch their first unsettled round** | nightly-crawl.yml (cron) | games/bv, data/sports-index.json, data/forfeit-games.json, players/indexes | games/bv/{sid}.json, players/{xx}/*, players/indexes/{xx}, `.nightly-status.json`, `needs-matrix-shards.json` |
@@ -237,9 +239,9 @@ build-finals-stats, build-leaderboards, build-player-games, build-records (they 
 | `update-venue-lookup.js` | Refresh venue-lookup shards | nightly venue-lookup job, update-venue-lookup.yml | games/bv, venue-lookup | venue-lookup/* |
 | `scripts/lib/uuid-prefix.cjs` | Single source of truth for TRUNC_LEN (13), isFullUuid, isTruncatedPrefix, alias-aware resolver (index-first → alias trunc13+legacy-10 → self-wins) | required by many | — | — |
 | `scripts/lib/namespace-resolve.cjs` | PlayHQ recovery queries + matchers; normName (OLD form, no NFKC); isPlaceholderName (canonical `Player #` test) | fetch-profile-stats, backfill, diagnostics | — | — |
- 
+
 ### 2.2 On-demand tools (keep; not scheduled) — TOOL
- 
+
 | Script | Purpose | Reads | Writes |
 |---|---|---|---|
 | `probe-unresolved-aliases.js` | **Alias audit, tier 4.** For the 40 nothing settled, prints PlayHQ's box-score name, jersey number and TEAM per game, against every candidate's registration for that season. One screen each | reports/shared-name-alias-audit.json, PlayHQ spectator | reports/unresolved-alias-audit.json (COMMITTED) |
@@ -293,19 +295,19 @@ build-finals-stats, build-leaderboards, build-player-games, build-records (they 
 | `restore-deleted-file.js` | Restore a file from git history | git history | the restored file |
 | `count-stats-checked.js` | Count statsChecked across player files | players | — |
 | `find-root-json-refs.js` | *(inline in yml, no script)* grep root-json references | — | — |
- 
+
 ### 2.3 Removed in cleanup (commit `fe8eedb`, 2026-07-16)
- 
+
 The api-canonical migration one-offs, the concluded diagnostics, the superseded proxy
 cluster (`fetch-player-profiles.js`, `test-failed-uuids.js`), and the dead team-search
 cluster (`search-team-stats.js`) have all been **deleted** from the repo. They are recoverable
 from git history (parent commit `1faecc5`) if ever needed. The *knowledge* from the deleted
 diagnostics is preserved in §6.7. There is no remaining "to delete" list — the cleanup is done.
- 
+
 `scripts/lib/uuid-prefix.cjs` and `scripts/lib/namespace-resolve.cjs` are the only libs; both KEEP.
- 
+
 ## 3. WORKFLOWS (`.github/workflows/*.yml`)
- 
+
 ### 3.1 Live / scheduled — KEEP
 | Workflow | Trigger | Runs | Notes |
 |---|---|---|---|
@@ -325,7 +327,7 @@ diagnostics is preserved in §6.7. There is no remaining "to delete" list — th
 | `discover-org-seasons.yml` | cron 19:00 UTC daily + dispatch | discover-org-seasons.js | data-write; mode resolves to APPLY on a schedule (T40) |
 | `verify-outstanding-claims.yml` | dispatch | verify-outstanding-claims.js | READ-ONLY; own concurrency group |
 | `add-player.yml` | dispatch | inline stub + trigger matrix for shard | ~~FIX: git stash~~ — **DONE 2026-07-16 (§6.1 item 3): stash replaced with write→add→commit→fetch→merge -X ours→push. Marker was stale, cleared 2026-07-29.** Explicitly kept per cleanup-repo |
- 
+
 ### 3.2 Build triggers (manual full rebuilds) — KEEP (safety-net strip COMPLETE, see §6.1)
 `build-team-stats.yml` (clean, model; **data-write lock added 2026-07-21** — was the only team-stats writer outside it), `build-search-index.yml` (clean), `build-win-loss.yml` (clean),
 `build-finals-stats.yml` (clean — the ⚠ previously recorded here was stale, its deployed YAML had no
@@ -336,7 +338,7 @@ safety-net step; 2026-07-21 second session: **data-write lock** + `chain_leaderb
 (The ⚠ markers here flagged the `if: always()` + `git pull -X ours` safety-net step. §6.1 records it
 REMOVED from all 6 build workflows and deployed on 2026-07-16; the markers were never updated and
 sent readers hunting for bugs that no longer existed. Cleared 2026-07-29.)
- 
+
 ### 3.3 On-demand tools — KEEP
 `db-audit.yml`, `diagnose.yml`, `diagnose-nightly-health.yml`, `diagnose-id-field-lengths.yml`,
 `audit-uuid-collisions.yml`, `recheck-forfeit-games.yml`, `find-players-by-team.yml`,
@@ -349,9 +351,9 @@ sent readers hunting for bugs that no longer existed. Cleared 2026-07-29.)
 (one-off, `data-write` lock, dry-run default), `generate-roster.yml`,
 `diagnose-forfeit-game.yml` (read-only probe, no lock, sparse OK — reads ONE season file),
 `repair-forfeit-score.yml` (one-off, `data-write` lock, dry-run default via `apply` boolean).
- 
+
 ### 3.4 Removed in cleanup (commit `fe8eedb`, 2026-07-16)
- 
+
 All migration/one-off/throwaway workflows were **deleted** (rekey-*, repair-*, reconcile,
 backfill-* one-offs and matrices, recover-uuids, resolve-known-collisions, strip-redundant,
 migrate-*, fix-* one-offs, classify-flagged-merges, build-alias-index-matrix, build-alias-inverse,
@@ -359,14 +361,14 @@ commit-cleared-names, find-team-players, fetch-player-profiles, reorganise-repo,
 hold-check, diagnose-season-grades, and every concluded diagnose-* workflow). Recoverable from
 git history. The two migration matrix templates are gone; the live `fetch-profile-stats-matrix.yml`
 is the reference self-triggering-matrix shape going forward.
- 
+
 ## 4. JSON / DATA FILES — WRITER → READER GRAPH (derived mechanically)
- 
+
 ### 4.1 Live data files (KEEP — actively read and written)
 | File | Written by | Read by | Needed? |
 |---|---|---|---|
 *(Game-entry capture flags, 2026-08-11 — three distinct facts, keep them distinct: `spc:1` roster captured from the LIVE-SCORING service; `spcm:N` that service was asked and could not serve it; `dg:1` roster captured from the CANONICAL record; `dgm:N` the canonical record permanently failed. A game may legitimately carry `spcm` AND `dg`. Any "already captured" check must test `spc` OR `dg`.)*
- 
+
 | `data/sports-index.json` | discover-seasons, scan-complete-rounds, graduate-seasons (`archivedAt`, 2026-08-07) | nightly-crawl, discover-*, fetch-profile-stats, build-*, deploy-pages strip, deploy-archive-pages (archive repo), StatTrack routing, many | **YES — master season registry.** Per-season flags: `locked`/`lockedAt` (crawl state) + `archivedAt` (VERIFIED live on the archive origin; set only by graduate-seasons after probing; cleared with locked by --unlock) |
 | `data/discover-progress.json` | discover-seasons (matrix reduce) | discover-seasons, discover-seasons-matrix (generate-shards) | YES — discovery resume state |
 | `data/team-index.json` | update-team-index | StatTrack, db tools | YES |
@@ -387,37 +389,37 @@ is the reference self-triggering-matrix shape going forward.
 | `roster-results/` (216 KB) | *(ad-hoc, historical)* | — | **KEEP** — output of grade-roster lookups. NOTE: `generate-roster.yml` does NOT produce it (that workflow only prints to the job log), so the writer is historical. Classified 2026-07-31. |
 | `index.html` (repo root, 127 KB) | *(manual)* | GitHub Pages | **KEEP — MIRROR of `markjovic/stattrack/index.html`.** ⚠️ `markjovic/stattrack` is CANONICAL; this copy must be updated in the same pass or it drifts. Pages serves this repo, so a stale mirror is a stale LIVE app, not just a stale file — the same drift class already open on the fixture generator and the dashboard. Classified 2026-07-31. |
 | `zero-team-seasons.json` | discover-fixtures.js | *(none — report)* | YES. ⚠️ OUTSTANDING_TASKS §1.2/§2.3 claimed this "appears nowhere in REPO_MANIFEST". It always did — §2.2 above lists it as a discover-fixtures output and §6.8 names it in the staging-bug pathspec. |
- 
+
 ### 4.2 Transient runtime signals (KEEP — short-lived, regenerated)
 | File | Written by | Read by | Notes |
 |---|---|---|---|
 | `.nightly-status.json` | nightly-crawl.js | nightly-crawl.yml status step | Per-run; regenerated each run |
 | `needs-matrix-shards.json` | nightly-crawl.js | **nightly-crawl.yml status step (counts length → stats_rechecks)**, profile-stats-matrix trigger | **IS READ — deleting it makes rechecks read 0** (corrects earlier "dead file" claim). Deleted on success by nightly-crawl.js. |
 | `matrix-force-pending.json` | (matrix force path) | fetch-profile-stats-matrix.yml (deletes on stuck) | Force-run signal |
- 
+
 ### 4.3 Removed in cleanup (commit `fe8eedb`, 2026-07-16)
- 
+
 The migration report JSON (`reports/rekey-merges.json`, `reconcile-people.json`, `alias-repair.json`,
 `rekey-flagged-classified.json`, `alias-index-report.json`, `uuid-recovery-misattribution-audit.json`,
 `backfill-missing-players-report.json`, `missing-player-files-diagnosis.json`), the entire
 `reports/backfill-collisions/` directory (256 shards), `players/alias-inverse/` (256 shards), and the
 orphaned `scripts/.*-progress.json` dotfiles were all **deleted**. `reports/verify-enrich-report.json`
 remains (it is regenerated by the live verify-enrich tool).
- 
+
 **Note on `players/aliases/`:** this is LIVE and was NOT deleted — it holds the ~43k spectator→api
 redirects the resolver depends on. It is now maintained solely by `fetch-profile-stats.js` (which
 writes new alias discoveries) and consumed by the alias-aware resolver. The migration-era builders
 of it (`build-alias-index.js`, `build-alias-inverse.js`) are gone, so there is no longer any tool
 that rebuilds `players/aliases/` from scratch — if a full rebuild is ever needed, it must be written
 fresh, sourcing `player.spectatorIds[]` (see §6.7 namespace-divergence note).
- 
+
 ## 5. PROGRESS FILES (resumable checkpoints — delete-on-SUCCESS only)
- 
+
 **Verified mechanically:** all 14 progress-file owners call `unlinkSync` gated on the success/allDone
 path (or `--force` reset), never in an error handler. A progress file surviving a crash is CORRECT —
 that is what enables resume. The standard is **delete on success only**; never treat a surviving
 progress file as garbage without checking whether its owner is mid-run.
- 
+
 | Progress file | Owner | Deletes on |
 |---|---|---|
 | `.build-leaderboards-progress.json` | build-leaderboards.js | success (+ --force reset) — TRUE ONLY SINCE 2026-07-21: the pre-fix script never deleted it, so completed runs silently no-op'd later runs; also mode-keyed now |
@@ -426,14 +428,14 @@ progress file as garbage without checking whether its owner is mid-run.
 | `.records-progress.json` | build-records.js | success |
 | `discover-fixtures-progress.json` | discover-fixtures.js (TOOL — kept) | success |
 | `data/discover-progress.json` | discover-seasons.js | success (allDone) / --fresh_start |
- 
+
 db-audit.js §11b classifies any dotfile-progress in scripts/ as **orphan** (owner deleted → safe remove)
 vs **owner-exists** (mid-run / crashed / failed self-clean → surface, never auto-delete).
- 
+
 ---
- 
+
 ## 6. KNOWN ISSUES & OPEN DECISIONS
- 
+
 ### 6.1 Live workflow bugs — FIXED & DEPLOYED (2026-07-16)
 All three are resolved in the repo:
 1. **Safety-net `git pull -X ours` + `if: always()` step — removed from all 6 build workflows**
@@ -445,6 +447,7 @@ All three are resolved in the repo:
 Also deployed: `weekly-indexes.yml` now has a `fold-diverged` backstop job (triggers the fold after its
 player-writing jobs, as insurance against a broken matrix retrigger chain — see §6.2); and the
 `probe-setup-node-fingerprint` test workflow (see §6.3).
+
 ### 6.2 The FOLD reliability question (corrected — see §1.3)
 The fold IS wired into the nightly path: the matrix preserves its targeted shards across self-retriggers,
 runs its chain to `stuck` (3 consecutive zero-written runs), and fires the fold at the drain-end of each
@@ -456,7 +459,7 @@ job that triggers `fold-diverged-players.yml --mode=apply` after its player-writ
 team-stats, player-games, win-loss). The fold is idempotent, so this weekly sweep is a no-op when the
 nightly chain already folded, and catches anything a broken retrigger chain skipped. Also added:
 `probe-setup-node-fingerprint.yml` (+ .js) — a controlled test for the setup-node question (§6.3).
- 
+
 ### 6.3 The setup-node × PlayHQ-fetch contradiction — RESOLVED 2026-07-20/21
 The rule is CONFIRMED and ABSOLUTE, scoped **per JOB** (not per workflow). Evidence: the
 discover-seasons matrix failed session acquisition on every shard for ~10 days; instrumented
@@ -470,15 +473,15 @@ Per-JOB scope proven by `nightly-crawl.yml`'s `win-loss` job, which carries setu
 `discover-seasons-matrix.yml` (map + reduce — reduce also fetches PlayHQ via discoverSeason) and
 standalone `discover-seasons.yml`. `probe-setup-node-fingerprint.yml` (+ .js) is now redundant —
 deletion candidate. The per-attempt session instrumentation stays (permanently useful).
- 
+
 ### 6.4 Cleanup — DONE (commit `fe8eedb`, 2026-07-16)
 The repo cleanup ran live: 111 obsolete files deleted (migration one-offs, concluded diagnostics,
 superseded clusters, orphaned progress dotfiles, migration reports, alias-inverse + backfill-collisions
 dirs). Restore point: parent commit `1faecc5`. `discover-fixtures.js` was confirmed LIVE (the
 `--all-seasons` historical-backfill tool) and kept; `build-foulout-stats.js` was confirmed not-live
 and deleted. No outstanding deletions remain.
- 
- 
+
+
 ### 6.5 Data-quality caveats (record; not blocking)
 - **p[] recovery misattribution:** `recover-uuids-from-git-history.js` paired p[] slots by array index
   across months; the spectator API doesn't preserve order, so some recovered p[] ids landed on the wrong
@@ -487,6 +490,7 @@ and deleted. No outstanding deletions remain.
 - **normName never upgraded to NFKC at runtime:** rekey-plan's matching used NFKC, but runtime writers
   (fetch-profile-stats via namespace-resolve.cjs, nightly) and StatTrack still use the OLD normName
   (lowercase + collapse-space + trim). Open item #6.
+
 ### 6.6 Other outstanding (from prior sessions, still open)
 - ~~Add `--active-only` to `build-finals-stats.js`~~ **DONE 2026-07-21 (second session)** — and the premise
   was wrong: BOTH scripts already parsed the flag; finals' implementation was DESTRUCTIVE (never ran live —
@@ -511,14 +515,15 @@ and deleted. No outstanding deletions remain.
   bullets immediately above and below it were corrected and this one was not.)
 - Repo size **6.18 GB / 529,498 files** (2026-07-30; was 6.03 GB on 07-16, ~8.6 GB before cleanup) — re-verify
   whether it still blocks GitHub Pages before further shrink. Truncation is NOT a lever (§D7 closed, 57.61 MB).
+
 ---
- 
+
 ### 6.7 FINDINGS FROM CONCLUDED INVESTIGATIONS (knowledge preserved; scripts deleted)
- 
+
 These are the durable results of the diagnostic scripts that were deleted in the cleanup. The scripts
 themselves are recoverable from git history if a re-run is ever needed, but the *conclusions* below
 are the reason they existed — captured here so deleting the code does not lose the knowledge.
- 
+
 **Profile-identity namespace divergence (diagnose-profile-identity-namespace.js, diagnose-namespace-mismatch.js).**
 `api.playhq.com` and `spectator.playhq.com` can return DIFFERENT profileIDs for the SAME real player.
 Confirmed directly on 3 of 13 players in one sampled game (William Mallen, Charlie Raynor, Jack Delaney).
@@ -528,7 +533,7 @@ real privacy setting. **This is the root cause the entire alias system + fold ex
 recovery path (grade-tid → grade-roster name match → profileSearch) resolves the api id, which is stored
 as `player.apiId` and later folded. Steady-state, not migration residue: PlayHQ mints fresh spectator ids
 per person over time (the "Micaela Chang" case had 3 distinct ids).
- 
+
 **UUID prefix collision entropy (audit-uuid-collisions.js, diagnose-unresolved-prefixes.js).**
 The original truncation used a 10-char prefix — but a uuid's first hyphen sits at index 8, so 10 chars is
 only 9 real hex digits = 36 bits, not 40. Birthday-paradox collision probability at 36 bits across ~370k
@@ -538,13 +543,13 @@ ids written before the fix — run `diagnose-id-field-lengths.js` to confirm non
 the legacy path is dead. The "2.6M unresolved" figure that once alarmed was mostly this legacy-length
 mismatch, not true collisions; only 3 genuinely-ambiguous prefixes were ever found (shards 02, b0, dd),
 resolved by hand via disjoint season history (resolve-known-collisions.js).
- 
+
 **gradePlayerStatistics DOES paginate (diagnose-grade-pagination.js).**
 The old doc claim ("hard cap 50 results, no pagination") was measured with a query missing the `$filter`
 argument. Verified live on grade `c952bf59` (86 records, 2 pages): pagination works via
 `filter.pagination { page, limit }` with `meta.totalPages` / `meta.totalRecords`. **`playhq_api_reference.md`
 must be corrected** (still outstanding, §6.6).
- 
+
 **p[] recovery misattribution (audit-uuid-recovery-misattribution.js).**
 `recover-uuids-from-git-history.js` paired current vs pre-migration attendee-array entries BY ARRAY INDEX.
 Safe for hp[]/ap[] (frozen legacy fields) but NOT for p[] (nightly rewrites it wholesale from a fresh
@@ -554,18 +559,18 @@ player data is UNAFFECTED** (the migration re-fetched records rather than trusti
 scoped to `games/bv` p[] provenance only. Two independent checks (prefix-consistency, needing no
 commit-selection trust; and content-match vs pre-migration) were built to separate a real substitution
 bug from a pre-migration-commit-selection error.
- 
+
 **API stability / same-person duplication (diagnose-api-stability.js, backfill-collision-stats.js).**
 A single real player CAN have multiple valid spectator ids (measured directly by inverting the collision
 shards: apiId → set of spectator ids). This multiplicity is the mechanism behind much of the un-indexed
 backlog and the reason keying on spectator id multiplied records. This measurement was migration Gate 1;
 the ~19.8%/name-mismatch figures it produced are the empirical basis for the alias-fold design.
- 
+
 **Candidate-pool sizing (diagnose-uuid-population.js, diagnose-uuid-classification.js).**
 The un-indexed full-length-uuid candidate pool was sized at ≈86k before the sampled classification, split
 indexed-real / indexed-placeholder / un-indexed. This sized the backfill effort; the backfill has since
 completed (0 remaining).
- 
+
 **Season-name-in-name-field bug — RESOLVED (July 2026).**
 `parseProfileStats` once read `seasonStatistics[0].name` (which is a SEASON label, e.g. "Winter 2023")
 as the player name, writing season strings into `player.name` for ~40,034 files. Root cause fixed in
@@ -583,9 +588,9 @@ spectator failures (this placeholdered 15 recoverable players). Both fixed: `rem
 contaminated-not-done, and after MAX_DEFER it hands the player to `salvage-spectator-names.js` instead of
 guessing a placeholder. `salvage-spectator-names.js` then proved the final 15 genuinely unrecoverable
 (games archived) and is now dormant.
- 
+
 ### 6.8 Session 2026-07-20/21 — future fixtures + roster lag (fixes and their evidence)
- 
+
 **Future fixtures root causes (two, independent):**
 1. `nightly-crawl.js` NEVER fetched rounds after the current one (queue builder filtered
    `number < current.number` only) and skipped grades with no current round entirely. Fixed:
@@ -603,6 +608,7 @@ guessing a placeholder. `salvage-spectator-names.js` then proved the final 15 ge
    by re-running its exact pathspec list with `team-lookup/` absent — it printed "(no changes to
    commit)" and staged nothing, exactly as in 2026-07-19. Actually fixed 2026-07-31 (§6.17). The
    lesson is the one this repo keeps relearning: a fix recorded in a document is not a fix in a file.
+
 **Roster-lag fix (team view vs player view):** `games/bv` `p[]` carries bare `{id}` only — NO stat
 lines (box scores are Worker-on-demand, never pre-stored) — so `build-team-stats.js` roster stats
 come from player reg stats (`seasons[].regs[].stats`), written by the profile-stats matrix. The
@@ -610,14 +616,14 @@ nightly's team-stats job runs before the matrix is even dispatched → rosters s
 player view (Worker-live per-game + API-side aggregates) by a full day. Fixed: matrix terminal now
 also fires `build-team-stats.yml --field active_only=true` (§1.3). Verified: single-season rebuild
 of `96c25259` showed the missing round's stats immediately.
- 
+
 **Also this session:** `fetch-profile-stats-matrix.yml` stop-button fixed (`apply-and-commit` +
 `summary-and-retrigger` gates `always()` → `!cancelled()`; the "audit other matrices" item is done
 for this file — shard-step-level `always()` on artifact upload correctly kept); `build-team-stats.yml`
 gained the `data-write` lock (was the only team-stats writer outside it); `build-team-stats.js`
 TRUNC_LEN consistency (placeholder was `slice(0,10)`; roster keys were already 13 via truncateUuid —
 comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game roster capture).
- 
+
 **PENDING (validation / decision):**
 - Corrected discover-seasons matrix: validate with `shards=["00"]` → expect `Session refreshed (attempt 1)`;
   then full sweep to drain the ~10-day discovery backlog.
@@ -633,8 +639,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
 - Known nonconformances flagged, not changed: `build-team-stats.js` gitCommit uses a 10-attempt retry
   (not the 60/1–91s house pattern); its dead `p[]` attribution loop; `discover-fixtures.js` single-cookie
   session style (works).
+
 ### 6.9 Session 2026-07-21 (second session) — §A validations closed, weekly chain built
- 
+
 - **§A validations closed with evidence:** `Session refreshed (attempt 1)` on a fresh runner for BOTH
   fixed job types (matrix shard AND reduce); uncapped sweep cycle 1 probed 83,050/231,678 across all
   256 shards (all wall-stopped by design), cycle-2 persistence confirmed; matrix terminal proof
@@ -684,8 +691,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   A4 Sunday backfill 07-26.
 - Three stale doc/memory items closed by reading current files: API-reference pagination fix and
   claude_context filename-comment rule were already present; migration step 3b-2 was already done.
+
 ### 6.10 Session 2026-07-28/29 — first automatic weekly chain, matrix chain-break, A3 automated
- 
+
 - **First automatic weekly chain RAN (Mon 2026-07-27 16:00 UTC nightly → Tue 28 early AM AEST).**
   A2 landed Tue 2026-07-21, i.e. after that week's Monday nightly, so the first chain was the
   07-27 one as designed. Evidence: `discover-fixtures` with `--current-only` in resolved ARGS
@@ -743,10 +751,11 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   runs is a true terminal); the summary label reads "Not obtainable (marked)". See OUTSTANDING §C9.
   STILL OPEN: `Errors: 1` in the terminal run is unexplained; 144/256 shards produced summaries
   (expected — shards with nothing outstanding write no summary — but unverified).
+
 ---
- 
+
 ## 7. CONVENTIONS (non-negotiable, enforced)
- 
+
 ### 7.1 Git in scripts
 - `git add <explicit path>` — **never `git add -A`**.
 - `git diff --shortstat` — **never `--stat`** (ENOBUFS on large diffs).
@@ -760,6 +769,7 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   backoff, FAIL FAST on HTTP 4xx (422/404/401/403 are permanent — retrying buries the real error),
   and THROW when exhausted so a broken chain shows red. A one-shot dispatch stopped the matrix
   silently on 2026-07-27 (HTTP 500). Reference: `fetch-profile-stats-matrix.yml` `/tmp/gh-dispatch.sh`.
+
 ### 7.2 Workflows
 - **No `actions/setup-node` in any JOB that fetches api.playhq.com** (changes outbound fingerprint →
   CloudFront 403 on EVERY request incl. session acquisition). ABSOLUTE and per-JOB — confirmed with
@@ -772,6 +782,7 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
 - Concurrency group `data-write` shared by every workflow that writes player files / the index, so they
   can never race (nightly-crawl, weekly-indexes, discover-seasons(-matrix) reduce, migration one-offs).
 - Reference matrix shape: `fetch-profile-stats-matrix.yml` (live; the canonical self-triggering matrix).
+
 ### 7.3 Code style
 - ESM: build-finals-stats.js, build-leaderboards.js, build-player-games.js, build-records.js. CJS: all others.
   **VERIFIED 2026-07-29** by reading all four (each opens with `import`). `claude_context.md` and
@@ -785,11 +796,13 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   `request-id: <uuid>`. Spectator endpoint (`spectator.playhq.com`) uses different headers (`tenant: bv`, `x-phq-tenant: bv`, 3-cookie).
 - Player files stored MINIFIED (`JSON.stringify` no indent). Progress files delete on SUCCESS only.
 - Long-running scripts commit+push their progress file at each save interval (in-memory progress is lost on timeout).
+
 ### 7.4 Delivery rules
 - Every delivered file: repo path as line-1 comment (`// scripts/x.js`, `# .github/workflows/x.yml`).
 - `node --check` before delivery. `present_files` after. Every script ships with its matching workflow YAML.
+
 ---
- 
+
 ## 8. TOOLS & ENDPOINTS
 - **PlayHQ GraphQL:** `api.playhq.com/graphql` (basketball-victoria tenant). Concurrency: start 500, cap 1000;
   429 → 60% + attempts×5s backoff, 3×429 → permanent −5, 2 clean → +10; 403 → null (not accessible); 404 → skip.
@@ -797,9 +810,10 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
 - **Cloudflare Workers:** `solitary-snowflake-cb3e.insanoflash.workers.dev` (box/quarter scores for StatTrack);
   `playhq-profile-proxy.insanoflash.workers.dev` (profile proxy — DIFFERENT worker, used by the retired proxy fetcher).
 - **GitHub Actions:** all automation; 256-bucket matrix for sharded ops. WAF is per-IP/per-shard, not aggregate.
+
 ---
 ### 6.11 · Session of 2026-07-30 (measurement + one real bug)
- 
+
 - **db-audit run (full, 5m 04s checkout).** Repo **6.18 GB / 529,498 files**; **413,577** players
   (index and detail agree exactly, 0 orphans either way); 2,311,358 games across 2,896 season files;
   3,227 seasons. `statsChecked` 99.9%, remainder 213 confirmed withheld.
@@ -835,8 +849,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   leaderboard `{id,v}` assertion passed on the LEGACY schema. See OUTSTANDING §C15.
 - **Still delivered but NOT committed:** `build-player-games.js` (same `gitCommit`; first full
   256-prefix pass Sunday 02:00 UTC), `db-audit.js`.
+
 ### 6.12 · Session of 2026-07-30/31 (the 413k day)
- 
+
 - **413,364 `statsChecked` values wiped by a broken safety gate.** A `>-` folded YAML scalar with a
   more-indented continuation preserved its newline; GitHub could not parse the multi-line `if`, treated
   it as a truthy literal string, and ran `clear-stats-checked` on a dispatch that targeted ONE shard.
@@ -859,8 +874,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   post-cleanup commit §C6b predicted would fail. It did not.
 - **Standing traps T1–T9 recorded in `claude_context.md`.** That section is the durable output of this
   session; every entry cost either data or hours.
+
 ### 6.13 · Session of 2026-07-31 (cleanup day)
- 
+
 - **§B2 DONE** — `apply-and-commit` now does a plain full checkout; 46 lines removed including the
   sparse expansion and its retry. Promisor-fetch and skip-worktree failure classes deleted, not
   mitigated. Shard jobs keep sparse-checkout.
@@ -882,8 +898,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   before they were found — §13's zero-full-uuids line, the L38 "10-char" comment sitting above the
   broken code, and the fold's own header claiming aliases needed nothing. The information was present;
   the join was missing.
+
 ### 6.14 · 2026-07-31 late — T9, hygiene decisions, and a memory correction
- 
+
 - **T9 DONE.** The matrix retrigger now narrows to shards with outstanding work. Trap documented:
   empty means ALL 256, so an empty narrowed list falls back to forwarding `inputs.shards`.
 - **`db-audit.js` keep-list extended** to four evidence files (`uuid-collisions-len10`,
@@ -899,8 +916,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   at three sites on 07-29); never copy from anything the pipeline does not run.
 - **§C21 verified safe:** `isPlaceholderName` is `/^player\s*#/i` — prefix-only, length-agnostic, so
   changing the placeholder mint length breaks no detection.
+
 ### 6.15 · 2026-07-31 — §B1 resolved by ordering
- 
+
 - **A nightly race existed and is now fixed.** `win-loss` and `profile-stats-matrix` both hung off
   `crawl` and ran in parallel; the matrix was dispatched as soon as `team-stats` finished, while
   `build-win-loss.js` could still be writing player files for up to 120 more minutes. The nightly's
@@ -911,8 +929,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
 - **Still open, narrower:** the Monday `discover-fixtures -> finals -> leaderboards` chain can overlap
   a still-running matrix chain. Weekly. Recorded in OUTSTANDING §1.1.
 - Audit 06:49 confirms `root-level .js files ✅ none`, keep-list at 8, structural invariants OK.
+
 ### 6.16 · 2026-07-31 — audit slimmed, stale truncation claims retired
- 
+
 - **db-audit §13 REMOVED.** It measured a UUID-truncation saving for a question closed on 07-30
   (57.61 MB, rejected). Removing it also deleted a full extra scan of `team-stats/` (2,896 files,
   916 MB) that existed only for the byte tally, a per-game loop building three arrays across 2.3M
@@ -928,10 +947,11 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   paragraph saying "NOT YET DONE" seven lines above an item saying "CLOSED" — the N-1 pattern inside a
   SINGLE document, which is a new variant of it.
 - **§B1 closed by ordering, not locking** (see §6.15). Moved out of OUTSTANDING's live sections.
+
 *End of REPO_MANIFEST.md — generated 2026-07-16 from a complete read of the pre-cleanup tree (78 scripts + 88 workflows); updated post-cleanup (commit `fe8eedb`) and post-workflow-fix deployment; updated 2026-07-21 (setup-node resolution, future-fixtures fixes, roster-lag fix, Sunday backfill — see §6.3/§6.8). updated 2026-07-28/29 (matrix hardening, A3 automation, doc-set audit corrections — see §6.10). Reflects the live repo as of 2026-07-29; 2026-07-30 pass retracted the §6.10 terminal-message item (already fixed 07-29) and retired the ~140-minute full-checkout figure — a full checkout is ~7 minutes, the old number lived only in session memory and in no doc.*
- 
+
 ### 6.23 · 2026-08-02 evening — normName v2 in one pass, and the stale shard index it exposed
- 
+
 - **normName v2 at all seven comparison sites in a single delivery**: canonical in
   lib/namespace-resolve.cjs (with the one-pass invariant documented at the definition), one-liner
   copy in fetch-profile-stats.js, verbatim copies in repair-season-names / salvage-spectator-names
@@ -944,6 +964,7 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   Justification from measurement: the July namespace audit's 43 benign mismatches were exactly
   quote/hyphen/spacing variants; every matcher nulls on >1 hit so looser matching can only
   produce a non-recovery, never a mis-reconciliation.
+
 - **THE SHARD FINDING (why "read the last file" matters):** build-search-index.js's shardKey
   stripped non a-z INCLUDING accents (Álvarez -> shard 'lv'), the client sliced the raw query
   (álvarez -> 'ál.json'), and 135 orphan shards from migrate-phase3's raw-first-two-chars rule
@@ -958,8 +979,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   keys between shards. Rebuild ran 2026-08-02: 412,100 players, 506 shards, 724,407 keys, 135
   stale removed, 55s. Deploy order honoured: index rebuilt BEFORE the 0.68 client commit, so the
   transition window only ever improved results.
+
 ### 6.22 · 2026-08-02 later — StatTrack 0.65/0.66, and the opposition index retired by a number
- 
+
 - **The opposition-index question closed the right way round: measured, then not built.**
   New `size-opposition-index.js/.yml` (KEPT — read-only, re-runnable): the builder minus the
   write — classification copied from build-win-loss.js read in full (pre-pass map, hp/ap sides,
@@ -970,6 +992,7 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   tid, so the "career vs team" framing aggregates over shirt names, not identities. For once the
   envelope was right (cf. the truncation precedent where it was 27x wrong) — but the point of
   measuring is that nobody had to trust it.
+
 - **StatTrack 0.65** (committed to both copies): (1) season head-to-head line in openOpp —
   player-exact, from fixtures already fetched, zero requests; pure seasonH2H() + h2hLine(),
   8-case matrix incl. missed-meetings split and null path. (2) Career W/L cell centred/nowrap/
@@ -983,6 +1006,7 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   under its END year). Mark's exact reported sequence tested. Limitation flagged in-code: start
   date is approximated from the season NAME; true first-round-date ordering needs a tiny
   {sid: firstGameDate} index built data-side if a season ever breaks the four-name pattern.
+
 - **StatTrack 0.66** (committed to both copies): season h2h surfaced on the other two views.
   Fixtures tab: per-row "vs this team this season" PRIOR line — strictly-before-this-date
   meetings so a played row never counts itself; first meetings show nothing. Matchup preview:
@@ -991,8 +1015,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   not an identity — opponent per row is resolved by gameId JOIN across the season's fixture
   lists (gameTidMap: each game appears in exactly two). Tested with two distinct teams sharing
   the display name "Lions": the impostor contributes nothing. 10-case matrix executed.
+
 ### 6.21 · 2026-08-02 — dispatch hardening, the legacy endgame, and one forfeit
- 
+
 - **Five of six bare dispatch sites converted to the retry helper** (§2.6 — which had counted
   four). `nightly-crawl.yml` x4 (matrix trigger, Sunday discovery, Monday fixtures, self-retrigger)
   and `discover-fixtures.yml`'s chain-stats hop — the Monday chain's SECOND hop, where a lost
@@ -1006,6 +1031,7 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   **`discover-seasons-matrix.yml`'s self-retrigger stays bare deliberately** — convert it when its
   debug scaffolding is stripped, not inside an unrelated commit. *(Done 2026-08-03, in exactly that
   pass — §6.24.)*
+
 - **THE LEGACY FINDING: the 142 survivors were 139 FUTURE FIXTURES + 3 real ones.**
   `find-flag-collisions.js` Part 4 (new: survivor split by season lock state + month histogram;
   the `no-locked-field` case reported as its OWN bucket because nightly-crawl `locked === false`
@@ -1014,6 +1040,7 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   The old classifier probed unplayed games, got nothing (correctly) and stamped them "pre-history,
   nothing further obtainable". Lifetime record: **3,262 stamped, 3 correct — 0.09%.**
   §2.1 decided: NO rebuild; no-flag is the terminal state.
+
 - **`repair-legacy-flags.js` extended and applied:** second criterion
   `flagFalsified = hasScore || st === 'UPCOMING'` (strict equality — absent `st` clears nothing),
   applied at clear decision, disk post-check and report. **139 cleared / 3 kept / 3 files**, dry
@@ -1021,6 +1048,7 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   of the 139 would have tripped `legacy + score` as it was played (T11 mechanics), and StatTrack
   was rendering all 139 UPCOMING games as "Data unavailable" TODAY. Legacy population now EXACTLY
   3 (2021x2, 2023x1, scoreless locked FINALs), permanently — no writer, unreachable survivors.
+
 - **ba9d21fe closed by live probe, then a one-line repair.** `fo` semantics settled from both
   writers first (fo = WINNER id — nightly-crawl L686, recheck-forfeit-games). New
   `diagnose-forfeit-game.js/.yml` (read-only; plumbing verbatim from recheck-forfeit-games.js;
@@ -1031,24 +1059,29 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   refusals for non-forfeit/unusable fo; idempotent; key-diff + count + disk post-check; proven
   against a real repo with a bare remote) applied **10-0 -> 0-20**. W/L never contaminated:
   `build-win-loss.js` L55 excludes forfeits — read, not assumed. Both tools kept as on-demand.
+
 - **§1.1 verifications closed from evidence:** leaderboard keys two-segment in live data (the
   `uuid|tid` revert REBUILT); `weekly-future-fixtures.yml` `on:` block holds no `schedule:`.
+
 - **T1 flagged as OVERBROAD, correction pending in claude_context:** all four deployed
   nightly-crawl job gates are `if: |` block scalars WITH newlines and the retrigger gate
   demonstrably works (a truthy-literal gate would self-dispatch every drained nightly forever).
   T1's real case was a `>-` FOLDED scalar with a more-indented continuation. All four gates were
   deliberately left byte-identical this session; narrow the trap before someone "fixes" them.
+
 - **db-audit §11b ages -> sizes (closed the last §2 work item), proven by the live 06:07 audit:**
   mtime is checkout time on a runner, and the git-log alternative is equally dead at
   fetch-depth:1 (one commit, one age for every file). Sizes for files, entry counts for dirs;
   verdicts untouched; executed against all five hygiene cases pre-delivery. The same audit
   confirmed the session's two staked predictions: `legacy: true — 3` and `legacy + score — none`.
   No `legacy + UPCOMING` invariant added — no writer exists, so the check could never fire.
+
 - **find-flag-collisions.yml banner retired** — its "written from conventions, DIFF BEFORE
   COMMITTING" warning was discharged by reading the deployed file (they matched); a discharged
   caveat left standing is T12-shaped.
+
 ### 6.20 · 2026-08-01 late — sibling stats sync, and the winPct denominator
- 
+
 - **Every reg sharing a (season, team) must hold the same stats.** Not a new rule — both writers already
   enforce it and neither looks at `gid`: `fetch-profile-stats.js` L985-996 keys `${sid}:${reg.tid}`,
   `build-win-loss.js` L271/L313 uses `playerRecords[sid][tid]`. 169,566 groups had drifted anyway: 798
@@ -1057,6 +1090,7 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   persisted because the nightly runs `build-win-loss --active-only` while 97%+ of them sit in LOCKED
   seasons. Synced per-key MAX across 91,716 players / 263,440 regs; verified after at `differ >= 1 key`
   = 0 with an empty key histogram.
+
 - **winPct / lossPct were the only categories mixing data sources**, and it showed. `wins/losses/draws`
   come from `build-win-loss.js` scanning games we HOLD; `gp` is PlayHQ's appearance count including
   games we do not. A 50-GP player with 10 known games, all won, read as 100% while carrying `gp:50`, and
@@ -1066,15 +1100,18 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   percentage itself is untouched. Every other category keeps career gp: `ppg`/`threePtPG`/`foulsPG` draw
   their numerators from the same PlayHQ source as `gp`, so numerator and denominator already describe
   the same population.
+
 - ⚠️ **A deliberate refusal was silently overturned.** `repair-duplicate-regs.js` refused two `foulOuts`
   2-vs-1 groups because max and sum genuinely disagree there. The sibling sync, written later and
   grouping by `tid` alone, applied max to them. Small (2 players, one foul-out) and probably correct,
   but decided by execution order rather than by a person — recorded as trap T18.
+
 ### 6.19 · 2026-08-01 evening — §2.2: three writers, one key, 27,664 duplicates
- 
+
 - ⚠️ **DECISION A (Mark, 2026-08-01): a reg IS a `(team, grade)` registration.** A team appearing under
   two grades in one season is a REGRADE and is CORRECT data — 1,296,352 regs are that. Every writer of
   `player.seasons[].regs[]` must key on `(tid, gid)`.
+
 - **Root cause.** Three writers each used a different identity for a reg: `nightly-crawl.js` L1011
   `(tid AND gid)`, `fetch-profile-stats.js` L1039 `(tid)`, `discover-seasons.js` L962 `(tid)` **while
   mutating `gid` in place**. That mutation could collide an existing reg with a sibling the nightly had
@@ -1082,20 +1119,24 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   also looped: discover-seasons collapsed a regrade to the latest grade, the nightly met a game in the
   older grade and appended it back. One `upsertReg()` helper now serves both discover-seasons write
   sites; 12/12 case matrix including a test that drives the generator directly.
+
 - ⚠️ **`discover-seasons.js` wrote player files PRETTY-PRINTED at both sites** (`JSON.stringify(p, null, 2)`)
   while `nightly-crawl.js` L497 and `fetch-profile-stats.js` L678 minify. A player touched by both
   flipped format every cycle and was rewritten in FULL each time even when no field changed — pure churn
   into the 6.13 GB that already cost code search. Its index/progress/artifact writes were correct all
   along; only the player writes were wrong.
+
 - **27,664 duplicate regs merged, 2 refused.** Max-per-key, lossless where a key is merely absent from a
   copy. The refusals are `foulOuts: 2` vs `1` with every other field identical — a genuine split where
   max and sum disagree, left untouched rather than resolved by guess. Rehearsed on shard `0a`: 57
   players, exactly the dry run's prediction.
+
 - ⚠️ **StatTrack season leaderboards had been rendering EMPTY.** `seasonEntriesForStat` L2040 required
   `id.split('|')[0]` to be >=32 chars, but `build-leaderboards.js` writes `${truncateUuid(uuid)}|${tid}`
   and TRUNC_LEN is 13 (10 before 07-31). Every entry was skipped, silently, because `data` still had one
   key so the "no data" branch never fired. Found only while checking whether adding `|gid` was safe.
   Beta 0.63 accepts a uuid prefix. all-time was never affected — it does not pass through that function.
+
 - ⚠️ **`build-leaderboards.js` season key changed to `uuid|tid|gid`, then REVERTED to `uuid|tid` the
   same day after measuring.** Regrade regs hold the SAME team-season totals on every grade — 744,117
   groups byte-identical, and the 169,230 that "differ" differ ONLY in `foulOuts`. The API reports
@@ -1103,9 +1144,11 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   rows per player, and the ASSIGN it replaced was losing nothing. The change was shipped on reasoning
   and reverted on measurement — the risk was flagged in advance and built anyway, which is the thing
   to not repeat.
+
 - **The seasons gap itself (the original §2.2) is small and mostly PERMANENT:** 4,361 player+season
   pairs, **97.6% in locked seasons** unreachable by both writers, 105 active. Finals subset exactly 218,
   matching `build-finals-stats.js` from two independently written scans.
+
 - **VERIFIED INDEPENDENTLY.** Re-ran `audit-seasons-gaps.js` after the repair: exact `(tid,gid)`
   duplicates **27,666 -> 2** (the two deliberately refused `foulOuts` pairs, named as the same uuids),
   and total regs **4,151,876 -> 4,124,212 = 27,664 removed** — 27,606 from the full run plus 58 from the
@@ -1113,6 +1156,7 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   as intended. The REGRADE count ROSE 1,296,352 -> 1,300,376, which is correct rather than alarming:
   groups like `[G1, G1, G2]` were classified EXACT while the pair existed and become pure regrade once
   it is merged.
+
 - ⚠️ **The first apply run was CANCELLED at the 120-minute timeout with nothing committed**, after
   completing every merge and every file write. Cause: per-path `git add` for 24,534 paths against a
   527,900-file index — git rewrites the whole ~40 MB index per invocation. Two rules now in
@@ -1120,20 +1164,24 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   paths, per-path only as an isolating fallback) and **T17** (a long writer commits in batches during
   the run, never once at the end). Re-run with both fixes completed in ~25 minutes, pushing ~8 batches
   of ~3,100 files, each on attempt 1.
+
 - **Method note, third time in two days:** two predictions wrong, both caught because the detector
   printed the underlying shapes beside the count. A first version keyed duplicates on `tid` alone and
   reported 1,330,231 "surplus" regs — a repair built on that number would have deleted 1.3M legitimate
   registrations.
+
 ### 6.18 · 2026-08-01 — the changes RAN, and a retired workflow was found running
- 
+
 - **Nightly green and the `gitCommit` change VERIFIED IN THE LOG**, not merely un-broken: both new
   markers present on every commit (`staging: N files changed…`, `(pushed on attempt N)`), zero add
   failures, zero contention retries, `Games remaining: 0`, 3,512s.
+
 - **Legacy repair APPLIED: 3,114 cleared, 142 kept, 329 files, post-check 0.** Every figure matched
   the dry run's prediction exactly, and two independently written scripts (`find-flag-collisions.js`,
   `repair-legacy-flags.js`) agreed on all six years. db-audit then reported `Flag collisions ✅ none`
   and `legacy + score ✅ none` on the invariant's first run. `legacy` describes reality for the first
   time in the project's history: 142 games, all genuinely scoreless.
+
 - ⚠️ **`weekly-future-fixtures.yml` HAD BEEN RUNNING WEEKLY while two documents recorded it as
   retired.** OUTSTANDING §B5: "retired unrun; probe workflow + script deleted". This manifest:
   "the delivered-but-unrun `weekly-future-fixtures.yml`". Its `schedule: cron '0 0 * * 6'` was live
@@ -1146,14 +1194,16 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   **T12's third instance in two days, and the first that was a live scheduled job rather than a fix
   that never shipped.** The pattern is now specific enough to state: this repo's documents are
   reliable about DECISIONS and unreliable about whether the decision was EXECUTED.
+
 - **Open, found while reading `nightly-crawl.yml`:** eight jobs gate on
   `if: ${{ inputs.dry_run != 'true' }}` against a `type: boolean` input. GitHub coerces to numbers,
   the string `'true'` becomes NaN, nothing equals NaN, so every gated job runs in a dry run. A dry
   run is not dry. Also: all four `gh workflow run` calls are bare with no retry helper.
   OUTSTANDING §1.1 and §2.8. *(Resolved: the dry_run input was DELETED 2026-08-01; the dispatch
   sites — which were six repo-wide, not four — went through the retry helper 2026-08-02, §6.21.)*
+
 ### 6.17 · 2026-07-31 late — §2.2 and §2.5 closed, three gitCommit fixes, and a 3,262-game defect
- 
+
 - **StatTrack VERIFIED against the deployed file, then fixed — Beta 0.62.** Three of the four
   api-canonical claims held up exactly as recorded (`TRUNC_LEN = 13` L492; `isPrivate()` testing the
   `private` BOOLEAN not the name pattern L499, with the PlayHQ link suppressed L967; a faithful
@@ -1165,18 +1215,21 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   `if(g.legacy && typeof g.hs!=='number')return'legacy'` — driven through a 13-case matrix. The guard
   is correct whether `repair-legacy-flags` has run or not, so the two changes have no deploy order.
   Committed to BOTH copies (`markjovic/stattrack` and the repo-root mirror) 2026-07-31.
+
 - **§2.5 fold report DEMOTED TO ADVISORY, not timestamped.** `--repoint-only` stopped reading
   `reports/fold-diverged.json` at the T6 rewrite and nothing else reads it, so timestamped filenames
   would have added files to protect a consumer that no longer exists. Three stale texts still told the
   reader it was load-bearing: the script's usage block (contradicting its own code 300 lines below —
   the N-1 pattern inside a SINGLE file), the runtime NOTE on pre-existing dangling aliases, and the
   `mode` input description shown on the dispatch form.
+
 - **§2.2 flag collisions DIAGNOSED, and they turned out to be 1.5% of the real problem.** All 49 are
   legacy+forfeit. Extended `find-flag-collisions.js` answered the three open questions: 0 missing from
   `forfeit-games.json` (leaderboards were never contaminated), 47/49 with a valid `fo`, 0 with `spc:1`,
   and **49/49 carrying a score**. A predicted discriminator (`spc:1`) returned zero and the answer came
   from the line treated as weak evidence — recorded because nominating the wrong evidence and saying so
   is cheaper than quietly re-deriving it.
+
 - **THE FINDING: 3,262 games carry `legacy`, 3,120 hold a score, zero predate 2021.** The flag means
   "pre-history, nothing further obtainable" and peaks in the CURRENT year (955 in 2026). Root cause
   proven by executing the real function: `applyRoundFixtures` (nightly-crawl L567) spreads the existing
@@ -1184,9 +1237,11 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   normal result gives legacy+score; a forfeit gives legacy+forfeit+fo. One defect, two populations.
   **Nothing writes the flag any more** — a full grep found only reads. The classifier went in the
   2026-07-16 cleanup, so the population is FROZEN and the repair is a genuine one-off.
+
 - **Why no audit ever caught it:** `db-audit.js` L531 tested `legacy` against other FLAGS and never
   against DATA. Fixed — new `legacy + score` invariant, and both legacy rows now report unconditionally
   so a clean state is REACHABLE rather than merely silent (the keep-list-✅ defect, again).
+
 - **Three `gitCommit` violations fixed, each proven by running old and new side by side** against a
   real repo with a bare remote:
   `nightly-crawl.js` — combined `git add` in an empty catch, silent no-op return, 10 attempts,
@@ -1196,21 +1251,25 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   recorded as fixed (§2.2/§6.8).
   `fold-diverged-players.js` — batched 500-pathspec adds; one miss discarded up to 499 good paths and
   would abort a fold that had already completed every write.
+
 - **`find-code-refs.yml` created, and it is now load-bearing.** GitHub REFUSES to index this repo for
   code search. A search that cannot run returns "0 files", indistinguishable from "no matches" — the UI
   actively invites a false negative, which is the same failure class as the 2026-07-28 unearned doc
   verification. The project's own cross-document fact rule ("grep across all files, read the results")
   had no mechanism behind it until this existed. **This is the first CONFIRMED cost of repo size;**
   §D8's "blocks publishing" premise is still separately unverified.
+
 - **`scripts/discover-seasons.js.old` deleted.** A stale duplicate of a live script, invisible to this
   manifest's `scripts/*.js|*.cjs` glob AND to db-audit's root-level `.js` check because of the
   extension — and it polluted the legacy grep with two hits from dead code, which is precisely how a
   retired implementation gets mistaken for a live one.
+
 - **Recurring pattern, third session running:** the information was already present and the join was
   missing. §13's zero-full-uuids line, the L38 "10-char" comment, the fold header claiming aliases
   needed nothing — and now a manifest recording a staging fix that the file never received.
+
 ### 6.24 · 2026-08-03 — the last bare dispatch converted, and the matrix that missed the stop-button audit
- 
+
 - **`discover-seasons-matrix.yml` strip-and-harden (DELIVERED; the commit is the execution — T12):**
   the gen-step VERBOSE block (hexdumps, `$GITHUB_OUTPUT` re-parse) and the entire `verify-output`
   job deleted — both existed for the 2026-07-09 fan-out diagnosis, closed the same day they were
@@ -1240,8 +1299,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   is the FOLDED `>-` scalar with an uneven continuation; the four working `if: |` block-scalar
   gates in `nightly-crawl.yml` are explicitly fenced off from being "fixed"; new/edited gates are
   single-line with T2 `repr()` verification.
+
 ### 6.25 · 2026-08-03 (second pass) — the backfill scoped, and the README that rotted quietly
- 
+
 - **Historical/locked-season game-data backfill SCOPED** — full phased plan at OUTSTANDING §2.2.
   Key architectural point: `discover-fixtures.js` (`discoverTeamFixture`) fetches LOCKED seasons
   directly, so the July lock-writer → unlock-the-489 → re-crawl plan is expected obsolete; the 489,
@@ -1267,8 +1327,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   presence check. The Pages deploy-trigger item CLOSED same day (Mark): Pages no longer deploys on
   push — an explicit Deploy Pages action is chained in the scheduled runs. Operational consequence:
   a commit is not live until the next chained deploy fires.
+
 ### 6.26 · 2026-08-04 — Mark's three finds, the third strike of the regrade class, and the sweep goes live
- 
+
 - **Fold queue-eviction → trap T19 (found by Mark; caused by the 08-02 hardening).** The
   `data-write` pending queue holds ONE run; a new arrival CANCELS the waiter;
   `cancel-in-progress:false` protects only the running slot. Fold + team-stats dispatched in the
@@ -1305,8 +1366,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   cannot reach them; Phase 4 rescue = regs/game-file team ids straight into discoverTeamFixture,
   one probe decides. Runtime is WAF-bound (~15/s/IP), not code-bound; sharding is the only real
   accelerator and is warranted only if the sweep recurs.
+
 ### 6.27 · 2026-08-05 — the rebuild chain lands, finals ships client-side, and three own goals become traps
- 
+
 - **Post-sweep rebuilds complete.** build-win-loss FULL repaired 244,736 players' careers (Toby
   verified live at 51W 48L 1D — W+L finally equals his 99 GP); records rescanned across 2,311,974
   games; player-games, team-stats, finals, search all rebuilt. Leaderboards `force` still queued.
@@ -1342,8 +1404,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   that season), made more visible by the appearance-basis widening. Fix specified at OUTSTANDING §2.4
   and deliberately NOT built same-day — three of today's failures came from acting on unread
   assumptions, and this one deserves confirmation against the actual player file first.
+
 ### 6.28 · 2026-08-06 — the appearance gap: closed by running the missing step, not by inventing a new one
- 
+
 - **Mark's framing won the day twice.** First: "we have two endpoints precisely because of these
   private/hidden issues" — the answer was the EXISTING spectator step pointed at games it never ran
   on, not any new mechanism. Second: when the backfill's first draft queued 2,050,204 spc-unset
@@ -1364,8 +1427,9 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   for a gap player was invented from an outcome (page fails to load) and retracted when challenged.
   Tournament players genuinely play across 11 associations in a year. Mechanisms come from reading
   code and probing data, not from narrating symptoms.
+
 ### 6.29 · 2026-08-06 (evening) — Pages hits its ceiling; the split becomes active/locked
- 
+
 - **The publishing limit is real and measured:** GitHub Pages accepted 1,210.6 MB artifacts and
   rejects 1,211.6 MB — the post-backfill rebuild's ~1 MB crossed it. I initially argued the growth
   was innocent and invented a failure status for a run that succeeded to defend that; corrected by
@@ -1383,15 +1447,17 @@ comments lied); Sunday discovery now runs `backfill_teams=true` (weekly pre-game
   size-pages-artifact.yml (per-directory compressed composition), the expanded deploy-pages.yml
   strip. rebuild-chain's build caught the folded-scalar trap T1 live and a transitive-failure gate
   bug — both fixed before delivery by the test matrix.
+
+
 ### 6.30 · 2026-08-07 — the split goes LIVE end to end; T19 gets its structural fix; the day the ceiling stopped mattering
- 
+
 **The headline numbers.** Deploy Pages #89 artifact: **763,124,203 bytes**, against the last
 pre-split success of 1,210,614,006 and a measured failure ceiling ~1 MB above it. The 447.5 MB
 stripped from the active artifact matches the archive origin's first artifact (447,902,548 bytes)
 almost byte-for-byte — two origins accounting for each other exactly. Headroom went from ~1 MB to
 ~447 MB in one day, and the per-season directories no longer accumulate on the active site at all:
 seasons graduate out 28 days after locking, automatically.
- 
+
 **How it was built (order matters — measurement before machinery):**
 - **size-locked-split.yml** measured the locked share at 81.2% before anything was committed. Its
   first version aborted on the real sports-index — my shape detection was array-guessing when the
@@ -1423,6 +1489,7 @@ seasons graduate out 28 days after locking, automatically.
   write. All embedded scripts byte-asserted against tested sources; every helper instance (seven
   across the repo now) proven byte-identical at 1,046 bytes (1,032 characters — my first correction confused the two, and my "other boundary" explanation for the old 1,452 figure was an invented mechanism, retracted when tested: 1,452 matches nothing; §2.8 has the git-history check that settles it) — correcting this section's own 1,452
   figure above.
+
 **T19's structural fix — post-drain-chain.yml.** The 2026-08-06 lock fix was self-defeating: the
 matrix terminal's four-dispatch burst put leaderboards/search/records into the one-waiter
 data-write queue where each arrival evicted the last — none had run since the 6th. The fix is
@@ -1442,7 +1509,7 @@ workflow_run deploy #89 superseded it in the `pages` group — one deploy, captu
 Interim one-at-a-time manual dispatches: retired. Residual: the graduation flip is the only
 data-write waiter left outside the chain (rare, safe-side, red-visible) — folding it in is
 OUTSTANDING §2.7, polish not a hole.
- 
+
 **Also today:** nightly #61 died at runner acquisition during a confirmed GitHub Actions/Pages
 outage (nothing started, nothing to clean — the runner-acquisition error string plus the incident
 timeline settled it as not-our-bug). the pending playhq_api_reference correction
@@ -1455,9 +1522,9 @@ opposite, both without reading. Archive-repo and StatTrack READMEs written. Runw
 measured numbers: active residual growers are players/ + search/ + venue-lookup (years); archive
 fits ~7 more annual cohorts before era-sharding behind StatTrack's existing `seasonBase()` choke
 point.
- 
+
 ### 6.31 · 2026-08-07 → 08-10 — the appearance gap: proven, sized, and being swept; plus three latent failures it dragged into the light
- 
+
 **The gap, from anecdote to mechanism.** The 2026-08-06 verdict was right about the cause and wrong
 about the cost. Game `7da945a8` (JCC 2026) settled it: the stored `p[]` holds 12 ids and is a
 **strict subset** of the live spectator box's 19 — verified programmatically — while PlayHQ's own
@@ -1468,7 +1535,7 @@ from rounds it fetches, so nothing ever asked again. Two of my own assertions we
 by reading code rather than reasoning from it: these games are NOT re-queued nightly, and the
 spectator endpoint does not withhold them. A third — that partial `p[]` lists must be alias-fold
 cases — was disproven by the probe's own classification (100/100 GENUINELY-ABSENT).
- 
+
 **Measured before built, twice, by independent methods that agreed.** `size-gap-players.yml`
 (offline, zero API calls: profile-derived `gp` minus roster-derived `games[]`) returned 102,609
 affected players and 757,272 missing appearances — within 2.4% of the 775,703 aggregate probe, which
@@ -1476,7 +1543,7 @@ is what makes both numbers trustworthy. The distribution is bottom-heavy (80% of
 miss ≤5 games; ~1,060 miss 100+), and `size-resweep.yml` sized the sweep target at 2,026,441 games
 averaging 12.8 stored ids, RISING every year — 152,899 already in 2026 — so this is a live process,
 not an inherited scar.
- 
+
 **Tools built, all on the proven lineage.** `probe-player` (read-only, four-way classification per
 credited game), `repair-player` (targeted append, alias-gated per game so a divergent-id player is
 never duplicated), `repair-players-batch` (self-ranking, progress committed every 25 players, dead
@@ -1485,7 +1552,7 @@ pre-existing profileOnly entries across 17 files — more than I had briefed bef
 owned at the time; the arithmetic closed exactly against the probe's 1,637 credits). Every network
 and classification block byte-identical to `probe-missing-games.js`; every commit block byte-identical
 to `nightly-crawl.js` or `repair-aliases.yml`.
- 
+
 **The campaign.** `spectator-backfill` was widened by opt-in (`--include-partial`) and hardened four
 times, each time by a challenge from Mark rather than by design foresight: a `locked_only` default was
 replaced with an age guard within an hour of him asking why current seasons would be left incomplete
@@ -1502,11 +1569,11 @@ had repeated its own "a timeout costs one window" comment to Mark while it was t
 writes. Fixed by moving the player phase inside the commit window; the debt was collected by a
 purpose-built `--heal-dangling` mode (54,920 games, 86,761 references) and verified by a second run
 reporting zero.
- 
+
 **Progress at time of writing:** `spc` 158,022 → 725,701; sweep target 2,026,441 → 1,365,259; hit
 rates 85–93% in fresh territory; ~14k previously-invisible players discovered and stubbed, each cohort
 triggering folds (13,594 merges in one, 5,702 in another).
- 
+
 **Three latent failures the campaign exposed.** First, **T16 was already written in
 `claude_context.md` and `fold-diverged-players.js` had never been audited against it**: 82 seconds of
 real work followed by 1h54m in a per-path `git add` loop (~27,600 invocations against a ~50 MB index),
@@ -1522,7 +1589,7 @@ propagated. Third, **T19's dispatch burst was still live in `nightly-crawl.yml`'
 firing both weekly discovery sweeps at the same instant as post-drain-chain: on 2026-08-09 Discover
 Seasons spent 51 minutes queued behind a 41-minute chain and re-attempted twice, its `!cancelled()`
 retrigger adding two arrivals each time.
- 
+
 **The overnight pipeline, re-architected.** Both discovery sweeps moved off the nightly onto their own
 weekly crons (Sun/Mon 20:00 UTC — six hours clear of the cascade, ~19 hours clear of the next
 nightly), which also removed a fragility I had built and Mark rejected: a tail-chained version left
@@ -1534,20 +1601,20 @@ would silently revert to the wrong sweep mode. And `fetch-profile-stats-matrix.y
 writer outside the `data-write` group despite three committing jobs, was locked at those jobs only —
 never at workflow level, since its 20-shard fetch fan-out writes nothing and would otherwise hold the
 lock for an entire sweep.
- 
+
 **Corrections to this manifest's own record:** the "Manually run by markjovic" label on chained runs
 is a PAT artifact and says nothing about who triggered them — I built an argument on that misreading
 before Mark corrected it. `CONCURRENCY_SPECTATOR = 3` remains unexplained: the only quota note in
 these docs concerns a different tool and does not match this endpoint's measured behaviour
 (OUTSTANDING §2.11).
- 
- 
+
+
 ### 6.32 · 2026-08-11 — the sweep finishes, and its leftovers turn out to be a second dataset
- 
+
 **The campaign closed on its numbers.** 2,344,710 games on file; `spc` on 1,943,317 of them (82.9%,
 against under 7% four days earlier); 265,194 retired as misses; 44,989 held back by the 30-day age
 guard; queue zero. Every tally reconciles against the file count exactly.
- 
+
 **Then the misses were interrogated rather than accepted.** `size-misses.yml` bucketed them by their
 own season's capture rate — 446 DEAD seasons holding 175,647, 545 MIXED holding 70,820, and 951
 COVERED seasons above 95% capture that had still lost 18,727 scattered games. Mark spot-checked the
@@ -1557,7 +1624,7 @@ re-admission flag on the theory that they were transport failures; a 200-game pr
 `{"error":"Game not found"}`, proving the retirement correct and the flag useless. That cost one
 minute of endpoint time and changed no data, but it was a wrong theory built before the evidence
 supported it.
- 
+
 **What actually cracked it was Mark noticing the page's own words:** "Play by play is not available as
 this game was not scored live at the venue." `spectator.playhq.com` is PlayHQ's LIVE-SCORING service
 and only holds games scored in real time; `api.playhq.com`'s `gameView` → `discoverGame` is the
@@ -1567,7 +1634,7 @@ been visible to any tool we have. It is a scoring-METHOD split, not an era: it s
 season captured 97.7% just as it does at 100% in VJBL 2021. Four of five sampled games from
 0%-coverage seasons returned full lineups from the canonical record; the fifth 404s, having been
 deleted upstream.
- 
+
 **`discover-game-backfill.js/.yml`** was built on that finding, from `spectator-backfill.js` so the
 session handling, commit-window player phase, stubbing and `gitCommit` are inherited verbatim. It
 selects only games spectator actually tried and failed on, so it can never run ahead of the sweep.
@@ -1579,37 +1646,37 @@ testing: profiles arrive as full uuids with names, so stubs are created already 
 waiting for the matrix, and fill-in or anonymous participants carry no profile id and are counted and
 skipped rather than guessed at. No cron, deliberately: the backlog is finite, and the recurring case
 is OUTSTANDING §2.12.
- 
+
 **Also corrected before anything ran:** `repair-player.js` and `repair-players-batch.js` would have
 written `hp[]`/`ap[]` stat lines into real crawled games, against the never-pre-store convention.
 Neither had been dispatched. Both are now roster-only, with the reasoning recorded at the write site
 — a one-player stat list in a thirteen-player game is a fragment that reads as a box score,
 completing them all is ~1.9 GB, and stored stats go stale while the Worker serves the amended
 version. The `profileOnly` exception stands and belongs to `synthesize-missing-games` alone.
- 
+
 **A wording correction worth keeping**, because it cost real alarm: I reported the sweep as storing
 "box scores", and Mark reasonably read that as a deliberate architectural decision being reversed
 behind his back. It was not — the sweep wrote `p[]` ids and a capture flag and nothing else. In these
 documents "box score" means the per-player stat lines, which remain Worker-on-demand; the sweep
 captured ROSTERS. Also corrected this stretch: I asserted Mark's commit state twice without any
 visibility into it, and mislabelled files delivered on the 8th and 9th as "from earlier today".
- 
- 
+
+
 ### 6.33 · 2026-08-13 — the number, and two ordering bugs that hid it for a day
- 
+
 **The verdict.** Missing appearances **757,272 → 442,939**, a 41% reduction across six days. The deep
 tiers are effectively gone: players missing 100+ games fell from 1,060 to **13**, the 51–100 band from
 764 to **57**, and the worst single record in the database is now 188 games short against 555 on the
 Friday. 274,520 players are fully captured. What remains is shallow by construction — 112,682 of
 114,959 affected players are short twenty games or fewer.
- 
+
 **`discover-game-backfill` finished the canonical-record sweep:** 133,674 games at ~99.9%, at
 concurrency 5. That number was measured rather than chosen: 25 produced a 98% hit rate for ~140 games
 and then a sustained 403 wall it never recovered from, while 5 ran 200/200 clean in 52 seconds. The
 measurement sits at the constant precisely so nobody raises it later on a hunch. A real limit surfaced
 in the same work: about 19% of players in paper-scored games are fill-in or anonymous participants with
 no profile id at all, counted and skipped, unrecoverable by any route.
- 
+
 **`repair-players-batch` did the targeted work** — 75,095 appends at min-gap=100 covering 99.6% of
 those players' gaps, then 197,397 more before the workflow timeout, then 4,810 at min-gap=25. Two of
 its own defects were fixed en route: the season-file cache had NO eviction policy, so a 468-player run
@@ -1618,7 +1685,7 @@ and it would append a player to a game with an EMPTY roster, which is not a gap 
 — `43199a27` ended up with a two-id roster, both ids the tool's own top-ranked targets, in a game
 holding a dozen. Same failure class as the `hp`/`ap` fragment caught on the 11th, and the same rule:
 a fragment that looks like real data is worse than absence.
- 
+
 **Then a full day went on two ordering bugs, and the debugging is the part worth remembering.** A
 player with 473 roster entries in `games/bv` showed a `games[]` of 30. I proposed six explanations —
 fill-in players, mass mis-attribution, the resolver returning null, a missing `uuid` field on index
@@ -1629,7 +1696,7 @@ against real uploaded data: one season file, the genuine index shard, the genuin
 resolver returned the correct uuid, `getCollisions()` was empty, and Phase 2 flagged the file for
 update — proving the code correct by EXECUTION and leaving ordering as the only survivor. Running the
 script standalone updated 13,046 files against the weekly's 9,353, and the player came out at 503.
- 
+
 **The bugs themselves (now T28 and T29).** Workflow-level `concurrency` serialises a workflow against
 OTHER workflows, not its own jobs against each other — `weekly-indexes.yml` had three player-file
 writers running in parallel from separate checkouts, each pushing with `merge -X ours`, which is a
@@ -1639,7 +1706,7 @@ deriving from whatever its checkout captured at job start. The chain is now
 `discover-fixtures → team-stats → win-loss → player-games → fold-diverged`, and both `setup-node`
 steps were removed from that workflow while it was open — harmless there, since neither script fetches
 PlayHQ, but one edit away from the CloudFront failure documented everywhere else.
- 
+
 **Two investigations closed by evidence rather than by building anything.** The negative-gap population
 (26,445 players) is largely PRIVATE PROFILES: the API returns OK with no `seasonStatistics`, so the
 credited total is near-zero by construction while the roster appearances are real — probed live on a
@@ -1647,19 +1714,19 @@ player with `private: true`, gp≈35, games=489. The fill-in theory was refuted 
 canonical-record games are 5.1% of affected players' games, the same as their share of the database,
 where fill-ins would have concentrated. So there is no fill-in tag to build, and the diagnostic needs
 to read the `private` flag before it is trusted again.
- 
+
 **And a smaller correction worth keeping:** `discover-fixtures.js` froze the weekly with no output for
 five minutes. Node's `fetch` has no default timeout, so a single stalled socket blocked its
 `Promise.all` batch and therefore the entire run indefinitely; separately, the 429 branch retried
 without incrementing its attempt counter, spinning silently forever. Both fixed, with every retry now
 printing. Concurrency 40 was NOT the cause — it is the cron's proven value — and I argued otherwise
 twice from my own assumptions instead of from the run log Mark had already pasted.
- 
+
 ### 6.34 · 2026-09-01 → 09-06 — a wrong field name, a wrong keeper, and a wrong alias
- 
+
 Four faults, three of them mine, one of them PlayHQ's. Every number below came from a real file in
 this repo, not a fixture.
- 
+
 **`g.h`/`g.a` is never sufficient.** A game carries `h`/`a` OR `t1`/`t2` — `README.md` L266 has said
 so throughout. `build-player-games.js` L175 read only the first pair, so every hidden game produced
 null team ids, the registration test in the `u` block could not pass, and every appearance in a
@@ -1669,7 +1736,7 @@ player in it, silently, because `build-finals-stats.js` had always resolved both
 results were counted for games regular-season results were not. **44,195 players corrected.** And in
 nineteen places in StatTrack, the worst being a season card that rendered "No game records found."
 for a player who played every game in it. Now trap T34.
- 
+
 **The fold's keeper kept the wrong record.** It chose by `games[]` count — assigned by
 `build-player-games` resolving rosters through the alias index, so before an alias exists the stub
 collects everything. Across the 552 pairs the seeder had to refuse, the stub held a median of 69
@@ -1678,48 +1745,48 @@ gameTids/name are unioned, the real profile's stats, records and `private` flag 
 the inherited `statsChecked` meant it was never re-fetched. Keeper now decides by which record holds
 stats. **533 of 541 merges rescued.** The seeder's guard, which existed only to work around this,
 came out.
- 
+
 **`proposal-store-playhq-credited-games.md` was retired and deleted**, its decision recorded in
 `claude_context.md`. It had one number wrong that mattered: "roughly 450 refused seeding cases" was
 523, and the guard it named lived in `seed-apiid-from-playhq-pairs.js`, a script written the same
 session and never added to this manifest. That is why the guard could not be located from the docs.
- 
+
 **`c` and `x` shipped; `gamesAPI` was measured and rejected.** The full credited list is ~315 MB
 against the 314 MB `games[]` already costs and 99.4% the same ids. The disagreements are ~4 MB.
 Cross-check `gp - games[] == c - x` verified at 100.0% on shard 00 across 1,591 players.
- 
+
 **`x` found a defect in PlayHQ.** Of the 8,634 entries a stored box score can settle, **8,616 —
 99.8% — have the player in PlayHQ's own box score while PlayHQ's own career totals leave the game
 out.** Verified first on Toby Jovic (`0afc7690`, game `c7a6db82`), whose PlayHQ profile page skips
 the round its own box score records him playing.
- 
+
 **And it found misrouted aliases.** The same child under two PlayHQ profiles with a spectator id
 aimed at the wrong one. Jordan Uppal: 116 appearances on the wrong record. 46 aliases repointed, 22
 held back, 37 identity aliases excluded, 17 partials left for reading. William Warren 262 → 78 games
 against a gp of 78; Ben O'Connor's duplicate collapsed into `b9ca8d79` at 171/171.
- 
+
 **Three traps, all from the alias repair, all mine.** T35: an alias whose key is a prefix of its
 target is the player's own id, and the first repair listed those under a heading saying "to repoint".
 T36: one claimant holding all the misrouted games does not license repointing every alias — attribute
 games to the alias that carried them; 117 candidates became 46 once that was done. T37: "another
 profile holds this game and is credited for it" is true of every teammate; the claimant must be the
 same person by name.
- 
+
 **T38 — test against real files.** Every one of the above passed a synthetic test first, because the
 fixture was built out of the same wrong assumption as the code. Two-player rosters when real rosters
 have ten. `h`/`a` games when 97% of that season used `t1`/`t2`.
- 
+
 **Memory, at 418k players.** `find-misrouted-appearances.js` died twice at the 4 GB heap limit. A
 per-season map of wanted game ids is a cross product — one flat set and a single sweep of every
 season file instead. Do not cache every parsed player file. Do per-player work per player.
- 
+
 ---
- 
+
 ### 6.35 · 2026-09-08 — three faults of one family, and the dates that were being thrown away
- 
+
 Every fault closed today was the same mistake wearing different clothes: **a failure to ASK
 recorded as an ANSWER.**
- 
+
 **`discover-org-seasons.js` — the guard.** Its `discoverSeason` returned `null` for three
 different things: PlayHQ answered with nothing, the request was forbidden, and the request
 errored. `buildEntry` read "no grades came back" as "this season has no grades", and for a
@@ -1731,7 +1798,7 @@ rather than clean. Root cause of the divergence between the two scripts: `discov
 `aimdRun` has no give-up ceiling, so a blocked item is requeued forever and can never reach the
 entry-writing loop — its `if (ds?.blocked) continue;` guard is unreachable belt-and-braces.
 `discover-org-seasons.js` added `maxAttempts: 4` and then wrote the entry anyway.
- 
+
 **The repair, sized before built.** `audit-removed-org-seasons.js` (new, read-only) re-asked all
 80: **52 have grades (239 total), 28 genuinely have none, 0 unanswered**, in six seconds with zero
 blocks. Repairing all 80 would have been as wrong as leaving all 80. Applied via
@@ -1739,7 +1806,7 @@ blocks. Repairing all 80 would have been as wrong as leaving all 80. Applied via
 leaving the 274 stubs from other sources untouched and asserting that before committing. Verified
 on `55dcd845` and `af72a719`. Two independent live runs 17 minutes apart agreed on all 52 seasons
 and the exact grade count of every one.
- 
+
 **`discover-seasons-matrix.yml` — the map fan-out.** Four weeks of green 30-second no-ops. See
 T51. Fixed with one key, `map.if`; the parsed job graph was diffed key by key against the
 pre-change file to confirm `needs`, `strategy`, permissions, concurrency, the `gen` step and the
@@ -1747,7 +1814,7 @@ whole `reduce` job were byte-identical. Proven by dispatch with `fresh_start` un
 broken condition. The sweep then ran to completion across three chained runs: 256/256 shards,
 233,617 players at 100%, 48 new seasons, 46 grade lists filled including `8f43ff68` going from a
 bare pre-allocation to 42 grades.
- 
+
 **`--backfill-dates` — the dates that were already being fetched.** `discoverCompetitions` returns
 `status`, `startDate` and `endDate` for every season an organisation has ever run, reaching back
 to at least 2020. Line 483 discarded all of it for any season id already known. Measured before:
@@ -1756,7 +1823,7 @@ had their status asked at all — holding 8,106 grades, 85% of the nightly's wor
 reads the same 183 calls properly: **1,984 filled, 63 corrected, 2,792 → 808 missing, in 17
 seconds, no extra requests.** Metadata only — four assertions on count, `locked`, `removed` and
 grade totals abort before commit. It does not lock a season even when PlayHQ says COMPLETED.
- 
+
 **`close-empty-seasons.js` (new) — closing on evidence.** 78 seasons held no games file at all. A
 missing file is **not** evidence that no games exist; it is equally consistent with a capture
 failure, and closing one of those buries recoverable data — the same mistake as `removed:true`,
@@ -1767,14 +1834,14 @@ collapsed: confirmed empty → `locked:true` + `closedAt` + `closedReason`; Play
 touched in the last 3 days are skipped, which protected the 52 repaired hours earlier. Result:
 **26 closed, 304 grades off the nightly, 0 holding games we had missed.** `6a36400d` had all 65 of
 its grades asked individually and returned nothing.
- 
+
 **Two read-only audits also built.** `audit-finished-unlocked-seasons.js` — measures
 finished-but-unlocked seasons against real game data on disk, two-phase checkout (`games/bv` is
 1.94 GB / 2,939 files; a cone pattern is unusable, so phase 1 emits explicit paths and phase 2
 takes them by name). `audit-pending-games-vs-playhq.js` — asks whether games we hold as PENDING
 are still pending at PlayHQ. Answer: 685 asked, 0 finished. Its `not returned` counter is
 defective; see OUTSTANDING_TASKS.
- 
+
 **Own goals, all caught by execution rather than reading, all now traps.** T52: a fixed 150 ms
 sleep with no retry got `close-empty-seasons.js` walled after 5 seasons — the comment forbidding
 exactly that had been written into `discover-org-seasons.yml` earlier the same session. T53: a
@@ -1782,20 +1849,20 @@ counter that read a mutated object reported 0 filled while filling 1,984; and a 
 tested `st === 'UPCOMING'` counted zero unplayed games in a season holding three, because real
 data uses `PENDING` and `IN_PROGRESS`. T54: a revised file re-delivered under the same name with
 no version marker was silently swapped, and the stale copy was run.
- 
+
 **Tools added:** `scripts/audit-removed-org-seasons.js`, `scripts/audit-finished-unlocked-seasons.js`,
 `scripts/audit-pending-games-vs-playhq.js`, `scripts/close-empty-seasons.js` — each with its
 workflow, all read-only except the last, all dispatch-only, none using `actions/setup-node`.
 **Tools changed:** `scripts/discover-org-seasons.js` (guard + `--repair-removed` +
 `--backfill-dates`) and its workflow; `.github/workflows/discover-seasons-matrix.yml` (`map.if`).
- 
+
 ---
- 
+
 ### 6.36 · 2026-09-08 (later) — the writers that had quietly stopped, and one that never started
- 
+
 Prompted by a simple question: why are the commit dates on files in `data/` months
 apart? Three of the quiet files were correct. Two writers were broken.
- 
+
 **`data/venue-index.json` had never been updated once.** Created 2026-06-13 by the
 Phase 1 migration — 532 entries against the 532 venue directories of that day — and no
 ongoing writer was ever built. The writer→reader graph in §4.1 recorded it as
@@ -1809,7 +1876,7 @@ entries no game mentions, and aborts if the file would ever shrink. First live r
 **532 → 541 venues, 9 added, 2 renamed, 0 orphaned**, pushed on the first attempt.
 All 1,795,589 games with a `vid` also carry a `vn`. Two renames were real venue
 changes, not noise.
- 
+
 **`build-venue-indexes.js` carried the combined-`git add`.** One add across three
 pathspecs; a single unmatched pathspec stages nothing, atomically, exit 0. That is
 the §2.2 fault that discarded 30,426 games from `discover-fixtures.js` on 2026-07-19,
@@ -1817,7 +1884,7 @@ fixed there on 2026-07-21 and never fixed here. Its `gitCommit` was also wrapped
 try/catch that printed and returned, so any git failure exited zero and the job showed
 green. Now per-path adds, staged shortstat, 60-attempt push retry with jitter, throws
 on exhaustion.
- 
+
 **`update-team-index.js` broke four rules and never corrected a team.** `git add -A`
 — the **third** instance of a violation this project explicitly forbids, after
 `discover-seasons.js` and `build-leaderboards.js` on 2026-07-09; `--stat` where the
@@ -1827,32 +1894,32 @@ comparison, so a renamed or regraded team kept its original values permanently. 
 compares and corrects, prints each change, and will not let a blank team name from
 PlayHQ overwrite a name already held. The §2.2 row describing its input as
 `team-stats/bv` was also wrong — it reads player files.
- 
+
 **Two timeouts became wrong the moment the retry loops were added** — `update-team-index.yml`
 15 → 150 and the `team-index` job in `nightly-crawl.yml` 15 → 150, with the arithmetic
 written next to each number. The nightly's job graph was diffed key by key to prove
 exactly one key changed. That is **T55**, and it is the same failure
 `build-venue-indexes` suffered at 45 and again at 120 in August.
- 
+
 **Confirmed correct, do not re-investigate:** `zero-team-seasons.json` (a
 `discover-fixtures` report), `seasons-discovered/invalid/skipped` (the never-re-queue
 lists), and `season-venue-index.json` covering 2,116 of 2,939 seasons — a season only
 appears there if one of its games carries a `vid`, and hidden games never do.
- 
+
 **Also fixed:** the `not returned` counter in `audit-pending-games-vs-playhq.js`,
 which counted every game in a grade the run never queried as a fixture PlayHQ had
 dropped. 632 phantom absences on the first run, 0 after. It now produces a count only
 under full coverage.
- 
+
 ---
- 
+
 ### 6.37 · 2026-09-08 — the season lifecycle rule, and a guard mistaken for a bug
- 
+
 **Nothing had ever locked a season.** After the date backfill made the scale visible:
 419 `COMPLETED` seasons unlocked holding 5,873 grades — **59% of everything the
 nightly fetched every night** — 334 of them finished more than three months earlier,
 41 more than three years, one in December 2019.
- 
+
 **`scripts/lock-quiet-seasons.js` + workflow (new).** Daily, 20:30 UTC, and it
 APPLIES. A rule that only fires when someone remembers to dispatch it is a report with
 extra steps, and the safety here is the evidence rather than a human in the loop:
@@ -1860,7 +1927,7 @@ PlayHQ says `COMPLETED`, games exist on disk, the season is old enough, and it i
 reversible — `lockedAt` and `lockedReason` are the selector, exactly as
 `discoveredBy:'org'` made the repair of 80 damaged seasons possible the same day.
 Never `removed:true`; that means a `grades:[]` stub, and these hold real grades.
- 
+
 `lock_after_months` ships at **3, equal to `min_age_months`**, so age alone decides.
 Drafted at 12, 6 considered; both were caution, not measurement. The fingerprinting
 (sha1 over each game's id, status and both scores) still runs and became the CHECK on
@@ -1868,16 +1935,16 @@ that decision rather than a gate: a season locked on age whose fingerprint moved
 the same run was still receiving data when sealed, and is reported as **STILL
 CHANGING** with every id named for reopening. That count must stay at zero — if it
 does not, three months is too short and the log says so.
- 
+
 **The zero-games floor.** `lock-quiet-seasons` never locks an empty season. Proving
 one is truly empty means asking PlayHQ per grade, which is `close-empty-seasons.js` —
 given a **weekly cron** the same day, having been dispatch-only, because empty seasons
 would otherwise pile up exactly as finished ones had. The two rules now cover the
 whole space with nothing left to remember.
- 
+
 First dry run at 12 months: 69 locked, 485 grades off the nightly, 9,953 → 9,468;
 238 still settling; 84 too young; 28 with no games; **0 with no endDate**.
- 
+
 **T57 — the guard that was not a bug.** `update-team-index.js` skipped known teams
 before comparing them. Treated as a defect and "fixed" to correct `n`, `comp` and
 `grade` keyed on `tid`; a `--all` dry run then reported **2,175,659 corrections across
@@ -1889,7 +1956,7 @@ the RES grade is `reg[1]` twice and `reg[0]` twice across four regrades, so arra
 order carries no chronology. `n` and `comp` are safe and the corrected run cleared
 **2,628 teams, almost all holding an empty name** since the index was built and
 therefore unsearchable in StatTrack.
- 
+
 **Tools added:** `scripts/lock-quiet-seasons.js` + `.github/workflows/lock-quiet-seasons.yml`.
 **Tools changed:** `close-empty-seasons.yml` (weekly cron, applies),
 `update-team-index.js` (grade excluded from correction),
@@ -1897,18 +1964,18 @@ therefore unsearchable in StatTrack.
 **New data file:** `data/season-activity.json` — per-season games fingerprint and
 unchanged-run streak. Written by `lock-quiet-seasons.js` on every run including
 `--record-only`. Deleting it costs nothing but the streak history.
- 
+
 ---
- 
+
 ### 6.38 · 2026-09-10 — half the nightly gone, and a status nobody had ever counted
- 
+
 **The lifecycle rule ran.** 307 seasons locked, 4,927 grades, **9,956 → 5,029**.
 `STILL CHANGING` 0 against 391 fingerprints; exactly one season moved between the two
 runs (`01ffe236`, ended seven days earlier), which is the canary demonstrating it can
 detect activity rather than always returning the same hash. `lock_after_months` is 3,
 equal to `min_age_months`, so age alone decides — Mark's call, and the fingerprint is
 now the check on it rather than a gate.
- 
+
 **`lock-quiet-seasons.yml` was given `data-write` the next day.** It shipped lockless
 on T19 grounds and that reasoning did not survive scrutiny: every writer of
 `sports-index.json` uses `merge -X ours`, so concurrent writers do not conflict — the
@@ -1917,14 +1984,14 @@ retry can catch. T19's harm was to burst-dispatched workflows where an evicted w
 loses its run outright; a daily cron that misses a day loses nothing. Prompted by the
 2026-09-09 run starting at 22:41 against a 20:30 cron: GitHub queues scheduled runs,
 and a two-hour drift closes the ninety-minute gaps between the three index writers.
- 
+
 **`db-audit.js` had been counting five statuses NOWHERE.** The catch-all branch read
 `else if (!['BYE','LIVE','PRE_GAME','IN_PROGRESS','PENDING'].includes(st))` — so a
 game in any of those fell through every counter. The status section totalled 2,360,109
 of 2,424,380: **64,271 games tallied by nothing.** `inProgress` had also been computed
 since the script was written and never displayed. Both fixed, plus a reconciliation
 line that marks itself against the game total.
- 
+
 **That surfaced `LIVE` at 47,807** — the third-largest status in the database, never
 once shown, and every single one inside a locked season. Establishing whether they
 were recoverable took **five full runs and two wrong endpoints**, and the answer was
@@ -1935,7 +2002,7 @@ competition withdrawn upstream, which is why those seasons have no `endDate` and
 organisation lists them; we hold the only surviving copy. 88 are still served and
 still non-final, matching the 2026-09-08 PENDING work through a different endpoint.
 Locking cost nothing.
- 
+
 **`build-search-index.js` — 79,566 players gained a club.** `extractClubTeam` returned
 at the first season holding a team name and used THAT season's club even when the
 field was absent, never looking further back, so 19% of the database rendered as
@@ -1944,14 +2011,14 @@ field was absent, never looking further back, so 19% of the database rendered as
 and a team, so the pair stays coherent: 261,490 of 265,481 come from a single season.
 152,902 still have none, correctly. Its `gitCommit` also printed and returned on
 failure — the fourth instance of that swallowing catch found this week.
- 
+
 **Smaller, all measured:** the two dangling aliases removed by
 `prune-dangling-aliases.js` after `repoint-only` proved them unresolvable (499,607 →
 499,605, §3b now 0); `playerCount` deleted from `sports-index.json` as unmaintained
 (369,428 against 418,416 real files, no writer anywhere); organisation `59363a37`
 skipped in both org sweeps as deleted upstream; `fold-diverged-players.js` L105
 corrected and a `repoint-only-dry` mode added, that branch having been un-previewable.
- 
+
 **Three nightly timeouts corrected against their retry budgets (T55).** `team-index`
 15 → 150, `team-stats` 60 → 240, `venue-lookup` 30 → 180. `build-team-stats.js` has
 had a 60-attempt loop since 2026-07-28 — roughly 109 minutes for one commit, and it
@@ -1959,7 +2026,7 @@ commits every 50 seasons — inside a 60-minute timeout for six weeks.
 `update-venue-lookup.js` was the reverse case: 30 was correct for its old 10-attempt
 loop and became wrong the moment that loop was raised to the house pattern. Both
 scripts swallowed failures and now throw.
- 
+
 **Tools added:** `scripts/prune-dangling-aliases.js`, `scripts/audit-nonfinal-games.js`
 (both with workflows), and the one-off `scripts/drop-stale-playercount.js` which should
 be deleted once run.
