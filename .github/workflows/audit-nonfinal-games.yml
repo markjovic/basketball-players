@@ -17,11 +17,23 @@ name: Audit Non-Final Games (read-only)
 # nightly skips locked seasons, so a non-final game inside one is frozen permanently.
 # Nobody has checked whether those 47,807 sit in locked seasons or active ones.
 #
-# LIVE IS NOT PENDING. audit-pending-games-vs-playhq.js established that PENDING games
-# never finish — 685 asked, 0 finished at PlayHQ. LIVE is the opposite claim: PlayHQ
-# WAS scoring the game when we read it, so a finished season full of LIVE games is far
-# more likely to be a capture gap than a dead competition. The same answer must not be
-# assumed.
+# IT ASKS THE CANONICAL RECORD, NOT THE GRADE LISTING. Revisions a and b of the script
+# asked gradeRounds -> discoverFixtureByRound and every grade came back null: not one
+# game was ever asked about, and revision a printed a conclusion anyway.
+#
+# The documentation says why. REPO_MANIFEST §1629 and OUTSTANDING_TASKS §352:
+# spectator.playhq.com is PlayHQ's LIVE-SCORING service and holds only games scored in
+# real time; api.playhq.com's gameView -> discoverGame is the CANONICAL record. LIVE is
+# a spectator-service status, so those games were reached through a live-scoring or
+# player route and the grade endpoint knows nothing about their grades.
+#
+# It now asks discoverGame(gameID) per game — keyed by the id we already hold, needing
+# no grade, round or season listing. The query and request machinery are copied
+# VERBATIM from discover-game-backfill.js, the live script that makes this exact call.
+#
+# CONCURRENCY IS 5 AND SHOULD STAY. Measured 2026-08-11: 25 ran a 98% hit rate for ~140
+# games then hit a wall it never recovered from; 5 ran 200/200 clean in 52 seconds. The
+# nightly depends on this same endpoint.
 #
 # FULL CHECKOUT, NOT SPARSE. It reads every file in games/bv — 1.94 GB across 2,966
 # files. Sparse checkout fetches roughly one blob per second, so naming them all is
@@ -49,14 +61,14 @@ on:
         default: ''
         type: string
       max_seasons:
-        description: 'How many of the worst locked seasons to ask about (default 8)'
+        description: 'How many of the worst locked seasons to sample (default 10)'
+        required: false
+        default: '10'
+        type: string
+      per_season:
+        description: 'Games sampled per season (default 8). Total calls = max_seasons x per_season, at concurrency 5.'
         required: false
         default: '8'
-        type: string
-      max_grades:
-        description: 'Grades per season (default 4 — every round of every grade is fetched, so keep this small)'
-        required: false
-        default: '4'
         type: string
 
 # Its own group, NOT data-write. It writes nothing, so it must not take the data lock
@@ -90,11 +102,11 @@ jobs:
         env:
           IN_MODE:   ${{ inputs.mode || 'count-only' }}
           IN_STATUS: ${{ inputs.status }}
-          IN_MAXS:   ${{ inputs.max_seasons || '8' }}
-          IN_MAXG:   ${{ inputs.max_grades || '4' }}
+          IN_MAXS:   ${{ inputs.max_seasons || '10' }}
+          IN_PER:    ${{ inputs.per_season || '8' }}
         run: |
           set -euo pipefail
-          ARGS="--max-seasons=$IN_MAXS --max-grades=$IN_MAXG"
+          ARGS="--max-seasons=$IN_MAXS --per-season=$IN_PER"
           if [ "$IN_MODE" = "count-only" ]; then ARGS="$ARGS --count-only"; fi
           if [ -n "$IN_STATUS" ]; then ARGS="$ARGS --status=$IN_STATUS"; fi
           node scripts/audit-nonfinal-games.js $ARGS
@@ -115,6 +127,9 @@ jobs:
           echo "  Nothing to recover, and locking was correct — the same finding as the"
           echo "  PENDING work on 2026-09-08 (685 asked, 0 finished)."
           echo ""
-          echo "COVERAGE n/m = only some grades were queried, so no count is produced"
-          echo "  for that season. A game in a grade nobody asked about is not evidence"
-          echo "  of anything."
+          echo "NOT HELD BY PLAYHQ = discoverGame returns 404 or no game. The game no"
+          echo "  longer exists upstream. That IS an answer."
+          echo ""
+          echo "FAILED = the call did not complete. NOT a finding either way. If nothing"
+          echo "  at all was answered the tool says so and refuses to interpret the"
+          echo "  zeros — revision a printed a conclusion from exactly that state."
