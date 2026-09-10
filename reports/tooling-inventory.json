@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T10:08:43.987Z",
+  "generatedAt": "2026-09-10T10:22:52.855Z",
   "docsPresent": {
     "manifest": true,
     "context": true,
@@ -12,14 +12,49 @@
     "recentScripts": 41,
     "recentWorkflows": 38,
     "staleManifestRows": 3,
-    "safeDelete": 0,
-    "documentFirst": 2,
+    "spentScripts": 30,
+    "spentWorkflows": 97,
+    "decideScripts": 16,
+    "decideWorkflows": 24,
+    "safeDelete": 9,
+    "documentFirst": 23,
     "brokenWorkflows": 1
   },
-  "safeDelete": [],
+  "safeDelete": [
+    "scripts/build-finals-stats.js",
+    "scripts/build-leaderboards.js",
+    "scripts/build-records.js",
+    "scripts/check-roster-freshness.js",
+    "scripts/probe-missing-games.js",
+    "scripts/redirect-exposure.js",
+    "scripts/repair-season-names.js",
+    "scripts/scan-season-name-contamination.js",
+    "scripts/size-report.js"
+  ],
   "documentFirst": [
+    "scripts/build-alias-worklist.js",
     "scripts/diagnose-nameless-players.js",
-    "scripts/probe-session-throwaway.js"
+    "scripts/merge-phantom-profiles.js",
+    "scripts/probe-absent-games.js",
+    "scripts/probe-alias-stats.js",
+    "scripts/probe-both-resolve.js",
+    "scripts/probe-discover-teams.js",
+    "scripts/probe-duplicate-profiles.js",
+    "scripts/probe-grade-ladder.js",
+    "scripts/probe-notfound.js",
+    "scripts/probe-registrations.js",
+    "scripts/probe-roster-sources.js",
+    "scripts/probe-session-throwaway.js",
+    "scripts/probe-setup-node-fingerprint.js",
+    "scripts/probe-shared-roster.js",
+    "scripts/probe-squad-evidence.js",
+    "scripts/probe-stattrack-shapes.cjs",
+    "scripts/probe-stattrack-shapes.js",
+    "scripts/probe-wrong-rosters.js",
+    "scripts/prove-player-files-intact.js",
+    "scripts/rebuild-player-index.js",
+    "scripts/size-duplicate-profiles.js",
+    "scripts/size-locked-backfill.js"
   ],
   "brokenWorkflows": [
     ".github/workflows/backfill.yml"
@@ -43,7 +78,8 @@
       "lastCommit": "2026-08-28T11:48:04+10:00",
       "ageDays": 13,
       "recent": true,
-      "bytes": 52343
+      "bytes": 52343,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/audit-diff-fields.js",
@@ -58,9 +94,10 @@
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "READ-ONLY, one shard. Checks `sports.Basketball.c`/`.x` were written and that `gp - games[] == c - x` holds. **Excludes withheld players** — `markNotObtainable` never reaches `finishOk`, so the diff never runs for them and comparing their stale `gp` reports the audit's own missing-field handling as a fault",
       "lastCommit": "2026-09-04T20:19:20+10:00",
-      "ageDays": 5,
+      "ageDays": 6,
       "recent": true,
-      "bytes": 9553
+      "bytes": 9553,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/audit-finished-unlocked-seasons.js",
@@ -81,7 +118,8 @@
       "lastCommit": "2026-09-08T13:43:02+10:00",
       "ageDays": 2,
       "recent": true,
-      "bytes": 13076
+      "bytes": 13076,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/audit-nonfinal-games.js",
@@ -98,7 +136,8 @@
       "lastCommit": "2026-09-10T18:34:48+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 38482
+      "bytes": 38482,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/audit-pending-games-vs-playhq.js",
@@ -118,7 +157,8 @@
       "lastCommit": "2026-09-08T21:23:23+10:00",
       "ageDays": 1,
       "recent": true,
-      "bytes": 17195
+      "bytes": 17195,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/audit-removed-org-seasons.js",
@@ -138,7 +178,8 @@
       "lastCommit": "2026-09-08T11:59:58+10:00",
       "ageDays": 2,
       "recent": true,
-      "bytes": 19243
+      "bytes": 19243,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/audit-seasons-gaps.js",
@@ -157,7 +198,8 @@
       "lastCommit": "2026-08-01T19:53:23+10:00",
       "ageDays": 40,
       "recent": false,
-      "bytes": 25543
+      "bytes": 25543,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/audit-tooling-inventory.js",
@@ -171,10 +213,11 @@
       "manifestSection": null,
       "manifestClass": null,
       "manifestPurpose": null,
-      "lastCommit": "2026-09-10T20:04:01+10:00",
+      "lastCommit": "2026-09-10T20:20:15+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 27198
+      "bytes": 33165,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/audit-uuid-collisions.js",
@@ -193,7 +236,8 @@
       "lastCommit": "2026-07-10T15:29:51+10:00",
       "ageDays": 62,
       "recent": false,
-      "bytes": 4785
+      "bytes": 4785,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/build-alias-worklist.js",
@@ -210,7 +254,8 @@
       "lastCommit": "2026-08-26T13:09:41+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 10795
+      "bytes": 10795,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/build-finals-stats.js",
@@ -237,7 +282,8 @@
       "lastCommit": "2026-08-05T23:33:18+10:00",
       "ageDays": 35,
       "recent": false,
-      "bytes": 32051
+      "bytes": 32051,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/build-leaderboards.js",
@@ -262,7 +308,8 @@
       "lastCommit": "2026-08-01T22:08:15+10:00",
       "ageDays": 39,
       "recent": false,
-      "bytes": 27365
+      "bytes": 27365,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/build-player-games.js",
@@ -288,7 +335,8 @@
       "lastCommit": "2026-09-03T10:59:34+10:00",
       "ageDays": 7,
       "recent": true,
-      "bytes": 23490
+      "bytes": 23490,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/build-records.js",
@@ -306,7 +354,8 @@
       "lastCommit": "2026-07-31T15:35:36+10:00",
       "ageDays": 41,
       "recent": false,
-      "bytes": 19624
+      "bytes": 19624,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/build-search-index.js",
@@ -327,7 +376,8 @@
       "lastCommit": "2026-09-09T13:15:49+10:00",
       "ageDays": 1,
       "recent": true,
-      "bytes": 15031
+      "bytes": 15031,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/build-team-stats.js",
@@ -354,7 +404,8 @@
       "lastCommit": "2026-09-10T13:47:16+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 15250
+      "bytes": 15250,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/build-venue-indexes.js",
@@ -375,7 +426,8 @@
       "lastCommit": "2026-09-08T22:10:30+10:00",
       "ageDays": 1,
       "recent": true,
-      "bytes": 12987
+      "bytes": 12987,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/build-win-loss.js",
@@ -403,7 +455,8 @@
       "lastCommit": "2026-09-03T10:59:34+10:00",
       "ageDays": 7,
       "recent": true,
-      "bytes": 19287
+      "bytes": 19287,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/census-wrongly-keyed-players.js",
@@ -421,7 +474,8 @@
       "lastCommit": "2026-08-31T08:58:38+10:00",
       "ageDays": 10,
       "recent": true,
-      "bytes": 84492
+      "bytes": 84492,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/check-roster-freshness.js",
@@ -438,7 +492,8 @@
       "lastCommit": "2026-07-28T22:47:18+10:00",
       "ageDays": 43,
       "recent": false,
-      "bytes": 18186
+      "bytes": 18186,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/clear-stats-checked.js",
@@ -459,7 +514,8 @@
       "lastCommit": "2026-06-27T18:17:07+10:00",
       "ageDays": 75,
       "recent": false,
-      "bytes": 4139
+      "bytes": 4139,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/close-empty-seasons.js",
@@ -478,7 +534,8 @@
       "lastCommit": "2026-09-08T19:25:33+10:00",
       "ageDays": 2,
       "recent": true,
-      "bytes": 22647
+      "bytes": 22647,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/correct-wrong-aliases.js",
@@ -495,7 +552,8 @@
       "lastCommit": "2026-08-29T21:49:25+10:00",
       "ageDays": 11,
       "recent": true,
-      "bytes": 38329
+      "bytes": 38329,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/count-stats-checked.js",
@@ -512,7 +570,8 @@
       "lastCommit": "2026-06-26T15:43:46+10:00",
       "ageDays": 76,
       "recent": false,
-      "bytes": 1343
+      "bytes": 1343,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/db-audit.js",
@@ -539,7 +598,8 @@
       "lastCommit": "2026-09-10T13:38:56+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 55560
+      "bytes": 55560,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/diagnose-alias-conflicts.js",
@@ -556,7 +616,8 @@
       "lastCommit": "2026-08-26T22:53:54+10:00",
       "ageDays": 14,
       "recent": true,
-      "bytes": 41111
+      "bytes": 41111,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/diagnose-forfeit-game.js",
@@ -575,7 +636,8 @@
       "lastCommit": "2026-08-02T11:46:54+10:00",
       "ageDays": 39,
       "recent": false,
-      "bytes": 10513
+      "bytes": 10513,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/diagnose-id-field-lengths.js",
@@ -593,7 +655,8 @@
       "lastCommit": "2026-07-10T22:03:04+10:00",
       "ageDays": 61,
       "recent": false,
-      "bytes": 3369
+      "bytes": 3369,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/diagnose-nameless-players.js",
@@ -608,7 +671,8 @@
       "lastCommit": "2026-06-27T17:25:46+10:00",
       "ageDays": 75,
       "recent": false,
-      "bytes": 1713
+      "bytes": 1713,
+      "verdict": "ORPHAN — nothing references it and no document mentions it"
     },
     {
       "path": "scripts/diagnose-nightly-health.js",
@@ -625,7 +689,8 @@
       "lastCommit": "2026-06-27T12:13:13+10:00",
       "ageDays": 75,
       "recent": false,
-      "bytes": 11134
+      "bytes": 11134,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/diagnose-unregistered-appearances.js",
@@ -642,7 +707,8 @@
       "lastCommit": "2026-09-03T17:38:00+10:00",
       "ageDays": 7,
       "recent": true,
-      "bytes": 21691
+      "bytes": 21691,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/diagnose.js",
@@ -662,7 +728,8 @@
       "lastCommit": "2026-06-29T07:58:49Z",
       "ageDays": 73,
       "recent": false,
-      "bytes": 14408
+      "bytes": 14408,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/discover-fixtures.js",
@@ -694,7 +761,8 @@
       "lastCommit": "2026-09-08T09:22:06+10:00",
       "ageDays": 2,
       "recent": true,
-      "bytes": 46912
+      "bytes": 46912,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/discover-game-backfill.js",
@@ -720,9 +788,10 @@
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "**SECOND roster capture path (2026-08-11).** Walks games spectator retired (`spcm` set, no `spc`), asks `api.playhq.com/graphql` `gameView` → `discoverGame` — the CANONICAL record, which holds paper-scored games spectator never had — and writes the same bare-id `p[]` plus `dg: 1`. Never writes `spc`, never touches `spcm`; own permanent failures → `dgm`. Query embedded VERBATIM from a browser capture, untrimmed. Profiles arrive as full uuids WITH names, so stubs are born named",
       "lastCommit": "2026-08-20T20:09:51+10:00",
-      "ageDays": 20,
+      "ageDays": 21,
       "recent": false,
-      "bytes": 66905
+      "bytes": 66905,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/discover-org-seasons.js",
@@ -742,7 +811,8 @@
       "lastCommit": "2026-09-10T13:42:28+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 45904
+      "bytes": 45904,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/discover-seasons.js",
@@ -774,7 +844,8 @@
       "lastCommit": "2026-09-08T09:22:06+10:00",
       "ageDays": 2,
       "recent": true,
-      "bytes": 60355
+      "bytes": 60355,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/drop-stale-playercount.js",
@@ -791,7 +862,8 @@
       "lastCommit": "2026-09-10T13:42:28+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 6385
+      "bytes": 6385,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/fetch-profile-stats.js",
@@ -855,7 +927,8 @@
       "lastCommit": "2026-09-04T16:31:16+10:00",
       "ageDays": 6,
       "recent": true,
-      "bytes": 78852
+      "bytes": 78852,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/find-flag-collisions.js",
@@ -874,7 +947,8 @@
       "lastCommit": "2026-08-02T11:46:54+10:00",
       "ageDays": 39,
       "recent": false,
-      "bytes": 18968
+      "bytes": 18968,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/find-lost-stats-from-folds.js",
@@ -891,7 +965,8 @@
       "lastCommit": "2026-09-04T23:25:38+10:00",
       "ageDays": 5,
       "recent": true,
-      "bytes": 15355
+      "bytes": 15355,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/find-misrouted-appearances.js",
@@ -911,7 +986,8 @@
       "lastCommit": "2026-09-07T15:43:38+10:00",
       "ageDays": 3,
       "recent": true,
-      "bytes": 33322
+      "bytes": 33322,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/find-players-by-team.js",
@@ -928,7 +1004,8 @@
       "lastCommit": "2026-07-07T19:02:44+10:00",
       "ageDays": 65,
       "recent": false,
-      "bytes": 4956
+      "bytes": 4956,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/fix-merge-aliases.js",
@@ -945,7 +1022,8 @@
       "lastCommit": "2026-08-23T23:30:43+10:00",
       "ageDays": 17,
       "recent": false,
-      "bytes": 35772
+      "bytes": 35772,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/fold-diverged-players.js",
@@ -975,7 +1053,8 @@
       "lastCommit": "2026-09-10T13:37:18+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 39717
+      "bytes": 39717,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/lock-quiet-seasons.js",
@@ -993,7 +1072,8 @@
       "lastCommit": "2026-09-09T11:36:45+10:00",
       "ageDays": 1,
       "recent": true,
-      "bytes": 19818
+      "bytes": 19818,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/measure-credited-coverage.js",
@@ -1010,7 +1090,8 @@
       "lastCommit": "2026-08-31T23:33:48+10:00",
       "ageDays": 9,
       "recent": true,
-      "bytes": 46155
+      "bytes": 46155,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/merge-census-partial.js",
@@ -1027,7 +1108,8 @@
       "lastCommit": "2026-08-31T09:02:54+10:00",
       "ageDays": 10,
       "recent": true,
-      "bytes": 7016
+      "bytes": 7016,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/merge-phantom-profiles.js",
@@ -1046,7 +1128,8 @@
       "lastCommit": "2026-08-22T08:05:11+10:00",
       "ageDays": 19,
       "recent": false,
-      "bytes": 10871
+      "bytes": 10871,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/nightly-crawl.js",
@@ -1104,7 +1187,8 @@
       "lastCommit": "2026-08-10T08:50:12+10:00",
       "ageDays": 31,
       "recent": false,
-      "bytes": 59754
+      "bytes": 59754,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/probe-absent-games.js",
@@ -1121,7 +1205,8 @@
       "lastCommit": "2026-08-20T10:05:01+10:00",
       "ageDays": 21,
       "recent": false,
-      "bytes": 18881
+      "bytes": 18881,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-alias-credits.js",
@@ -1138,7 +1223,8 @@
       "lastCommit": "2026-08-24T14:55:21+10:00",
       "ageDays": 17,
       "recent": false,
-      "bytes": 43944
+      "bytes": 43944,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/probe-alias-names.js",
@@ -1155,7 +1241,8 @@
       "lastCommit": "2026-08-25T10:18:50+10:00",
       "ageDays": 16,
       "recent": false,
-      "bytes": 28106
+      "bytes": 28106,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/probe-alias-stats.js",
@@ -1172,7 +1259,8 @@
       "lastCommit": "2026-08-18T15:32:59+10:00",
       "ageDays": 23,
       "recent": false,
-      "bytes": 24879
+      "bytes": 24879,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-api-limits.js",
@@ -1191,7 +1279,8 @@
       "lastCommit": "2026-07-04T05:32:11+10:00",
       "ageDays": 68,
       "recent": false,
-      "bytes": 20547
+      "bytes": 20547,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/probe-both-resolve.js",
@@ -1208,7 +1297,8 @@
       "lastCommit": "2026-08-25T18:24:45+10:00",
       "ageDays": 16,
       "recent": false,
-      "bytes": 30834
+      "bytes": 30834,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-discover-teams.js",
@@ -1225,7 +1315,8 @@
       "lastCommit": "2026-08-20T13:45:22+10:00",
       "ageDays": 21,
       "recent": false,
-      "bytes": 17973
+      "bytes": 17973,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-duplicate-profiles.js",
@@ -1242,7 +1333,8 @@
       "lastCommit": "2026-08-26T10:15:39+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 27139
+      "bytes": 27139,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-grade-ladder.js",
@@ -1259,7 +1351,8 @@
       "lastCommit": "2026-08-20T11:42:32+10:00",
       "ageDays": 21,
       "recent": false,
-      "bytes": 17112
+      "bytes": 17112,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-missing-games.js",
@@ -1281,7 +1374,8 @@
       "lastCommit": "2026-08-06T08:39:25+10:00",
       "ageDays": 35,
       "recent": false,
-      "bytes": 18811
+      "bytes": 18811,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-my-aliases.js",
@@ -1298,7 +1392,8 @@
       "lastCommit": "2026-08-23T23:30:43+10:00",
       "ageDays": 17,
       "recent": false,
-      "bytes": 13854
+      "bytes": 13854,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/probe-notfound.js",
@@ -1315,7 +1410,8 @@
       "lastCommit": "2026-08-20T09:43:01+10:00",
       "ageDays": 21,
       "recent": false,
-      "bytes": 25599
+      "bytes": 25599,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-player.js",
@@ -1332,7 +1428,8 @@
       "lastCommit": "2026-08-14T23:26:43+10:00",
       "ageDays": 26,
       "recent": false,
-      "bytes": 22063
+      "bytes": 22063,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/probe-registrations.js",
@@ -1349,7 +1446,8 @@
       "lastCommit": "2026-08-19T18:44:14+10:00",
       "ageDays": 22,
       "recent": false,
-      "bytes": 23250
+      "bytes": 23250,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-roster-sources.js",
@@ -1366,7 +1464,8 @@
       "lastCommit": "2026-08-26T19:25:09+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 50089
+      "bytes": 50089,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-selfalias-check.js",
@@ -1383,7 +1482,8 @@
       "lastCommit": "2026-08-25T20:38:47+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 5383
+      "bytes": 5383,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/probe-session-throwaway.js",
@@ -1398,7 +1498,8 @@
       "lastCommit": "2026-07-11T16:12:01+10:00",
       "ageDays": 61,
       "recent": false,
-      "bytes": 4361
+      "bytes": 4361,
+      "verdict": "ORPHAN — nothing references it and no document mentions it"
     },
     {
       "path": "scripts/probe-setup-node-fingerprint.js",
@@ -1415,7 +1516,8 @@
       "lastCommit": "2026-07-16T20:54:59+10:00",
       "ageDays": 55,
       "recent": false,
-      "bytes": 4054
+      "bytes": 4054,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-shared-name-aliases.js",
@@ -1432,7 +1534,8 @@
       "lastCommit": "2026-08-25T18:24:45+10:00",
       "ageDays": 16,
       "recent": false,
-      "bytes": 12352
+      "bytes": 12352,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/probe-shared-roster.js",
@@ -1449,7 +1552,8 @@
       "lastCommit": "2026-08-23T23:30:43+10:00",
       "ageDays": 17,
       "recent": false,
-      "bytes": 10319
+      "bytes": 10319,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-squad-evidence.js",
@@ -1466,7 +1570,8 @@
       "lastCommit": "2026-08-26T11:21:14+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 25728
+      "bytes": 25728,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-stattrack-shapes.cjs",
@@ -1483,7 +1588,8 @@
       "lastCommit": "2026-07-16T23:24:00+10:00",
       "ageDays": 55,
       "recent": false,
-      "bytes": 26488
+      "bytes": 26488,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-stattrack-shapes.js",
@@ -1502,7 +1608,8 @@
       "lastCommit": "2026-07-16T23:05:46+10:00",
       "ageDays": 55,
       "recent": false,
-      "bytes": 26487
+      "bytes": 26487,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/probe-unresolved-aliases.js",
@@ -1519,7 +1626,8 @@
       "lastCommit": "2026-08-25T18:24:45+10:00",
       "ageDays": 16,
       "recent": false,
-      "bytes": 29729
+      "bytes": 29729,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/probe-verdict-conflict.js",
@@ -1536,7 +1644,8 @@
       "lastCommit": "2026-08-25T18:24:45+10:00",
       "ageDays": 16,
       "recent": false,
-      "bytes": 11952
+      "bytes": 11952,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/probe-wrong-rosters.js",
@@ -1553,7 +1662,8 @@
       "lastCommit": "2026-08-19T16:51:14+10:00",
       "ageDays": 22,
       "recent": false,
-      "bytes": 21738
+      "bytes": 21738,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/prove-player-files-intact.js",
@@ -1570,7 +1680,8 @@
       "lastCommit": "2026-08-26T18:32:29+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 26666
+      "bytes": 26666,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/prune-dangling-aliases.js",
@@ -1587,7 +1698,8 @@
       "lastCommit": "2026-09-10T14:09:43+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 8616
+      "bytes": 8616,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/rebuild-player-index.js",
@@ -1606,7 +1718,8 @@
       "lastCommit": "2026-07-17T16:00:58+10:00",
       "ageDays": 55,
       "recent": false,
-      "bytes": 10754
+      "bytes": 10754,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/recheck-forfeit-games.js",
@@ -1626,7 +1739,8 @@
       "lastCommit": "2026-06-29T07:58:49Z",
       "ageDays": 73,
       "recent": false,
-      "bytes": 9077
+      "bytes": 9077,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/recheck-private-profiles.js",
@@ -1643,7 +1757,8 @@
       "lastCommit": "2026-09-01T21:50:20+10:00",
       "ageDays": 8,
       "recent": true,
-      "bytes": 22264
+      "bytes": 22264,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/reconstruct-alias-history.js",
@@ -1660,7 +1775,8 @@
       "lastCommit": "2026-08-29T14:05:47+10:00",
       "ageDays": 12,
       "recent": true,
-      "bytes": 17876
+      "bytes": 17876,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/redirect-exposure.js",
@@ -1677,7 +1793,8 @@
       "lastCommit": "2026-07-16T13:22:14+10:00",
       "ageDays": 56,
       "recent": false,
-      "bytes": 6762
+      "bytes": 6762,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/refresh-team-grades.js",
@@ -1694,7 +1811,8 @@
       "lastCommit": "2026-09-10T19:38:15+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 10378
+      "bytes": 10378,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/repair-duplicate-regs.js",
@@ -1713,7 +1831,8 @@
       "lastCommit": "2026-08-01T18:27:40+10:00",
       "ageDays": 40,
       "recent": false,
-      "bytes": 15640
+      "bytes": 15640,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/repair-forfeit-score.js",
@@ -1730,7 +1849,8 @@
       "lastCommit": "2026-08-02T11:51:42+10:00",
       "ageDays": 39,
       "recent": false,
-      "bytes": 9866
+      "bytes": 9866,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/repair-legacy-flags.js",
@@ -1749,7 +1869,8 @@
       "lastCommit": "2026-08-02T12:01:52+10:00",
       "ageDays": 39,
       "recent": false,
-      "bytes": 15721
+      "bytes": 15721,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/repair-player.js",
@@ -1769,7 +1890,8 @@
       "lastCommit": "2026-08-14T23:26:43+10:00",
       "ageDays": 26,
       "recent": false,
-      "bytes": 22072
+      "bytes": 22072,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/repair-players-batch.js",
@@ -1792,7 +1914,8 @@
       "lastCommit": "2026-08-21T19:43:55+10:00",
       "ageDays": 20,
       "recent": false,
-      "bytes": 70590
+      "bytes": 70590,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/repair-reg-sibling-sync.js",
@@ -1809,7 +1932,8 @@
       "lastCommit": "2026-08-01T20:33:27+10:00",
       "ageDays": 39,
       "recent": false,
-      "bytes": 13789
+      "bytes": 13789,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/repair-season-names.js",
@@ -1832,7 +1956,8 @@
       "lastCommit": "2026-08-02T22:58:57+10:00",
       "ageDays": 38,
       "recent": false,
-      "bytes": 24793
+      "bytes": 24793,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/repoint-aliases.js",
@@ -1849,7 +1974,8 @@
       "lastCommit": "2026-08-26T13:09:41+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 36776
+      "bytes": 36776,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/report-alias-index.js",
@@ -1866,7 +1992,8 @@
       "lastCommit": "2026-07-14T08:38:22+10:00",
       "ageDays": 58,
       "recent": false,
-      "bytes": 2378
+      "bytes": 2378,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/requeue-repointed-players.js",
@@ -1883,7 +2010,8 @@
       "lastCommit": "2026-09-06T21:37:57+10:00",
       "ageDays": 3,
       "recent": true,
-      "bytes": 6865
+      "bytes": 6865,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/revert-alias-repoints.js",
@@ -1900,7 +2028,8 @@
       "lastCommit": "2026-09-06T10:54:11+10:00",
       "ageDays": 4,
       "recent": true,
-      "bytes": 20708
+      "bytes": 20708,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/salvage-spectator-names.js",
@@ -1917,7 +2046,8 @@
       "lastCommit": "2026-08-02T22:58:57+10:00",
       "ageDays": 38,
       "recent": false,
-      "bytes": 20413
+      "bytes": 20413,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/scan-complete-rounds.js",
@@ -1936,7 +2066,8 @@
       "lastCommit": "2026-08-07T13:01:03+10:00",
       "ageDays": 34,
       "recent": false,
-      "bytes": 9868
+      "bytes": 9868,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/scan-roster-id-forms.js",
@@ -1953,7 +2084,8 @@
       "lastCommit": "2026-08-23T23:40:34+10:00",
       "ageDays": 17,
       "recent": false,
-      "bytes": 6404
+      "bytes": 6404,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/scan-season-name-contamination.js",
@@ -1972,7 +2104,8 @@
       "lastCommit": "2026-08-23T22:29:21+10:00",
       "ageDays": 17,
       "recent": false,
-      "bytes": 10008
+      "bytes": 10008,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/seed-apiid-from-playhq-pairs.js",
@@ -1993,7 +2126,8 @@
       "lastCommit": "2026-09-01T14:41:23+10:00",
       "ageDays": 9,
       "recent": true,
-      "bytes": 59163
+      "bytes": 59163,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/seed-missing-profiles.js",
@@ -2010,7 +2144,8 @@
       "lastCommit": "2026-08-25T21:49:28+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 65885
+      "bytes": 65885,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/size-appearance-gaps.js",
@@ -2029,7 +2164,8 @@
       "lastCommit": "2026-08-05T12:14:44+10:00",
       "ageDays": 36,
       "recent": false,
-      "bytes": 10922
+      "bytes": 10922,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/size-duplicate-profiles.js",
@@ -2046,7 +2182,8 @@
       "lastCommit": "2026-08-21T22:04:41+10:00",
       "ageDays": 19,
       "recent": false,
-      "bytes": 8508
+      "bytes": 8508,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/size-locked-backfill.js",
@@ -2063,7 +2200,8 @@
       "lastCommit": "2026-08-03T17:34:07+10:00",
       "ageDays": 38,
       "recent": false,
-      "bytes": 10310
+      "bytes": 10310,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/size-locked-resweep.js",
@@ -2080,7 +2218,8 @@
       "lastCommit": "2026-08-03T19:48:55+10:00",
       "ageDays": 38,
       "recent": false,
-      "bytes": 10194
+      "bytes": 10194,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/size-missing-gids.js",
@@ -2097,7 +2236,8 @@
       "lastCommit": "2026-08-05T00:00:55+10:00",
       "ageDays": 36,
       "recent": false,
-      "bytes": 9184
+      "bytes": 9184,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/size-opposition-index.js",
@@ -2116,7 +2256,8 @@
       "lastCommit": "2026-08-02T19:02:19+10:00",
       "ageDays": 39,
       "recent": false,
-      "bytes": 13467
+      "bytes": 13467,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/size-report.js",
@@ -2133,7 +2274,8 @@
       "lastCommit": "2026-08-20T15:05:43+10:00",
       "ageDays": 21,
       "recent": false,
-      "bytes": 62019
+      "bytes": 62019,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": "scripts/size-spectator-queue.js",
@@ -2150,7 +2292,8 @@
       "lastCommit": "2026-08-06T08:58:20+10:00",
       "ageDays": 35,
       "recent": false,
-      "bytes": 8052
+      "bytes": 8052,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/spectator-backfill.js",
@@ -2177,7 +2320,8 @@
       "lastCommit": "2026-08-21T22:38:35+10:00",
       "ageDays": 19,
       "recent": false,
-      "bytes": 62245
+      "bytes": 62245,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/synthesize-missing-games.js",
@@ -2194,7 +2338,8 @@
       "lastCommit": "2026-08-07T18:58:59+10:00",
       "ageDays": 34,
       "recent": false,
-      "bytes": 17224
+      "bytes": 17224,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/test-api.js",
@@ -2211,7 +2356,8 @@
       "lastCommit": "2026-07-03T23:17:31+10:00",
       "ageDays": 68,
       "recent": false,
-      "bytes": 27476
+      "bytes": 27476,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/trace-player-game.js",
@@ -2228,7 +2374,8 @@
       "lastCommit": "2026-08-23T23:30:43+10:00",
       "ageDays": 17,
       "recent": false,
-      "bytes": 8841
+      "bytes": 8841,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/update-team-index.js",
@@ -2251,7 +2398,8 @@
       "lastCommit": "2026-09-09T09:50:43+10:00",
       "ageDays": 1,
       "recent": true,
-      "bytes": 12548
+      "bytes": 12548,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/update-venue-lookup.js",
@@ -2269,7 +2417,8 @@
       "lastCommit": "2026-09-10T13:47:16+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 10309
+      "bytes": 10309,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/validate-uncredited-games.js",
@@ -2286,7 +2435,8 @@
       "lastCommit": "2026-09-05T18:18:50+10:00",
       "ageDays": 5,
       "recent": true,
-      "bytes": 14200
+      "bytes": 14200,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/verify-enrich.js",
@@ -2306,7 +2456,8 @@
       "lastCommit": "2026-07-14T23:09:24+10:00",
       "ageDays": 57,
       "recent": false,
-      "bytes": 3756
+      "bytes": 3756,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/verify-outstanding-claims.js",
@@ -2323,7 +2474,8 @@
       "lastCommit": "2026-09-07T17:00:03+10:00",
       "ageDays": 3,
       "recent": true,
-      "bytes": 18804
+      "bytes": 18804,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/verify-p-redundancy.js",
@@ -2340,7 +2492,8 @@
       "lastCommit": "2026-07-10T11:24:04+10:00",
       "ageDays": 62,
       "recent": false,
-      "bytes": 6611
+      "bytes": 6611,
+      "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
       "path": "scripts/verify-players-against-playhq.js",
@@ -2357,7 +2510,8 @@
       "lastCommit": "2026-08-29T10:42:57+10:00",
       "ageDays": 12,
       "recent": true,
-      "bytes": 31320
+      "bytes": 31320,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": "scripts/lib/namespace-resolve.cjs",
@@ -2397,7 +2551,8 @@
       "lastCommit": "2026-08-23T23:31:09+10:00",
       "ageDays": 17,
       "recent": false,
-      "bytes": 12041
+      "bytes": 12041,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": "scripts/lib/uuid-prefix.cjs",
@@ -2454,7 +2609,8 @@
       "lastCommit": "2026-07-16T13:59:05+10:00",
       "ageDays": 56,
       "recent": false,
-      "bytes": 12498
+      "bytes": 12498,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     }
   ],
   "workflows": [
@@ -2473,7 +2629,8 @@
       "lastCommit": "2026-07-16T20:49:48+10:00",
       "ageDays": 55,
       "recent": false,
-      "bytes": 8875
+      "bytes": 8875,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/audit-aliases-against-playhq.yml",
@@ -2490,7 +2647,8 @@
       "lastCommit": "2026-08-28T11:47:51+10:00",
       "ageDays": 13,
       "recent": true,
-      "bytes": 4580
+      "bytes": 4580,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/audit-diff-fields.yml",
@@ -2507,7 +2665,8 @@
       "lastCommit": "2026-09-03T22:45:29+10:00",
       "ageDays": 6,
       "recent": true,
-      "bytes": 2752
+      "bytes": 2752,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/audit-finished-unlocked-seasons.yml",
@@ -2524,7 +2683,8 @@
       "lastCommit": "2026-09-08T13:28:20+10:00",
       "ageDays": 2,
       "recent": true,
-      "bytes": 5232
+      "bytes": 5232,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/audit-nonfinal-games.yml",
@@ -2541,7 +2701,8 @@
       "lastCommit": "2026-09-10T15:49:56+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 6466
+      "bytes": 6466,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/audit-pending-games-vs-playhq.yml",
@@ -2558,7 +2719,8 @@
       "lastCommit": "2026-09-08T14:47:43+10:00",
       "ageDays": 2,
       "recent": true,
-      "bytes": 5010
+      "bytes": 5010,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/audit-removed-org-seasons.yml",
@@ -2575,7 +2737,8 @@
       "lastCommit": "2026-09-08T11:59:42+10:00",
       "ageDays": 2,
       "recent": true,
-      "bytes": 4469
+      "bytes": 4469,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/audit-seasons-gaps.yml",
@@ -2592,7 +2755,8 @@
       "lastCommit": "2026-08-01T13:33:43+10:00",
       "ageDays": 40,
       "recent": false,
-      "bytes": 2063
+      "bytes": 2063,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/audit-tooling-inventory.yml",
@@ -2612,7 +2776,8 @@
       "lastCommit": "2026-08-27T09:19:47+10:00",
       "ageDays": 14,
       "recent": true,
-      "bytes": 3194
+      "bytes": 3194,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/audit-uuid-collisions.yml",
@@ -2629,7 +2794,8 @@
       "lastCommit": "2026-07-10T15:29:34+10:00",
       "ageDays": 62,
       "recent": false,
-      "bytes": 1061
+      "bytes": 1061,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/backfill.yml",
@@ -2648,7 +2814,8 @@
       "lastCommit": "2026-08-12T15:48:33+10:00",
       "ageDays": 29,
       "recent": false,
-      "bytes": 3666
+      "bytes": 3666,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/build-alias-worklist.yml",
@@ -2665,7 +2832,8 @@
       "lastCommit": "2026-08-26T09:27:10+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 2365
+      "bytes": 2365,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/build-finals-stats.yml",
@@ -2682,7 +2850,8 @@
       "lastCommit": "2026-07-31T11:04:27+10:00",
       "ageDays": 41,
       "recent": false,
-      "bytes": 4551
+      "bytes": 4551,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/build-leaderboards.yml",
@@ -2699,7 +2868,8 @@
       "lastCommit": "2026-08-06T08:34:04+10:00",
       "ageDays": 35,
       "recent": false,
-      "bytes": 2911
+      "bytes": 2911,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/build-player-games.yml",
@@ -2716,7 +2886,8 @@
       "lastCommit": "2026-09-03T10:59:21+10:00",
       "ageDays": 7,
       "recent": true,
-      "bytes": 2197
+      "bytes": 2197,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/build-records.yml",
@@ -2733,7 +2904,8 @@
       "lastCommit": "2026-08-06T08:34:04+10:00",
       "ageDays": 35,
       "recent": false,
-      "bytes": 2386
+      "bytes": 2386,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/build-search-index.yml",
@@ -2750,7 +2922,8 @@
       "lastCommit": "2026-08-06T08:34:04+10:00",
       "ageDays": 35,
       "recent": false,
-      "bytes": 1546
+      "bytes": 1546,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/build-team-stats.yml",
@@ -2767,7 +2940,8 @@
       "lastCommit": "2026-08-07T18:51:57+10:00",
       "ageDays": 34,
       "recent": false,
-      "bytes": 4771
+      "bytes": 4771,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/build-venue-indexes.yml",
@@ -2784,7 +2958,8 @@
       "lastCommit": "2026-09-08T22:10:47+10:00",
       "ageDays": 1,
       "recent": true,
-      "bytes": 5693
+      "bytes": 5693,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/build-win-loss.yml",
@@ -2801,7 +2976,8 @@
       "lastCommit": "2026-09-03T11:02:58+10:00",
       "ageDays": 7,
       "recent": true,
-      "bytes": 2141
+      "bytes": 2141,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/census-wrongly-keyed-matrix.yml",
@@ -2818,7 +2994,8 @@
       "lastCommit": "2026-08-31T08:58:55+10:00",
       "ageDays": 10,
       "recent": true,
-      "bytes": 12456
+      "bytes": 12456,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/census-wrongly-keyed-players.yml",
@@ -2835,7 +3012,8 @@
       "lastCommit": "2026-08-31T09:11:38+10:00",
       "ageDays": 10,
       "recent": true,
-      "bytes": 5566
+      "bytes": 5566,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/check-roster-freshness.yml",
@@ -2852,7 +3030,8 @@
       "lastCommit": "2026-07-28T22:47:47+10:00",
       "ageDays": 43,
       "recent": false,
-      "bytes": 2559
+      "bytes": 2559,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/cleanup-repo.yml",
@@ -3122,7 +3301,8 @@
       "lastCommit": "2026-07-16T21:13:53+10:00",
       "ageDays": 55,
       "recent": false,
-      "bytes": 24700
+      "bytes": 24700,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/clear-stats-checked.yml",
@@ -3139,7 +3319,8 @@
       "lastCommit": "2026-06-27T18:16:41+10:00",
       "ageDays": 75,
       "recent": false,
-      "bytes": 979
+      "bytes": 979,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/close-empty-seasons.yml",
@@ -3156,7 +3337,8 @@
       "lastCommit": "2026-09-09T11:23:49+10:00",
       "ageDays": 1,
       "recent": true,
-      "bytes": 7485
+      "bytes": 7485,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/correct-wrong-aliases.yml",
@@ -3173,7 +3355,8 @@
       "lastCommit": "2026-08-29T21:49:07+10:00",
       "ageDays": 11,
       "recent": true,
-      "bytes": 3171
+      "bytes": 3171,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/count-stats-checked.yml",
@@ -3190,7 +3373,8 @@
       "lastCommit": "2026-06-26T15:43:30+10:00",
       "ageDays": 76,
       "recent": false,
-      "bytes": 349
+      "bytes": 349,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/db-audit.yml",
@@ -3207,7 +3391,8 @@
       "lastCommit": "2026-07-10T10:27:23+10:00",
       "ageDays": 62,
       "recent": false,
-      "bytes": 1127
+      "bytes": 1127,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/deploy-pages.yml",
@@ -3222,7 +3407,8 @@
       "lastCommit": "2026-08-07T13:00:49+10:00",
       "ageDays": 34,
       "recent": false,
-      "bytes": 9766
+      "bytes": 9766,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/diagnose-alias-conflicts.yml",
@@ -3239,7 +3425,8 @@
       "lastCommit": "2026-08-27T09:19:47+10:00",
       "ageDays": 14,
       "recent": true,
-      "bytes": 2859
+      "bytes": 2859,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/diagnose-forfeit-game.yml",
@@ -3256,7 +3443,8 @@
       "lastCommit": "2026-08-02T11:46:41+10:00",
       "ageDays": 39,
       "recent": false,
-      "bytes": 1696
+      "bytes": 1696,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/diagnose-id-field-lengths.yml",
@@ -3273,7 +3461,8 @@
       "lastCommit": "2026-07-10T22:02:52+10:00",
       "ageDays": 61,
       "recent": false,
-      "bytes": 1090
+      "bytes": 1090,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/diagnose-nightly-health.yml",
@@ -3290,7 +3479,8 @@
       "lastCommit": "2026-06-27T12:12:55+10:00",
       "ageDays": 75,
       "recent": false,
-      "bytes": 940
+      "bytes": 940,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/diagnose-unregistered-appearances.yml",
@@ -3307,7 +3497,8 @@
       "lastCommit": "2026-09-03T10:04:08+10:00",
       "ageDays": 7,
       "recent": true,
-      "bytes": 4394
+      "bytes": 4394,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/diagnose.yml",
@@ -3324,7 +3515,8 @@
       "lastCommit": "2026-06-26T23:56:06+10:00",
       "ageDays": 75,
       "recent": false,
-      "bytes": 1144
+      "bytes": 1144,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/discover-fixtures.yml",
@@ -3341,7 +3533,8 @@
       "lastCommit": "2026-08-20T14:00:20+10:00",
       "ageDays": 21,
       "recent": false,
-      "bytes": 9192
+      "bytes": 9192,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/discover-game-backfill.yml",
@@ -3358,7 +3551,8 @@
       "lastCommit": "2026-08-11T23:47:08+10:00",
       "ageDays": 29,
       "recent": false,
-      "bytes": 2825
+      "bytes": 2825,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/discover-org-seasons.yml",
@@ -3375,7 +3569,8 @@
       "lastCommit": "2026-09-08T16:50:57+10:00",
       "ageDays": 2,
       "recent": true,
-      "bytes": 9750
+      "bytes": 9750,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/discover-seasons-matrix.yml",
@@ -3392,7 +3587,8 @@
       "lastCommit": "2026-09-08T12:49:06+10:00",
       "ageDays": 2,
       "recent": true,
-      "bytes": 23751
+      "bytes": 23751,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/discover-seasons.yml",
@@ -3409,7 +3605,8 @@
       "lastCommit": "2026-07-06T15:29:03+10:00",
       "ageDays": 66,
       "recent": false,
-      "bytes": 2438
+      "bytes": 2438,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/drop-stale-playercount.yml",
@@ -3426,7 +3623,8 @@
       "lastCommit": "2026-09-10T13:42:15+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 3708
+      "bytes": 3708,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/fetch-profile-stats-matrix.yml",
@@ -3444,7 +3642,8 @@
       "lastCommit": "2026-09-04T19:36:45+10:00",
       "ageDays": 6,
       "recent": true,
-      "bytes": 42392
+      "bytes": 42392,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/fetch-profile-stats.yml",
@@ -3461,7 +3660,8 @@
       "lastCommit": "2026-08-23T23:30:08+10:00",
       "ageDays": 17,
       "recent": false,
-      "bytes": 4272
+      "bytes": 4272,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/find-code-refs.yml",
@@ -3476,7 +3676,8 @@
       "lastCommit": "2026-07-31T23:23:38+10:00",
       "ageDays": 40,
       "recent": false,
-      "bytes": 4597
+      "bytes": 4597,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/find-flag-collisions.yml",
@@ -3493,7 +3694,8 @@
       "lastCommit": "2026-08-02T11:46:41+10:00",
       "ageDays": 39,
       "recent": false,
-      "bytes": 1791
+      "bytes": 1791,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/find-lost-stats-from-folds.yml",
@@ -3510,7 +3712,8 @@
       "lastCommit": "2026-09-04T22:38:59+10:00",
       "ageDays": 5,
       "recent": true,
-      "bytes": 7890
+      "bytes": 7890,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/find-misrouted-appearances.yml",
@@ -3527,7 +3730,8 @@
       "lastCommit": "2026-09-06T11:20:56+10:00",
       "ageDays": 4,
       "recent": true,
-      "bytes": 8578
+      "bytes": 8578,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/find-players-by-team.yml",
@@ -3544,7 +3748,8 @@
       "lastCommit": "2026-07-07T19:03:27+10:00",
       "ageDays": 65,
       "recent": false,
-      "bytes": 1072
+      "bytes": 1072,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/find-root-json-refs.yml",
@@ -3559,7 +3764,8 @@
       "lastCommit": "2026-06-29T16:51:15+10:00",
       "ageDays": 73,
       "recent": false,
-      "bytes": 1142
+      "bytes": 1142,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/fix-merge-aliases.yml",
@@ -3576,7 +3782,8 @@
       "lastCommit": "2026-08-23T18:58:02+10:00",
       "ageDays": 18,
       "recent": false,
-      "bytes": 3855
+      "bytes": 3855,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/fold-diverged-players.yml",
@@ -3593,7 +3800,8 @@
       "lastCommit": "2026-09-10T13:37:31+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 12672
+      "bytes": 12672,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/generate-roster.yml",
@@ -3608,7 +3816,8 @@
       "lastCommit": "2026-07-07T23:07:30+10:00",
       "ageDays": 64,
       "recent": false,
-      "bytes": 2789
+      "bytes": 2789,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/graduate-seasons.yml",
@@ -3623,7 +3832,8 @@
       "lastCommit": "2026-08-10T11:13:30+10:00",
       "ageDays": 31,
       "recent": false,
-      "bytes": 23111
+      "bytes": 23111,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/lock-quiet-seasons.yml",
@@ -3640,7 +3850,8 @@
       "lastCommit": "2026-09-10T13:37:31+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 10661
+      "bytes": 10661,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/measure-credited-coverage.yml",
@@ -3657,7 +3868,8 @@
       "lastCommit": "2026-08-31T23:33:31+10:00",
       "ageDays": 9,
       "recent": true,
-      "bytes": 4854
+      "bytes": 4854,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/merge-census-partial.yml",
@@ -3674,7 +3886,8 @@
       "lastCommit": "2026-08-31T08:58:55+10:00",
       "ageDays": 10,
       "recent": true,
-      "bytes": 2762
+      "bytes": 2762,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/merge-phantom-profiles.yml",
@@ -3691,7 +3904,8 @@
       "lastCommit": "2026-08-22T08:05:34+10:00",
       "ageDays": 19,
       "recent": false,
-      "bytes": 3141
+      "bytes": 3141,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/nightly-crawl.yml",
@@ -3712,7 +3926,8 @@
       "lastCommit": "2026-09-10T13:48:05+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 23590
+      "bytes": 23590,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/overnight-chain.yml",
@@ -3733,7 +3948,8 @@
       "lastCommit": "2026-08-21T11:27:15+10:00",
       "ageDays": 20,
       "recent": false,
-      "bytes": 13690
+      "bytes": 13690,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/post-drain-chain.yml",
@@ -3754,7 +3970,8 @@
       "lastCommit": "2026-09-04T23:25:23+10:00",
       "ageDays": 5,
       "recent": true,
-      "bytes": 17932
+      "bytes": 17932,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/probe-absent-games.yml",
@@ -3771,7 +3988,8 @@
       "lastCommit": "2026-08-20T10:04:43+10:00",
       "ageDays": 21,
       "recent": false,
-      "bytes": 2079
+      "bytes": 2079,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-alias-credits.yml",
@@ -3788,7 +4006,8 @@
       "lastCommit": "2026-08-24T14:54:59+10:00",
       "ageDays": 17,
       "recent": false,
-      "bytes": 7990
+      "bytes": 7990,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-alias-names.yml",
@@ -3805,7 +4024,8 @@
       "lastCommit": "2026-08-25T10:18:09+10:00",
       "ageDays": 16,
       "recent": false,
-      "bytes": 3614
+      "bytes": 3614,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-alias-stats.yml",
@@ -3822,7 +4042,8 @@
       "lastCommit": "2026-08-18T15:02:05+10:00",
       "ageDays": 23,
       "recent": false,
-      "bytes": 2714
+      "bytes": 2714,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-api-limits.yml",
@@ -3839,7 +4060,8 @@
       "lastCommit": "2026-07-04T05:32:28+10:00",
       "ageDays": 68,
       "recent": false,
-      "bytes": 2715
+      "bytes": 2715,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-both-resolve.yml",
@@ -3856,7 +4078,8 @@
       "lastCommit": "2026-08-25T18:25:01+10:00",
       "ageDays": 16,
       "recent": false,
-      "bytes": 3233
+      "bytes": 3233,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-discover-teams.yml",
@@ -3873,7 +4096,8 @@
       "lastCommit": "2026-08-20T13:45:10+10:00",
       "ageDays": 21,
       "recent": false,
-      "bytes": 2078
+      "bytes": 2078,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-duplicate-profiles.yml",
@@ -3890,7 +4114,8 @@
       "lastCommit": "2026-08-26T10:15:25+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 5660
+      "bytes": 5660,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-grade-ladder.yml",
@@ -3907,7 +4132,8 @@
       "lastCommit": "2026-08-20T11:42:19+10:00",
       "ageDays": 21,
       "recent": false,
-      "bytes": 2353
+      "bytes": 2353,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-missing-games.yml",
@@ -3924,7 +4150,8 @@
       "lastCommit": "2026-08-05T23:59:20+10:00",
       "ageDays": 35,
       "recent": false,
-      "bytes": 1299
+      "bytes": 1299,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-my-aliases.yml",
@@ -3941,7 +4168,8 @@
       "lastCommit": "2026-08-22T23:25:31+10:00",
       "ageDays": 18,
       "recent": false,
-      "bytes": 1721
+      "bytes": 1721,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-notfound.yml",
@@ -3958,7 +4186,8 @@
       "lastCommit": "2026-08-19T22:26:35+10:00",
       "ageDays": 21,
       "recent": false,
-      "bytes": 2069
+      "bytes": 2069,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-player.yml",
@@ -3975,7 +4204,8 @@
       "lastCommit": "2026-08-14T23:27:00+10:00",
       "ageDays": 26,
       "recent": false,
-      "bytes": 1906
+      "bytes": 1906,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-registrations.yml",
@@ -3992,7 +4222,8 @@
       "lastCommit": "2026-08-19T18:08:46+10:00",
       "ageDays": 22,
       "recent": false,
-      "bytes": 2181
+      "bytes": 2181,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-roster-sources.yml",
@@ -4009,7 +4240,8 @@
       "lastCommit": "2026-08-27T09:19:47+10:00",
       "ageDays": 14,
       "recent": true,
-      "bytes": 3373
+      "bytes": 3373,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/probe-selfalias-check.yml",
@@ -4026,7 +4258,8 @@
       "lastCommit": "2026-08-25T20:29:02+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 1553
+      "bytes": 1553,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-setup-node-fingerprint.yml",
@@ -4043,7 +4276,8 @@
       "lastCommit": "2026-07-16T20:54:40+10:00",
       "ageDays": 55,
       "recent": false,
-      "bytes": 3019
+      "bytes": 3019,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-shared-name-aliases.yml",
@@ -4060,7 +4294,8 @@
       "lastCommit": "2026-08-25T18:25:01+10:00",
       "ageDays": 16,
       "recent": false,
-      "bytes": 2721
+      "bytes": 2721,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-shared-roster.yml",
@@ -4077,7 +4312,8 @@
       "lastCommit": "2026-08-21T22:21:02+10:00",
       "ageDays": 19,
       "recent": false,
-      "bytes": 2211
+      "bytes": 2211,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-squad-evidence.yml",
@@ -4094,7 +4330,8 @@
       "lastCommit": "2026-08-25T22:48:04+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 2610
+      "bytes": 2610,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-stattrack-shapes.yml",
@@ -4112,7 +4349,8 @@
       "lastCommit": "2026-07-16T23:14:38+10:00",
       "ageDays": 55,
       "recent": false,
-      "bytes": 2225
+      "bytes": 2225,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-unresolved-aliases.yml",
@@ -4129,7 +4367,8 @@
       "lastCommit": "2026-08-25T18:25:01+10:00",
       "ageDays": 16,
       "recent": false,
-      "bytes": 2812
+      "bytes": 2812,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-verdict-conflict.yml",
@@ -4146,7 +4385,8 @@
       "lastCommit": "2026-08-25T18:25:01+10:00",
       "ageDays": 16,
       "recent": false,
-      "bytes": 2671
+      "bytes": 2671,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/probe-wrong-rosters.yml",
@@ -4163,7 +4403,8 @@
       "lastCommit": "2026-08-19T14:59:36+10:00",
       "ageDays": 22,
       "recent": false,
-      "bytes": 2200
+      "bytes": 2200,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/prove-player-files-intact.yml",
@@ -4180,7 +4421,8 @@
       "lastCommit": "2026-08-26T18:32:17+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 2615
+      "bytes": 2615,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/prune-dangling-aliases.yml",
@@ -4197,7 +4439,8 @@
       "lastCommit": "2026-09-10T14:09:54+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 4482
+      "bytes": 4482,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/rebuild-chain.yml",
@@ -4218,7 +4461,8 @@
       "lastCommit": "2026-08-06T19:54:13+10:00",
       "ageDays": 35,
       "recent": false,
-      "bytes": 7344
+      "bytes": 7344,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/rebuild-player-index.yml",
@@ -4235,7 +4479,8 @@
       "lastCommit": "2026-07-16T08:27:21+10:00",
       "ageDays": 56,
       "recent": false,
-      "bytes": 2291
+      "bytes": 2291,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/recheck-forfeit-games.yml",
@@ -4252,7 +4497,8 @@
       "lastCommit": "2026-06-23T22:13:45+10:00",
       "ageDays": 78,
       "recent": false,
-      "bytes": 864
+      "bytes": 864,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/recheck-private-profiles.yml",
@@ -4267,9 +4513,10 @@
       "manifestClass": "LIVE (scheduled)",
       "manifestPurpose": "cron monthly + dispatch",
       "lastCommit": "2026-06-23T20:12:03+10:00",
-      "ageDays": 78,
+      "ageDays": 79,
       "recent": false,
-      "bytes": 1164
+      "bytes": 1164,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/reconstruct-alias-history.yml",
@@ -4286,7 +4533,8 @@
       "lastCommit": "2026-08-29T14:05:35+10:00",
       "ageDays": 12,
       "recent": true,
-      "bytes": 5005
+      "bytes": 5005,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/redirect-exposure.yml",
@@ -4303,7 +4551,8 @@
       "lastCommit": "2026-07-16T13:22:30+10:00",
       "ageDays": 56,
       "recent": false,
-      "bytes": 684
+      "bytes": 684,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/refresh-team-grades.yml",
@@ -4320,7 +4569,8 @@
       "lastCommit": "2026-09-10T19:38:27+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 5178
+      "bytes": 5178,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/repair-duplicate-regs.yml",
@@ -4337,7 +4587,8 @@
       "lastCommit": "2026-08-01T18:27:54+10:00",
       "ageDays": 40,
       "recent": false,
-      "bytes": 2314
+      "bytes": 2314,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/repair-forfeit-score.yml",
@@ -4354,7 +4605,8 @@
       "lastCommit": "2026-08-02T11:51:29+10:00",
       "ageDays": 39,
       "recent": false,
-      "bytes": 2300
+      "bytes": 2300,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/repair-legacy-flags.yml",
@@ -4371,7 +4623,8 @@
       "lastCommit": "2026-07-31T23:56:12+10:00",
       "ageDays": 40,
       "recent": false,
-      "bytes": 3494
+      "bytes": 3494,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/repair-player.yml",
@@ -4388,7 +4641,8 @@
       "lastCommit": "2026-08-14T23:27:00+10:00",
       "ageDays": 26,
       "recent": false,
-      "bytes": 6219
+      "bytes": 6219,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/repair-players-batch.yml",
@@ -4405,7 +4659,8 @@
       "lastCommit": "2026-08-21T20:37:19+10:00",
       "ageDays": 19,
       "recent": false,
-      "bytes": 7709
+      "bytes": 7709,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/repair-reg-sibling-sync.yml",
@@ -4422,7 +4677,8 @@
       "lastCommit": "2026-08-01T20:33:15+10:00",
       "ageDays": 39,
       "recent": false,
-      "bytes": 2920
+      "bytes": 2920,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/repair-season-names.yml",
@@ -4439,7 +4695,8 @@
       "lastCommit": "2026-07-17T14:37:51+10:00",
       "ageDays": 55,
       "recent": false,
-      "bytes": 2632
+      "bytes": 2632,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/repoint-aliases.yml",
@@ -4456,7 +4713,8 @@
       "lastCommit": "2026-08-24T20:03:45+10:00",
       "ageDays": 17,
       "recent": false,
-      "bytes": 3315
+      "bytes": 3315,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/report-alias-index.yml",
@@ -4473,7 +4731,8 @@
       "lastCommit": "2026-07-14T08:38:06+10:00",
       "ageDays": 58,
       "recent": false,
-      "bytes": 1793
+      "bytes": 1793,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/requeue-repointed-players.yml",
@@ -4490,7 +4749,8 @@
       "lastCommit": "2026-09-06T21:37:10+10:00",
       "ageDays": 3,
       "recent": true,
-      "bytes": 6465
+      "bytes": 6465,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/restore-deleted-file.yml",
@@ -4505,7 +4765,8 @@
       "lastCommit": "2026-06-29T17:55:55+10:00",
       "ageDays": 73,
       "recent": false,
-      "bytes": 1521
+      "bytes": 1521,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/revert-alias-repoints.yml",
@@ -4522,7 +4783,8 @@
       "lastCommit": "2026-09-06T10:53:56+10:00",
       "ageDays": 4,
       "recent": true,
-      "bytes": 4360
+      "bytes": 4360,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/salvage-spectator-names.yml",
@@ -4539,7 +4801,8 @@
       "lastCommit": "2026-07-17T22:39:38+10:00",
       "ageDays": 54,
       "recent": false,
-      "bytes": 3216
+      "bytes": 3216,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/scan-complete-rounds.yml",
@@ -4556,7 +4819,8 @@
       "lastCommit": "2026-07-05T10:26:28+10:00",
       "ageDays": 67,
       "recent": false,
-      "bytes": 2266
+      "bytes": 2266,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/scan-roster-id-forms.yml",
@@ -4573,7 +4837,8 @@
       "lastCommit": "2026-08-23T23:30:08+10:00",
       "ageDays": 17,
       "recent": false,
-      "bytes": 1716
+      "bytes": 1716,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/scan-season-name-contamination.yml",
@@ -4590,7 +4855,8 @@
       "lastCommit": "2026-07-17T12:21:42+10:00",
       "ageDays": 55,
       "recent": false,
-      "bytes": 1591
+      "bytes": 1591,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/seed-apiid-from-playhq-pairs.yml",
@@ -4605,9 +4871,10 @@
       "manifestClass": null,
       "manifestPurpose": null,
       "lastCommit": "2026-08-27T20:20:11+10:00",
-      "ageDays": 13,
+      "ageDays": 14,
       "recent": true,
-      "bytes": 3475
+      "bytes": 3475,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/seed-missing-profiles.yml",
@@ -4624,7 +4891,8 @@
       "lastCommit": "2026-08-25T21:37:04+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 3078
+      "bytes": 3078,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-appearance-gaps.yml",
@@ -4641,7 +4909,8 @@
       "lastCommit": "2026-08-05T12:14:30+10:00",
       "ageDays": 36,
       "recent": false,
-      "bytes": 1142
+      "bytes": 1142,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-duplicate-profiles.yml",
@@ -4658,7 +4927,8 @@
       "lastCommit": "2026-08-21T21:49:44+10:00",
       "ageDays": 19,
       "recent": false,
-      "bytes": 1926
+      "bytes": 1926,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-gap-players.yml",
@@ -4673,7 +4943,8 @@
       "lastCommit": "2026-08-07T19:57:05+10:00",
       "ageDays": 34,
       "recent": false,
-      "bytes": 5442
+      "bytes": 5442,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-locked-backfill.yml",
@@ -4690,7 +4961,8 @@
       "lastCommit": "2026-08-03T17:33:54+10:00",
       "ageDays": 38,
       "recent": false,
-      "bytes": 1616
+      "bytes": 1616,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-locked-resweep.yml",
@@ -4707,7 +4979,8 @@
       "lastCommit": "2026-08-03T19:48:38+10:00",
       "ageDays": 38,
       "recent": false,
-      "bytes": 1464
+      "bytes": 1464,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-locked-split.yml",
@@ -4722,7 +4995,8 @@
       "lastCommit": "2026-08-07T05:57:59+10:00",
       "ageDays": 34,
       "recent": false,
-      "bytes": 8583
+      "bytes": 8583,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-misses.yml",
@@ -4737,7 +5011,8 @@
       "lastCommit": "2026-08-18T14:46:36+10:00",
       "ageDays": 23,
       "recent": false,
-      "bytes": 8431
+      "bytes": 8431,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-missing-gids.yml",
@@ -4754,7 +5029,8 @@
       "lastCommit": "2026-08-05T00:00:26+10:00",
       "ageDays": 36,
       "recent": false,
-      "bytes": 1357
+      "bytes": 1357,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-negative-gap.yml",
@@ -4769,7 +5045,8 @@
       "lastCommit": "2026-08-18T14:46:36+10:00",
       "ageDays": 23,
       "recent": false,
-      "bytes": 17347
+      "bytes": 17347,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-opposition-index.yml",
@@ -4786,7 +5063,8 @@
       "lastCommit": "2026-08-02T19:02:06+10:00",
       "ageDays": 39,
       "recent": false,
-      "bytes": 1469
+      "bytes": 1469,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-pages-artifact.yml",
@@ -4801,7 +5079,8 @@
       "lastCommit": "2026-08-06T22:15:07+10:00",
       "ageDays": 34,
       "recent": false,
-      "bytes": 3370
+      "bytes": 3370,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-repair-rosters.yml",
@@ -4816,7 +5095,8 @@
       "lastCommit": "2026-08-18T14:46:36+10:00",
       "ageDays": 23,
       "recent": false,
-      "bytes": 13953
+      "bytes": 13953,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-report.yml",
@@ -4833,7 +5113,8 @@
       "lastCommit": "2026-08-20T15:06:00+10:00",
       "ageDays": 21,
       "recent": false,
-      "bytes": 7614
+      "bytes": 7614,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-resweep.yml",
@@ -4848,7 +5129,8 @@
       "lastCommit": "2026-08-07T21:39:44+10:00",
       "ageDays": 33,
       "recent": false,
-      "bytes": 2939
+      "bytes": 2939,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/size-spectator-queue.yml",
@@ -4865,7 +5147,8 @@
       "lastCommit": "2026-08-05T23:36:25+10:00",
       "ageDays": 35,
       "recent": false,
-      "bytes": 1268
+      "bytes": 1268,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/spectator-backfill.yml",
@@ -4882,7 +5165,8 @@
       "lastCommit": "2026-08-20T17:37:12+10:00",
       "ageDays": 21,
       "recent": false,
-      "bytes": 10629
+      "bytes": 10629,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/synthesize-missing-games.yml",
@@ -4899,7 +5183,8 @@
       "lastCommit": "2026-08-07T18:59:15+10:00",
       "ageDays": 34,
       "recent": false,
-      "bytes": 6044
+      "bytes": 6044,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/test-api.yml",
@@ -4916,7 +5201,8 @@
       "lastCommit": "2026-07-03T23:17:48+10:00",
       "ageDays": 68,
       "recent": false,
-      "bytes": 784
+      "bytes": 784,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/test-backfill.yml",
@@ -4933,7 +5219,8 @@
       "lastCommit": "2026-07-07T20:46:14+10:00",
       "ageDays": 64,
       "recent": false,
-      "bytes": 2744
+      "bytes": 2744,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/trace-player-game.yml",
@@ -4950,7 +5237,8 @@
       "lastCommit": "2026-08-23T23:07:45+10:00",
       "ageDays": 17,
       "recent": false,
-      "bytes": 1891
+      "bytes": 1891,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/update-team-index.yml",
@@ -4967,7 +5255,8 @@
       "lastCommit": "2026-09-08T22:33:04+10:00",
       "ageDays": 1,
       "recent": true,
-      "bytes": 5396
+      "bytes": 5396,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/update-venue-lookup.yml",
@@ -4984,7 +5273,8 @@
       "lastCommit": "2026-06-23T18:43:53+10:00",
       "ageDays": 79,
       "recent": false,
-      "bytes": 1085
+      "bytes": 1085,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/validate-uncredited-games.yml",
@@ -5001,7 +5291,8 @@
       "lastCommit": "2026-09-05T18:19:01+10:00",
       "ageDays": 5,
       "recent": true,
-      "bytes": 4681
+      "bytes": 4681,
+      "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
     },
     {
       "path": ".github/workflows/verify-enrich.yml",
@@ -5018,7 +5309,8 @@
       "lastCommit": "2026-07-14T23:09:10+10:00",
       "ageDays": 57,
       "recent": false,
-      "bytes": 923
+      "bytes": 923,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/verify-outstanding-claims.yml",
@@ -5035,7 +5327,8 @@
       "lastCommit": "2026-09-07T16:17:46+10:00",
       "ageDays": 3,
       "recent": true,
-      "bytes": 4862
+      "bytes": 4862,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     },
     {
       "path": ".github/workflows/verify-p-redundancy.yml",
@@ -5052,7 +5345,8 @@
       "lastCommit": "2026-07-10T11:23:50+10:00",
       "ageDays": 62,
       "recent": false,
-      "bytes": 1439
+      "bytes": 1439,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/verify-players-against-playhq.yml",
@@ -5069,7 +5363,8 @@
       "lastCommit": "2026-08-26T14:48:15+10:00",
       "ageDays": 15,
       "recent": false,
-      "bytes": 2825
+      "bytes": 2825,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/weekly-future-fixtures.yml",
@@ -5086,7 +5381,8 @@
       "lastCommit": "2026-08-01T13:12:18+10:00",
       "ageDays": 40,
       "recent": false,
-      "bytes": 5404
+      "bytes": 5404,
+      "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered."
     },
     {
       "path": ".github/workflows/weekly-indexes.yml",
@@ -5106,7 +5402,8 @@
       "lastCommit": "2026-08-14T14:32:10+10:00",
       "ageDays": 27,
       "recent": false,
-      "bytes": 6911
+      "bytes": 6911,
+      "verdict": "LIVE — runs on a schedule or in the nightly chain"
     }
   ],
   "staleManifestRows": [
