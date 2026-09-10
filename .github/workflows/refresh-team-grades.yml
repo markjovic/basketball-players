@@ -1,0 +1,115 @@
+# .github/workflows/refresh-team-grades.yml
+name: Refresh Team Grades
+
+# Sets the `grade` on every entry in data/team-index.json from that team's MOST RECENT
+# GAME, replacing whichever grade happened to be recorded when the team was created.
+#
+# WHY. update-team-index.js creates a team entry from a player's registration and never
+# revisits it, so `grade` holds whatever the FIRST registration it met said —
+# effectively arbitrary. StatTrack renders it as the team-search subtitle
+# (index.html L1640, `[t.comp, t.grade].join(' · ')`), so a regraded team has been
+# showing the wrong division since the day it was added.
+#
+# WHY NOT FROM REGISTRATIONS. Decision A (2026-08-01): a registration IS a
+# (team, grade) pair, so a team under two grades in one season is a REGRADE and is
+# correct data. There is no "current" registration — measured on player 0afc7690,
+# across four regrades the RES grade is reg[1] twice and reg[0] twice, so array order
+# carries no chronology and a reg has no date. Keying on tid alone produced 2,175,659
+# churning "corrections" across 360,777 teams on 2026-09-08 (T57). Games have dates.
+#
+# COVERAGE IS PARTIAL AND IS REPORTED. Only some games carry `gn` — 428 of 1,129 in
+# games/bv/26df4252.json, and none of the 96 in fe2002db.json — and the absence is not
+# explained by any flag. But a team needs only ONE graded game, so 526 of ~530 teams in
+# that season are reachable. A team with none KEEPS its existing grade and is counted.
+# Nothing is ever blanked because the evidence to replace it is missing.
+#
+# Every updated entry also gets `gradeFrom`, the date of the game the grade came from.
+#
+# FULL CHECKOUT, NOT SPARSE. team-index spans essentially every season, so naming the
+# files is slower than cloning: sparse checkout fetches roughly one blob per second and
+# games/bv is 2,966 files / 1.94 GB. A full checkout is about seven minutes.
+#
+# No actions/setup-node: no network calls at all.
+#
+# NOT ON A SCHEDULE, DELIBERATELY. Grades only move when a team is regraded, which is a
+# start-of-season event. Run it after a season's grading settles, or when team search
+# looks wrong. Adding a cron would mean a full checkout every day for a file that
+# rarely changes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run = report what would change, write nothing. apply = write and commit.'
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+      season:
+        description: 'Limit to one season id. Blank = every season in team-index.'
+        required: false
+        default: ''
+        type: string
+
+# It writes data/team-index.json, which update-team-index.js also writes — and that
+# runs as a nightly job. Both use merge -X ours, so concurrent writers do not conflict:
+# the second to push silently keeps its own copy and discards the other's. The lock is
+# what prevents that; the push retry cannot.
+concurrency:
+  group: data-write
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    # Backstop ABOVE the push retry's worst case (60 attempts x up to 91s plus a git
+    # cycle each, ~109 minutes), never a budget for it — T55.
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Syntax check
+        run: node --check scripts/refresh-team-grades.js
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Inputs through env, never straight onto the command line, each with an explicit
+      # fallback — and the fallback is dry-run, the option that writes nothing.
+      - name: Refresh grades
+        env:
+          IN_MODE:   ${{ inputs.mode || 'dry-run' }}
+          IN_SEASON: ${{ inputs.season }}
+        run: |
+          set -euo pipefail
+          ARGS=""
+          if [ "$IN_MODE" = "dry-run" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ -n "$IN_SEASON" ]; then ARGS="$ARGS --season=$IN_SEASON"; fi
+          node scripts/refresh-team-grades.js $ARGS
+
+      - name: How to read the result
+        if: always()
+        run: |
+          echo "grade updated        = the team's most recent game says a different grade"
+          echo "                       from the one stored. That stored value was whatever"
+          echo "                       the first registration seen happened to say."
+          echo ""
+          echo "no graded game found = no game in that team's season carries a grade name,"
+          echo "                       so there is no evidence to replace the stored value."
+          echo "                       It is KEPT. Nothing is blanked."
+          echo ""
+          echo "gradeFrom            = the date of the game the grade came from, written on"
+          echo "                       every entry this tool touched."
+          echo ""
+          echo "Check it in StatTrack: search a team and look at the subtitle under the"
+          echo "name — that is comp and grade joined."
