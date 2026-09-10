@@ -1,6 +1,6 @@
 // scripts/audit-nonfinal-games.js
-// REVISION 2026-09-10d — samples game ids and a URL for EVERY outcome, and stops
-// describing a withdrawn game as one PlayHQ never completed.
+// REVISION 2026-09-10e — spreads the sample across rounds instead of taking the
+// first N, and counts unallocated placeholder fixtures.
 //
 // READ-ONLY. Counts every game that has not reached a terminal state, splits them by
 // whether their season is locked, then asks PlayHQ's CANONICAL record what it says
@@ -224,6 +224,8 @@ async function main() {
   let totalGames = 0, filesRead = 0, noMeta = 0;
   const byStatus = new Map();
   const perSeason = [];
+  // Unallocated-fixture counters. See the note in the scan loop.
+  const ph = { total: 0, noDate: 0, noVenue: 0, noTeams: 0, placeholder: 0, lockedPh: 0, byStatus: {} };
 
   for (const fname of files) {
     const sid = fname.replace('.json', '');
@@ -245,7 +247,23 @@ async function main() {
       byStatus.get(st)[bucket]++;
       if (TERMINAL.has(st)) continue;
       if (ONLY_STATUS && st !== ONLY_STATUS) continue;
-      nonFinalIds.push({ gid, st });
+
+      // A game PlayHQ generated and never allocated: no date, no venue, no court.
+      // Seen 2026-09-10 in EDJBA Winter 2023 — "z3 vs z4", date TBC, venue TBC, no
+      // line-up. That is a draw slot, not a fixture anybody failed to score, and
+      // counting it as an uncaptured game overstates the gap by however many there
+      // are.
+      const noDate = !g.d, noVenue = !g.vid, noCourt = !g.ct;
+      const noTeams = !(g.h || g.t1) && !(g.a || g.t2);
+      const placeholder = noDate && noVenue && noCourt;
+      ph.total++;
+      if (noDate)      ph.noDate++;
+      if (noVenue)     ph.noVenue++;
+      if (noTeams)     ph.noTeams++;
+      if (placeholder) { ph.placeholder++; ph.byStatus[st] = (ph.byStatus[st] || 0) + 1; if (bucket === 'locked') ph.lockedPh++; }
+
+      // rn carries the round, and it is what makes a spread sample possible.
+      nonFinalIds.push({ gid, st, rn: g.rn || null, placeholder });
       statuses[st] = (statuses[st] || 0) + 1;
     }
     if (nonFinalIds.length) perSeason.push({ sid, locked: bucket === 'locked', nonFinalIds, total: entries.length, statuses, s });
@@ -271,6 +289,17 @@ async function main() {
   console.log(`  non-final in unlocked seasons : ${recoverable}   ← tonight's nightly still covers these`);
   console.log(`${'═'.repeat(92)}`);
 
+  console.log(`\n─── ARE THE NON-FINAL GAMES REAL FIXTURES? ─────────────────────────────────────`);
+  console.log(`    non-final games examined  : ${ph.total}`);
+  console.log(`    no date                   : ${ph.noDate}   (${(ph.noDate / Math.max(1, ph.total) * 100).toFixed(1)}%)`);
+  console.log(`    no venue                  : ${ph.noVenue}`);
+  console.log(`    no teams on either side   : ${ph.noTeams}`);
+  console.log(`    UNALLOCATED PLACEHOLDERS  : ${ph.placeholder}   no date AND no venue AND no court`);
+  console.log(`      of those, in locked seasons : ${ph.lockedPh}`);
+  console.log(`      by status                   : ${Object.entries(ph.byStatus).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}=${v}`).join('  ') || '(none)'}`);
+  console.log(`    A placeholder is a draw slot PlayHQ generated and never allocated — "z3 vs z4",`);
+  console.log(`    date TBC, venue TBC, no line-up. Not a game anybody failed to capture.`);
+
   const lockedSeasons = perSeason.filter(x => x.locked).sort((a, b) => b.nonFinalIds.length - a.nonFinalIds.length);
   console.log(`\n─── WORST LOCKED SEASONS ───────────────────────────────────────────────────────`);
   if (!lockedSeasons.length) console.log('    (none — nothing is frozen)');
@@ -289,8 +318,43 @@ async function main() {
   // ── Phase 2: ask the CANONICAL record, per game. ──────────────────────────
   // No grades, no rounds, no season listing — just the game id we already hold.
   const queue = lockedSeasons.slice(0, MAX_SEASONS);
+  // ⚠️ THE SAMPLE USED TO BE `.slice(0, PER_SEASON)` — THE FIRST N IN FILE ORDER,
+  // WHICH IS CONSECUTIVE GAMES FROM THE SAME ROUND. Eight fixtures in one round share
+  // a state, so eight agreeing answers were closer to ONE observation than eight, and
+  // the per-season 8/8 uniformity was an artefact of the sampling rather than
+  // evidence for it. Spotted 2026-09-10 when all six sampled URLs from one season
+  // turned out to be consecutive EDJBA games, several in the same round.
+  //
+  // Now: one game per distinct round, round-robin, so N samples means N different
+  // parts of the season. A season with no `rn` falls back to evenly spaced indices
+  // across the whole list — still spread, never clustered.
+  function spread(list, k) {
+    const byRound = new Map();
+    for (const g of list) {
+      const key = g.rn || '(none)';
+      if (!byRound.has(key)) byRound.set(key, []);
+      byRound.get(key).push(g);
+    }
+    if (byRound.size <= 1) {
+      const step = Math.max(1, Math.floor(list.length / k));
+      const out = [];
+      for (let i = 0; i < list.length && out.length < k; i += step) out.push(list[i]);
+      return out;
+    }
+    const rounds = [...byRound.values()];
+    const out = [];
+    for (let depth = 0; out.length < k; depth++) {
+      let added = false;
+      for (const r of rounds) {
+        if (r[depth]) { out.push(r[depth]); added = true; if (out.length >= k) break; }
+      }
+      if (!added) break;
+    }
+    return out;
+  }
+
   const sample = [];
-  for (const x of queue) for (const g of x.nonFinalIds.slice(0, PER_SEASON)) sample.push({ sid: x.sid, ...g });
+  for (const x of queue) for (const g of spread(x.nonFinalIds, PER_SEASON)) sample.push({ sid: x.sid, ...g });
 
   console.log(`\n─── ASKING discoverGame ABOUT ${sample.length} GAME(S) ─────────────────────────────────`);
   console.log(`    ${queue.length} season(s), up to ${PER_SEASON} games each, concurrency ${CONCURRENCY_GAMEVIEW}`);
@@ -357,11 +421,11 @@ async function main() {
   }
   if (sampleIds.still.length) {
     console.log(`\n  STILL SERVED but never completed — open these to see a live PlayHQ page:`);
-    for (const e of sampleIds.still) console.log(`    ${e.sid}  ours=${e.st} playhq=${e.theirs}\n      ${GC(e.gid)}`);
+    for (const e of sampleIds.still) console.log(`    ${e.sid}  ours=${e.st} playhq=${e.theirs}  round=${e.rn || '?'}${e.placeholder ? '  ⚠ UNALLOCATED (no date/venue/court)' : ''}\n      ${GC(e.gid)}`);
   }
   if (sampleIds.gone.length) {
     console.log(`\n  NOT HELD by PlayHQ — these should 404 or redirect:`);
-    for (const e of sampleIds.gone) console.log(`    ${e.sid}  ours=${e.st}  (${e.why})\n      ${GC(e.gid)}`);
+    for (const e of sampleIds.gone) console.log(`    ${e.sid}  ours=${e.st}  (${e.why})  round=${e.rn || '?'}${e.placeholder ? '  ⚠ UNALLOCATED' : ''}\n      ${GC(e.gid)}`);
   }
   if (sampleIds.failed.length) {
     console.log(`\n  FAILED to answer — re-run; these are not a finding:`);
