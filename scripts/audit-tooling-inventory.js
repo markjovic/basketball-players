@@ -542,6 +542,7 @@ async function main() {
   // cannot be wrong about how a workflow is triggered.
   const RUN_LIVE_DAYS = Math.max(DAYS, 30);   // ran this recently => live
   const RUN_DEAD_DAYS = 120;                  // has not run in this long => spent
+  const STALE_KEEP_DAYS = 60;                 // a KEPT tool idle this long is worth re-judging
   const verdictOf = (x) => {
     // BROKEN first, even above run history: a workflow that ran yesterday AND calls
     // a script that is not in the repo is defective, and that is the thing worth
@@ -702,6 +703,39 @@ async function main() {
   console.log('     does that check; this list does not.');
   for (const x of spent) console.log(`  ${String(x.ageDays === null ? '?' : x.ageDays).padStart(4)}d  ${x.path}${x.documented ? '' : '   UNDOCUMENTED — its finding is nowhere'}`);
   for (const x of spentW) console.log(`  ${String(x.ageDays === null ? '?' : x.ageDays).padStart(4)}d  ${x.path}`);
+
+  // ── KEPT BUT UNUSED ─────────────────────────────────────────────────────────
+  // The gap this closes: a §2.2/§3.3 row says "someone decided to keep this", and
+  // since 2026-09-11 that row OUTRANKS run history — which was the right fix for
+  // live workflows that legitimately run rarely, but it also means a kept tool can
+  // never be questioned again however long it sits idle. test-api.yml had ONE run
+  // since 2026-07-03 and reported KEEP, through an entire cleanup pass, because
+  // nothing asks this question. A keep decision is not permanent; it just should
+  // not be overturned by run counts alone. This lists them for a human to re-judge.
+  // NOT a delete list — deliberately separate from SPENT for that reason.
+  const staleKeep = [...scripts, ...workflows].filter(x => {
+    if (!(x.manifestSection === '2.2' || x.manifestSection === '3.3')) return false;
+    // "Few runs" only counts when it ALSO has not run recently. A kept tool built
+    // last week and run three times is in active use, not stale — flagging it is
+    // the noise this section exists to avoid.
+    const few = typeof x.runCount === 'number' && x.runCount > 0 && x.runCount <= ONE_OFF_RUNS
+                && typeof x.lastRunDays === 'number' && x.lastRunDays >= RUN_LIVE_DAYS;
+    const idle = typeof x.lastRunDays === 'number' && x.lastRunDays >= STALE_KEEP_DAYS;
+    return few || idle;
+  }).sort((a, b) => (b.lastRunDays ?? 0) - (a.lastRunDays ?? 0));
+
+  console.log(`\n── KEPT BUT UNUSED — recorded as a tool, hardly ever run (${staleKeep.length}) ──`);
+  console.log(`  In §2.2/§3.3, and either ${ONE_OFF_RUNS} runs or fewer with none in ${RUN_LIVE_DAYS} days,`);
+  console.log(`  or nothing at all in ${STALE_KEEP_DAYS} days.`);
+  console.log('  These are NOT delete candidates — the row says someone wanted them. But a keep');
+  console.log('  decision made months ago against a tool that has run once is worth re-reading.');
+  console.log('  Either confirm it and leave it, or move it to §2.4 and delete the pair.');
+  if (!staleKeep.length) console.log('  none');
+  for (const x of staleKeep) {
+    const runs = typeof x.runCount === 'number' ? `${x.runCount} run(s)` : 'no run history';
+    const last = typeof x.lastRunDays === 'number' ? `last ${x.lastRunDays}d ago` : 'never run';
+    console.log(`  ${String(x.ageDays === null ? '?' : x.ageDays).padStart(4)}d  ${x.path}  §${x.manifestSection}  ${runs}, ${last}`);
+  }
 
   console.log(`\n── DECIDE NOW — recent, not recorded as a tool (${decide.length} script(s), ${decideW.length} workflow(s)) ──`);
   console.log('  Added inside the recent window and in neither manifest section. This is current');
