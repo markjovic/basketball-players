@@ -32,11 +32,8 @@ from an abandoned one.
 - `find-lost-stats-from-folds.js`
 - `find-misrouted-appearances.js`
 - `fold-diverged-players.js`
-- `graduate-seasons.yml`
 - `measure-credited-coverage.js`
 - `nightly-crawl.js`
-- `post-drain-chain.yml`
-- `rebuild-chain.yml`
 - `requeue-repointed-players.js`
 - `revert-alias-repoints.js`
 - `salvage-spectator-names.js`
@@ -45,9 +42,7 @@ from an abandoned one.
 - `seed-apiid-from-playhq-pairs.js`
 - `size-appearance-gaps.js`
 - `size-locked-resweep.js`
-- `size-locked-split.yml`
 - `size-missing-gids.js`
-- `size-pages-artifact.yml`
 - `size-spectator-queue.js`
 - `spectator-backfill.js`
 - `update-team-index.js`
@@ -59,7 +54,6 @@ from an abandoned one.
 - `audit-seasons-gaps.js`
 - `audit-uuid-collisions.js`
 - `build-alias-worklist.js`
-- `build-search-index.js`
 - `clear-stats-checked.js`
 - `count-stats-checked.js`
 - `db-audit.js`
@@ -69,10 +63,8 @@ from an abandoned one.
 - `diagnose.js`
 - `discover-fixtures.js`
 - `discover-game-backfill.js`
-- `find-code-refs.js`
 - `find-flag-collisions.js`
 - `find-players-by-team.js`
-- `find-root-json-refs.js`
 - `fix-merge-aliases.js`
 - `probe-alias-credits.js`
 - `probe-alias-names.js`
@@ -96,16 +88,11 @@ from an abandoned one.
 - `repair-season-names.js`
 - `repoint-aliases.js`
 - `report-alias-index.js`
-- `restore-deleted-file.js`
 - `scan-complete-rounds.js`
 - `scan-roster-id-forms.js`
 - `seed-missing-profiles.js`
-- `size-gap-players.yml`
-- `size-misses.yml`
-- `size-negative-gap.yml`
 - `size-opposition-index.js`
 - `size-report.js`
-- `size-resweep.yml`
 - `synthesize-missing-games.js`
 - `test-api.js`
 - `trace-player-game.js`
@@ -164,11 +151,16 @@ kept out of that group are classified in 2.2.
 - `find-lost-stats-from-folds.yml`
 - `find-misrouted-appearances.yml`
 - `fold-diverged-players.yml`
+- `graduate-seasons.yml`
 - `measure-credited-coverage.yml`
 - `nightly-crawl.yml`
+- `post-drain-chain.yml`
+- `rebuild-chain.yml`
 - `recheck-private-profiles.yml`
 - `requeue-repointed-players.yml`
 - `revert-alias-repoints.yml`
+- `size-locked-split.yml`
+- `size-pages-artifact.yml`
 - `verify-outstanding-claims.yml`
 - `weekly-indexes.yml`
 
@@ -182,12 +174,13 @@ kept out of that group are classified in 2.2.
 - `build-team-stats.yml`
 - `build-venue-indexes.yml`
 - `build-win-loss.yml`
+- `deploy-pages.yml`
 
 ### 3.3 Kept workflows — on-demand, deliberately retained
 
 - `audit-uuid-collisions.yml`
 - `build-alias-worklist.yml`
-- `build-team-stats.yml`
+- `cleanup-repo.yml`
 - `clear-stats-checked.yml`
 - `count-stats-checked.yml`
 - `db-audit.yml`
@@ -201,6 +194,7 @@ kept out of that group are classified in 2.2.
 - `find-players-by-team.yml`
 - `find-root-json-refs.yml`
 - `generate-roster.yml`
+- `overnight-chain.yml`
 - `probe-api-limits.yml`
 - `probe-squad-evidence.yml`
 - `rebuild-player-index.yml`
@@ -210,14 +204,19 @@ kept out of that group are classified in 2.2.
 - `repair-season-names.yml`
 - `report-alias-index.yml`
 - `restore-deleted-file.yml`
+- `salvage-spectator-names.yml`
 - `scan-complete-rounds.yml`
-- `size-locked-split.yml`
+- `size-gap-players.yml`
+- `size-misses.yml`
+- `size-negative-gap.yml`
 - `size-report.yml`
+- `size-resweep.yml`
 - `test-api.yml`
 - `update-team-index.yml`
 - `update-venue-lookup.yml`
 - `verify-enrich.yml`
 - `verify-p-redundancy.yml`
+- `weekly-future-fixtures.yml`
 
 ### 3.4 Workflows removed in an earlier cleanup
 
