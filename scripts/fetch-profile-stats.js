@@ -773,8 +773,8 @@ async function attemptNamespaceRecovery(uuid, player) {
       // an estimate, and reported in the shard summary.
       tier2Suppressed++;
       if (tier2Suppressed <= 20) {
-        console.log(`    tier 2 SUPPRESSED for ${uuid.slice(0, 8)} "${player.name}": candidate ` +
-          `${String([...wideHits][0]).slice(0, 8)} matched only in a grade where this player has a ` +
+        console.log(`    tier 2 SUPPRESSED for ${uuid.slice(0, TRUNC_LEN)} "${player.name}": candidate ` +
+          `${String([...wideHits][0]).slice(0, TRUNC_LEN)} matched only in a grade where this player has a ` +
           `team id and tier 1 already failed on that team — not aliased`);
       }
     }
@@ -836,8 +836,8 @@ async function attemptNamespaceRecovery(uuid, player) {
     if (!shares) {
       recoveryRejected++;
       if (recoveryRejected <= 20) {
-        console.log(`    recovery REJECTED for ${uuid.slice(0, 8)} "${player.name}": candidate ` +
-          `${String(candidate).slice(0, 8)} appears in ${candidateGids.size} grade(s), none of the ` +
+        console.log(`    recovery REJECTED for ${uuid.slice(0, TRUNC_LEN)} "${player.name}": candidate ` +
+          `${String(candidate).slice(0, TRUNC_LEN)} appears in ${candidateGids.size} grade(s), none of the ` +
           `${allGids.size} this player is registered in (matched by tier ${candidateTier})`);
       }
       return null;
@@ -1003,7 +1003,12 @@ function markNotObtainable(uuid, player, stats, prefix, short, reason) {
 // ─── Process one UUID ─────────────────────────────────────────────────────────
 
 async function processUUID(uuid, stats, idx) {
-  const short = uuid.slice(0, 8);
+  // Log ids are TRUNC_LEN (13), not 8. 13 is the form p[] rosters and the
+  // players/aliases keys are actually stored under, so an id printed here can be
+  // searched for directly in the data; 8 is a form nothing is stored under.
+  // Changed 2026-09-11 — every log id in this file came through in one pass, and
+  // the number is imported from lib/uuid-prefix.cjs, never written literally.
+  const short = uuid.slice(0, TRUNC_LEN);
   const prefix = `  [${String(idx).padStart(4)}/${stats.total}]`;
 
   // Read the player file up front (not just on the "ok" path as before) — we
@@ -1045,7 +1050,7 @@ async function processUUID(uuid, stats, idx) {
         spec.add(String(uuid).slice(0, TRUNC_LEN));
         spec.add(String(recovered.apiId).slice(0, TRUNC_LEN));
         player.spectatorIds = [...spec].sort();
-        console.log(`${prefix} ⟳ ${short} recovered apiId -> ${recovered.apiId.slice(0, 8)} (alias recorded)`);
+        console.log(`${prefix} ⟳ ${short} recovered apiId -> ${recovered.apiId.slice(0, TRUNC_LEN)} (alias recorded)`);
         return finishOk(uuid, player, recovered.result, stats, prefix, short);
       }
     }
@@ -1152,7 +1157,7 @@ async function finishOk(uuid, player, result, stats, prefix, short) {
         // transient failure survivable.
         player.nameHealAttempts = attempts + 1;
         stats.nameHealFailed++;
-        const detail = `publicProfile(${String(nameId).slice(0, 8)}) gave nothing: ${lastPublicProfileFail || 'unknown'}`;
+        const detail = `publicProfile(${String(nameId).slice(0, TRUNC_LEN)}) gave nothing: ${lastPublicProfileFail || 'unknown'}`;
         if (contaminated) {
           console.log(`${prefix} ⚠ ${short} name STILL contaminated ("${curName}") — attempt ${attempts + 1}/${NAME_HEAL_MAX_ATTEMPTS} — ${detail}`);
         } else {
