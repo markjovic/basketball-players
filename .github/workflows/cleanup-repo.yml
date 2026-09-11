@@ -1,32 +1,21 @@
 # .github/workflows/cleanup-repo.yml
 name: Cleanup Repo
 
-# REWRITTEN 2026-09-11 to use the GitHub Git Data API instead of a git clone.
+# Uses the GitHub Git Data API. NO CHECKOUT, NO GIT COMMAND — do not reintroduce
+# either. The clone-based version could not work at this repo's size: with
+# fetch-depth 1 and filter: blob:none, `git push` of a tag at the shallow boundary
+# and `git merge -X ours FETCH_HEAD` both make git enumerate objects, and under
+# blob:none enumerating means backfilling every blob across 418,000 player files.
+# One ran past ten minutes, the other three, both cancelled 2026-09-11.
 #
-# WHY. The previous version checked the repo out with fetch-depth 1 and
-# filter: blob:none, then performed five remote or object-hungry git operations
-# on top of it. Three of them cannot work at this repository's size:
-#   - `git push origin refs/tags/...` at the shallow boundary commit. Git cannot
-#     assume the remote holds that commit's tree, starts enumerating objects to
-#     pack, and under blob:none enumerating means lazily backfilling every blob.
-#     Ran past ten minutes, cancelled.
-#   - `git fetch origin main` + `git merge -X ours FETCH_HEAD` before the
-#     deletions. A depth-1 clone has no common ancestor, so the merge compares
-#     whole trees and backfills the lot. Ran three minutes, cancelled.
-#   - the same merge again inside the push retry loop.
-# Patching them one at a time cost two dispatches. The class of fault is the
-# clone itself: deleting a list of known paths does not need a working tree.
+# It reads the tree entries for the directories it touches, builds one new tree
+# with the listed paths removed, commits against the current head and moves the
+# ref. Directory reads are NON-recursive, one call each: the recursive endpoint
+# truncates at 100,000 entries here and would silently under-report.
 #
-# WHAT THIS DOES INSTEAD. No checkout. It reads the tree entries for the three
-# locations it touches, builds one new tree with those paths removed, commits it
-# against the current head, and moves the ref. Five or six API calls, seconds,
-# nothing packed and nothing fetched. Directory deletion is deliberately NOT
-# supported here — every path below is a file, and a recursive tree read would
-# be truncated at this repo's size. Add files individually.
-#
-# SAFETY. The pre-cleanup tag is created at the OLD head before the ref moves.
-# The ref update is a non-forced PATCH, so if main advanced between the read and
-# the write it is rejected and nothing changes.
+# SAFETY. The pre-cleanup tag is created at the OLD head before the ref moves, and
+# the ref update is a non-forced PATCH, so if main advanced mid-run it is rejected
+# and nothing changes.
 #
 # DRY RUN FIRST. dry_run=true resolves and lists every deletion, writes nothing.
 
@@ -37,11 +26,6 @@ on:
         description: 'Dry run — list every deletion, change NOTHING (run this FIRST)'
         required: false
         default: true
-        type: boolean
-      include_gated:
-        description: 'STAGE 2: also delete ordering-gated paths. Empty this pass.'
-        required: false
-        default: false
         type: boolean
 
 permissions:
@@ -58,110 +42,117 @@ jobs:
           GH_TOKEN: ${{ secrets.WORKFLOW_PAT }}
           REPO: ${{ github.repository }}
           DRY_RUN: ${{ inputs.dry_run }}
-          INCLUDE_GATED: ${{ inputs.include_gated }}
           TAG: pre-cleanup-${{ github.run_id }}
         run: |
           set -euo pipefail
 
-          # ── STAGE 1 — always deleted ────────────────────────────────────────
-          # CLEANUP_PLAN.md §3 — concluded probes, findings recorded.
-          # CLEANUP_PLAN.md §5 — concluded work, superseded or documented.
-          # CLEANUP_PLAN.md §2 — drop-stale-playercount, plus the four project
-          #                      documents, which the classifier no longer reads.
-          # CLEANUP_PLAN.md §7 — the twelve probes confirmed defunct on review.
-          #                      build-alias-worklist, probe-squad-evidence and
-          #                      rebuild-player-index are NOT here: all three are
-          #                      kept and classified in TOOLING.md.
-          # EMPTY. The 54 paths of the 2026-09-11 pass are deleted; see
-          # CLEANUP_PLAN.md §1 in the project for what went. Add the next batch
-          # here, one file path per line, relative to the repo root.
+          # ── Individual files ────────────────────────────────────────────────
+          # 2026-09-11 reports pass. Each entry is justified by what the files
+          # themselves record, NOT by the "not on keep-list" flag in db-audit
+          # §11b — that flag is membership in a hardcoded list and it also flags
+          # manual-alias-decisions.json and tooling-inventory.json.
           #
-          # DO NOT leave stale paths in this list. Besides being useless, the
-          # inventory's script-reference check counts any script path string in
-          # a workflow as an invocation, so a leftover list makes this file report
-          # as BROKEN — which is what happened on 2026-09-11.
-          #
-          # Files only. Directory deletion is not supported: a recursive tree read
-          # truncates at 100,000 entries on this repo and would under-report.
+          # wrongly-keyed-census-progress.json (72 MB) is the ABANDONED
+          #   single-runner attempt: 36 done, 18 wrong, out of 418,250 candidates.
+          #   The matrix superseded it and finished — wrongly-keyed-census.json
+          #   records complete=true, shardsMissing=[], 1,532 wrong, merged and
+          #   retested 2026-08-30. That output stays. This does not.
+          # The five orphans below have no referencing script left, either because
+          #   it was deleted on 2026-09-11 or because nothing ever referenced them.
+          # zero-team-seasons.json was on the July cleanup list and never removed.
+          # scripts/fold-diverged-players.yml is a workflow sitting in scripts/.
+          #   The real one, .github/workflows/fold-diverged-players.yml, is live
+          #   and is not touched. If this path turns out not to exist the dry run
+          #   reports it absent and nothing happens.
           cat > /tmp/paths.txt <<'PATHS'
+          reports/wrongly-keyed-census-progress.json
+          reports/alias-conflict-diagnosis.json
+          reports/alias-vs-playhq-audit-repoints.json
+          reports/measure-credited-coverage-withu.json
+          reports/player-file-integrity.json
+          reports/roster-source-probe.json
+          zero-team-seasons.json
+          scripts/fold-diverged-players.yml
           PATHS
-          sed -i 's/^[[:space:]]*//' /tmp/paths.txt
-          sed -i '/^$/d' /tmp/paths.txt
 
-          # ── STAGE 2 — ordering-gated. Empty this pass: the three July gates
-          #    (build-alias-index.js, fix-uuid-prefix-length.js,
-          #    cleanup-dead-artifacts.js) no longer exist. Kept as the mechanism
-          #    for the reports/ work, where a report must be read before it goes.
-          : > /tmp/gated.txt
+          # ── Whole directories ───────────────────────────────────────────────
+          # Every blob directly inside each. Both were on the July cleanup list
+          # and survived because that run never completed.
+          cat > /tmp/dirs.txt <<'DIRS'
+          explore-results
+          roster-results
+          DIRS
 
-          if [ "$INCLUDE_GATED" = "true" ]; then
-            cat /tmp/gated.txt >> /tmp/paths.txt
-          fi
+          sed -i 's/^[[:space:]]*//;/^$/d' /tmp/paths.txt
+          sed -i 's/^[[:space:]]*//;/^$/d' /tmp/dirs.txt
 
           echo "=== $([ "$DRY_RUN" = "true" ] && echo "DRY RUN — nothing will be changed" || echo "LIVE RUN") ==="
           echo ""
 
-          # An empty list is a no-op, not a fault. A list that is populated but
-          # matches nothing IS a fault, and is caught further down.
-          if [ ! -s /tmp/paths.txt ]; then
-            echo "No paths configured — nothing to do."
-            echo "Add paths to the PATHS heredoc in this workflow and dispatch again."
+          if [ ! -s /tmp/paths.txt ] && [ ! -s /tmp/dirs.txt ]; then
+            echo "Nothing configured — no paths and no directories."
             exit 0
           fi
 
-          # ── Resolve head, commit and the three trees we touch ───────────────
-          # No recursive tree read: at 418,000 player files the recursive
-          # endpoint truncates at 100,000 entries and would silently under-report.
-          # Each directory is read on its own, which is exact.
           SHA=$(gh api "repos/$REPO/git/ref/heads/main" | jq -r '.object.sha')
           ROOT_TREE=$(gh api "repos/$REPO/git/commits/$SHA" | jq -r '.tree.sha')
           echo "main head:  $SHA"
           echo "root tree:  $ROOT_TREE"
           echo ""
 
-          # NOTE: `gh api --jq` takes exactly ONE argument, the query. It does not
-          # accept jq's own flags — passing `--arg n scripts` to it gave
-          # "accepts 1 arg(s), received 4" and failed the run on 2026-09-11.
-          # Everything below pipes gh's JSON into real jq instead, which does take
-          # --arg, and uses one mechanism throughout rather than two.
+          # `gh api --jq` takes exactly ONE argument, the query. It does not accept
+          # jq's own flags — passing --arg to it gave "accepts 1 arg(s), received 4"
+          # and failed a run on 2026-09-11. Pipe into real jq instead.
           subtree() {  # subtree <parent-tree-sha> <name> -> sha, empty if absent
             gh api "repos/$REPO/git/trees/$1" \
               | jq -r --arg n "$2" '.tree[] | select(.path==$n and .type=="tree") | .sha'
           }
+          resolve_tree() {  # resolve_tree <a/b/c> -> sha, empty if any segment absent
+            local cur="$ROOT_TREE" seg
+            local IFS='/'
+            for seg in $1; do
+              [ -z "$seg" ] && continue
+              cur=$(subtree "$cur" "$seg")
+              [ -z "$cur" ] && { printf ''; return; }
+            done
+            printf '%s' "$cur"
+          }
+
+          # Directories whose tree we must read: the parent of every listed file,
+          # plus every directory being emptied. Derived, not hardcoded.
+          : > /tmp/needed.txt
+          while read -r p; do
+            case "$p" in */*) echo "${p%/*}" ;; *) echo "" ;; esac
+          done < /tmp/paths.txt >> /tmp/needed.txt
+          cat /tmp/dirs.txt >> /tmp/needed.txt
+          sort -u -o /tmp/needed.txt /tmp/needed.txt
 
           : > /tmp/modes.tsv
-          # root-level blobs
-          gh api "repos/$REPO/git/trees/$ROOT_TREE" \
-            | jq -r '.tree[] | select(.type=="blob") | "\(.path)\t\(.mode)"' >> /tmp/modes.tsv
-          # scripts/
-          SCRIPTS_TREE=$(subtree "$ROOT_TREE" "scripts")
-          if [ -n "$SCRIPTS_TREE" ]; then
-            gh api "repos/$REPO/git/trees/$SCRIPTS_TREE" \
-              | jq -r '.tree[] | select(.type=="blob") | "scripts/\(.path)\t\(.mode)"' >> /tmp/modes.tsv
-          fi
-          # .github/workflows/
-          GH_TREE=$(subtree "$ROOT_TREE" ".github")
-          if [ -n "$GH_TREE" ]; then
-            WF_TREE=$(subtree "$GH_TREE" "workflows")
-            if [ -n "$WF_TREE" ]; then
-              gh api "repos/$REPO/git/trees/$WF_TREE" \
-                | jq -r '.tree[] | select(.type=="blob") | ".github/workflows/\(.path)\t\(.mode)"' >> /tmp/modes.tsv
+          while read -r d; do
+            if [ -z "$d" ]; then
+              t="$ROOT_TREE"; pfx=""
+            else
+              t=$(resolve_tree "$d")
+              if [ -z "$t" ]; then echo "  note: directory not in tree — $d"; continue; fi
+              pfx="$d/"
             fi
-          fi
+            gh api "repos/$REPO/git/trees/$t" \
+              | jq -r --arg p "$pfx" '.tree[] | select(.type=="blob") | "\($p)\(.path)\t\(.mode)"' \
+              >> /tmp/modes.tsv
+          done < /tmp/needed.txt
           echo "tree entries read: $(wc -l < /tmp/modes.tsv)"
+
+          # Expand each directory into its files, appended to the target list.
+          while read -r d; do
+            n=$(awk -F'\t' -v p="$d/" 'index($1,p)==1 {print $1}' /tmp/modes.tsv | tee -a /tmp/paths.txt | wc -l)
+            echo "  $d/ expands to $n file(s)"
+          done < /tmp/dirs.txt
           echo ""
 
           # ── Match each target against the tree ──────────────────────────────
           : > /tmp/todelete.tsv
           deleted=0; skipped=0
-          section=""
           while read -r p; do
-            case "$p" in
-              scripts/*)            s="scripts" ;;
-              .github/workflows/*)  s="workflows" ;;
-              *)                    s="root files" ;;
-            esac
-            if [ "$s" != "$section" ]; then echo "── $s ──"; section="$s"; fi
             mode=$(awk -F'\t' -v t="$p" '$1==t {print $2; exit}' /tmp/modes.tsv)
             if [ -n "$mode" ]; then
               printf '%s\t%s\n' "$p" "$mode" >> /tmp/todelete.tsv
@@ -172,6 +163,7 @@ jobs:
             fi
           done < /tmp/paths.txt
 
+          BYTES=$(awk -F'\t' '{print $1}' /tmp/todelete.tsv | wc -l)
           echo ""
           echo "=== Summary ==="
           echo "  To delete: $deleted   Already absent: $skipped"
@@ -183,8 +175,6 @@ jobs:
             exit 0
           fi
 
-          # A deletion run that matched nothing has failed, not succeeded. That is
-          # the signature of a list of paths that no longer exist.
           if [ "$deleted" -eq 0 ]; then
             echo ""
             echo "NOTHING MATCHED. Every listed path is already absent — the list is stale."
@@ -214,14 +204,11 @@ jobs:
           echo "new tree:   $NEW_TREE"
 
           NEW_COMMIT=$(gh api --method POST "repos/$REPO/git/commits" \
-            -f message="chore: delete concluded probes, superseded tools and the four project documents" \
+            -f message="chore: drop the superseded census progress file, orphaned reports and July residue" \
             -f tree="$NEW_TREE" \
             -f "parents[]=$SHA" | jq -r '.sha')
           echo "new commit: $NEW_COMMIT"
 
-          # Non-forced: if main moved between the read above and now, this is
-          # rejected and NOTHING changes. The commit and tree are orphaned objects
-          # and harmless; re-dispatch starts cleanly from the new head.
           if gh api --method PATCH "repos/$REPO/git/refs/heads/main" \
                -f sha="$NEW_COMMIT" -F force=false >/dev/null; then
             echo ""
