@@ -64,23 +64,32 @@ jobs:
           #   The real one, .github/workflows/fold-diverged-players.yml, is live
           #   and is not touched. If this path turns out not to exist the dry run
           #   reports it absent and nothing happens.
+          # 2026-09-11, stray-file pass. `.github/workflows/` executes only .yml,
+          # so a .js sitting there is dead weight that can never run. Confirmed
+          # against the repo: these two plus discover-seasons.yml.txt are the only
+          # non-.yml entries in that directory. scan-roster-id-forms.js is NOT in
+          # the repo — it existed only in the local export.
+          #
+          # diagnose-nameless-players.js is byte-identical to the script deleted on
+          #   2026-09-11; this is the last surviving copy of a deliberate deletion.
+          # build-alias-worklist.js is a 9,479-byte older copy of the live
+          #   scripts/build-alias-worklist.js (10,795 bytes). A stale duplicate of a
+          #   kept script is the one that eventually gets edited by mistake.
+          #
+          # discover-seasons.yml.txt is DELIBERATELY NOT HERE. It is not junk — it
+          # is the staged fix removing actions/setup-node from discover-seasons.yml,
+          # which on main still carries it. Delete it only after that fix is
+          # committed, or the correction goes and the defect stays.
           cat > /tmp/paths.txt <<'PATHS'
-          reports/wrongly-keyed-census-progress.json
-          reports/alias-conflict-diagnosis.json
-          reports/alias-vs-playhq-audit-repoints.json
-          reports/measure-credited-coverage-withu.json
-          reports/player-file-integrity.json
-          reports/roster-source-probe.json
-          zero-team-seasons.json
-          scripts/fold-diverged-players.yml
+          .github/workflows/build-alias-worklist.js
+          .github/workflows/diagnose-nameless-players.js
           PATHS
 
           # ── Whole directories ───────────────────────────────────────────────
-          # Every blob directly inside each. Both were on the July cleanup list
-          # and survived because that run never completed.
+          # Every blob directly inside each, read non-recursively. EMPTY this pass:
+          # explore-results/ and roster-results/ went in pass two, and the dry run
+          # on 2026-09-11 confirmed both are absent from the tree.
           cat > /tmp/dirs.txt <<'DIRS'
-          explore-results
-          roster-results
           DIRS
 
           sed -i 's/^[[:space:]]*//;/^$/d' /tmp/paths.txt
@@ -204,7 +213,7 @@ jobs:
           echo "new tree:   $NEW_TREE"
 
           NEW_COMMIT=$(gh api --method POST "repos/$REPO/git/commits" \
-            -f message="chore: drop the superseded census progress file, orphaned reports and July residue" \
+            -f message="chore: delete the two stray .js files from .github/workflows" \
             -f tree="$NEW_TREE" \
             -f "parents[]=$SHA" | jq -r '.sha')
           echo "new commit: $NEW_COMMIT"
