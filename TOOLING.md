@@ -58,6 +58,7 @@ from an abandoned one.
 
 - `audit-seasons-gaps.js`
 - `audit-uuid-collisions.js`
+- `build-alias-worklist.js`
 - `build-search-index.js`
 - `clear-stats-checked.js`
 - `count-stats-checked.js`
@@ -80,10 +81,12 @@ from an abandoned one.
 - `probe-player.js`
 - `probe-selfalias-check.js`
 - `probe-shared-name-aliases.js`
+- `probe-squad-evidence.js`
 - `probe-unresolved-aliases.js`
 - `probe-verdict-conflict.js`
 - `recheck-forfeit-games.js`
 - `recheck-private-profiles.js`
+- `rebuild-player-index.js`
 - `repair-duplicate-regs.js`
 - `repair-forfeit-score.js`
 - `repair-legacy-flags.js`
@@ -130,10 +133,25 @@ Removed 2026-09-11:
 - `redirect-exposure.js`
 - `scan-season-name-contamination.js`
 - `size-duplicate-profiles.js`
+- `diagnose-alias-conflicts.js`
+- `diagnose-nameless-players.js`
+- `probe-alias-stats.js`
+- `probe-discover-teams.js`
+- `probe-notfound.js`
+- `probe-registrations.js`
+- `probe-roster-sources.js`
+- `probe-session-throwaway.js`
+- `probe-stattrack-shapes.cjs`
+- `probe-stattrack-shapes.js`
+- `probe-wrong-rosters.js`
+- `prove-player-files-intact.js`
+- `size-locked-backfill.js`
 
 ### 2.4 Spent scripts — concluded; their findings are recorded outside this repo
 
 None. The eight probes that sat here were deleted on 2026-09-11 and are listed in 2.3.
+The twelve held probes were reviewed the same day and are in 2.3 as well; the three
+kept out of that group are classified in 2.2.
 
 ### 3.1 Live workflows — scheduled
 
@@ -168,6 +186,7 @@ None. The eight probes that sat here were deleted on 2026-09-11 and are listed i
 ### 3.3 Kept workflows — on-demand, deliberately retained
 
 - `audit-uuid-collisions.yml`
+- `build-alias-worklist.yml`
 - `build-team-stats.yml`
 - `clear-stats-checked.yml`
 - `count-stats-checked.yml`
@@ -183,6 +202,8 @@ None. The eight probes that sat here were deleted on 2026-09-11 and are listed i
 - `find-root-json-refs.yml`
 - `generate-roster.yml`
 - `probe-api-limits.yml`
+- `probe-squad-evidence.yml`
+- `rebuild-player-index.yml`
 - `recheck-forfeit-games.yml`
 - `repair-forfeit-score.yml`
 - `repair-legacy-flags.yml`
@@ -216,3 +237,13 @@ Removed 2026-09-11:
 - `redirect-exposure.yml`
 - `scan-season-name-contamination.yml`
 - `size-duplicate-profiles.yml`
+- `diagnose-alias-conflicts.yml`
+- `probe-alias-stats.yml`
+- `probe-discover-teams.yml`
+- `probe-notfound.yml`
+- `probe-registrations.yml`
+- `probe-roster-sources.yml`
+- `probe-stattrack-shapes.yml`
+- `probe-wrong-rosters.yml`
+- `prove-player-files-intact.yml`
+- `size-locked-backfill.yml`
