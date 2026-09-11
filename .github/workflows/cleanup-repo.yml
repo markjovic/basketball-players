@@ -72,61 +72,18 @@ jobs:
           #                      build-alias-worklist, probe-squad-evidence and
           #                      rebuild-player-index are NOT here: all three are
           #                      kept and classified in TOOLING.md.
+          # EMPTY. The 54 paths of the 2026-09-11 pass are deleted; see
+          # CLEANUP_PLAN.md §1 in the project for what went. Add the next batch
+          # here, one file path per line, relative to the repo root.
+          #
+          # DO NOT leave stale paths in this list. Besides being useless, the
+          # inventory's script-reference check counts any script path string in
+          # a workflow as an invocation, so a leftover list makes this file report
+          # as BROKEN — which is what happened on 2026-09-11.
+          #
+          # Files only. Directory deletion is not supported: a recursive tree read
+          # truncates at 100,000 entries on this repo and would under-report.
           cat > /tmp/paths.txt <<'PATHS'
-          scripts/merge-phantom-profiles.js
-          scripts/probe-absent-games.js
-          scripts/probe-both-resolve.js
-          scripts/probe-duplicate-profiles.js
-          scripts/probe-grade-ladder.js
-          scripts/probe-setup-node-fingerprint.js
-          scripts/probe-shared-roster.js
-          scripts/size-duplicate-profiles.js
-          scripts/check-roster-freshness.js
-          scripts/probe-missing-games.js
-          scripts/redirect-exposure.js
-          scripts/scan-season-name-contamination.js
-          scripts/drop-stale-playercount.js
-          scripts/diagnose-alias-conflicts.js
-          scripts/diagnose-nameless-players.js
-          scripts/probe-alias-stats.js
-          scripts/probe-discover-teams.js
-          scripts/probe-notfound.js
-          scripts/probe-registrations.js
-          scripts/probe-roster-sources.js
-          scripts/probe-session-throwaway.js
-          scripts/probe-stattrack-shapes.cjs
-          scripts/probe-stattrack-shapes.js
-          scripts/probe-wrong-rosters.js
-          scripts/prove-player-files-intact.js
-          scripts/size-locked-backfill.js
-          .github/workflows/merge-phantom-profiles.yml
-          .github/workflows/probe-absent-games.yml
-          .github/workflows/probe-both-resolve.yml
-          .github/workflows/probe-duplicate-profiles.yml
-          .github/workflows/probe-grade-ladder.yml
-          .github/workflows/probe-setup-node-fingerprint.yml
-          .github/workflows/probe-shared-roster.yml
-          .github/workflows/size-duplicate-profiles.yml
-          .github/workflows/check-roster-freshness.yml
-          .github/workflows/probe-missing-games.yml
-          .github/workflows/redirect-exposure.yml
-          .github/workflows/scan-season-name-contamination.yml
-          .github/workflows/drop-stale-playercount.yml
-          .github/workflows/backfill.yml
-          .github/workflows/diagnose-alias-conflicts.yml
-          .github/workflows/probe-alias-stats.yml
-          .github/workflows/probe-discover-teams.yml
-          .github/workflows/probe-notfound.yml
-          .github/workflows/probe-registrations.yml
-          .github/workflows/probe-roster-sources.yml
-          .github/workflows/probe-stattrack-shapes.yml
-          .github/workflows/probe-wrong-rosters.yml
-          .github/workflows/prove-player-files-intact.yml
-          .github/workflows/size-locked-backfill.yml
-          REPO_MANIFEST.md
-          claude_context.md
-          OUTSTANDING_TASKS.md
-          playhq_api_reference.md
           PATHS
           sed -i 's/^[[:space:]]*//' /tmp/paths.txt
           sed -i '/^$/d' /tmp/paths.txt
@@ -143,6 +100,14 @@ jobs:
 
           echo "=== $([ "$DRY_RUN" = "true" ] && echo "DRY RUN — nothing will be changed" || echo "LIVE RUN") ==="
           echo ""
+
+          # An empty list is a no-op, not a fault. A list that is populated but
+          # matches nothing IS a fault, and is caught further down.
+          if [ ! -s /tmp/paths.txt ]; then
+            echo "No paths configured — nothing to do."
+            echo "Add paths to the PATHS heredoc in this workflow and dispatch again."
+            exit 0
+          fi
 
           # ── Resolve head, commit and the three trees we touch ───────────────
           # No recursive tree read: at 418,000 player files the recursive
