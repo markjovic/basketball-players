@@ -23,6 +23,7 @@ from a report a live script still reads.
 ### 2.1 Live scripts — run on a schedule or by the nightly chain
 
 - `audit-diff-fields.js`
+- `audit-removed-org-seasons.js`
 - `build-finals-stats.js`
 - `build-leaderboards.js`
 - `build-player-games.js`
@@ -31,12 +32,14 @@ from a report a live script still reads.
 - `build-team-stats.js`
 - `build-venue-indexes.js`
 - `build-win-loss.js`
+- `close-empty-seasons.js`
 - `discover-org-seasons.js`
 - `discover-seasons.js`
 - `fetch-profile-stats.js`
 - `find-lost-stats-from-folds.js`
 - `find-misrouted-appearances.js`
 - `fold-diverged-players.js`
+- `lock-quiet-seasons.js`
 - `measure-credited-coverage.js`
 - `nightly-crawl.js`
 - `requeue-repointed-players.js`
@@ -57,6 +60,7 @@ from a report a live script still reads.
 ### 2.2 Kept scripts — on-demand tools, deliberately retained
 
 - `audit-seasons-gaps.js`
+- `audit-tooling-inventory.js`
 - `audit-uuid-collisions.js`
 - `build-alias-worklist.js`
 - `clear-stats-checked.js`
@@ -81,9 +85,9 @@ from a report a live script still reads.
 - `probe-squad-evidence.js`
 - `probe-unresolved-aliases.js`
 - `probe-verdict-conflict.js`
+- `rebuild-player-index.js`
 - `recheck-forfeit-games.js`
 - `recheck-private-profiles.js`
-- `rebuild-player-index.js`
 - `repair-duplicate-regs.js`
 - `repair-forfeit-score.js`
 - `repair-legacy-flags.js`
@@ -149,6 +153,7 @@ kept out of that group are classified in 2.2.
 
 - `add-player.yml`
 - `audit-diff-fields.yml`
+- `close-empty-seasons.yml`
 - `discover-org-seasons.yml`
 - `discover-seasons-matrix.yml`
 - `fetch-profile-stats-matrix.yml`
@@ -157,6 +162,7 @@ kept out of that group are classified in 2.2.
 - `find-misrouted-appearances.yml`
 - `fold-diverged-players.yml`
 - `graduate-seasons.yml`
+- `lock-quiet-seasons.yml`
 - `measure-credited-coverage.yml`
 - `nightly-crawl.yml`
 - `post-drain-chain.yml`
@@ -183,6 +189,8 @@ kept out of that group are classified in 2.2.
 
 ### 3.3 Kept workflows — on-demand, deliberately retained
 
+- `audit-removed-org-seasons.yml`
+- `audit-tooling-inventory.yml`
 - `audit-uuid-collisions.yml`
 - `build-alias-worklist.yml`
 - `cleanup-repo.yml`
