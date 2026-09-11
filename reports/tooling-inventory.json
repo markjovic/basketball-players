@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T04:45:21.282Z",
+  "generatedAt": "2026-09-11T04:50:27.947Z",
   "toolingPresent": true,
   "counts": {
     "scripts": 94,
@@ -218,7 +218,8 @@
         "build-alias-worklist.yml",
         "cleanup-repo.yml",
         "audit-tooling-inventory.yml (dispatches its workflow)",
-        "reconstruct-alias-history.yml (dispatches its workflow)"
+        "reconstruct-alias-history.yml (dispatches its workflow)",
+        "test-api.yml (dispatches its workflow)"
       ],
       "requiredBy": [],
       "documented": false,
@@ -2396,7 +2397,7 @@
       "manifestPurpose": null,
       "dispatchedBy": [],
       "lastCommit": "2026-09-08T14:47:43+10:00",
-      "ageDays": 2,
+      "ageDays": 3,
       "recent": true,
       "bytes": 5010,
       "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
@@ -2455,17 +2456,17 @@
       "missingScripts": [],
       "hasSchedule": false,
       "lastRunDays": 0,
-      "lastRunAt": "2026-09-11T04:42:37Z",
-      "runCount": 21,
+      "lastRunAt": "2026-09-11T04:47:30Z",
+      "runCount": 22,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
       "dispatchedBy": [],
-      "lastCommit": "2026-09-11T09:49:04+10:00",
+      "lastCommit": "2026-09-11T14:47:05+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 7220,
-      "verdict": "LIVE — actually ran 0d ago (21 runs)"
+      "bytes": 7286,
+      "verdict": "LIVE — actually ran 0d ago (22 runs)"
     },
     {
       "path": ".github/workflows/audit-uuid-collisions.yml",
@@ -4357,7 +4358,7 @@
       "manifestPurpose": "",
       "dispatchedBy": [],
       "lastCommit": "2026-08-18T14:46:36+10:00",
-      "ageDays": 23,
+      "ageDays": 24,
       "recent": false,
       "bytes": 8431,
       "verdict": "KEEP — recorded as an on-demand tool (has run 1 time(s))"
@@ -4399,7 +4400,7 @@
       "manifestPurpose": "",
       "dispatchedBy": [],
       "lastCommit": "2026-08-18T14:46:36+10:00",
-      "ageDays": 23,
+      "ageDays": 24,
       "recent": false,
       "bytes": 17347,
       "verdict": "LIVE — actually ran 24d ago (5 runs)"
@@ -4461,7 +4462,7 @@
       "manifestPurpose": "",
       "dispatchedBy": [],
       "lastCommit": "2026-08-18T14:46:36+10:00",
-      "ageDays": 23,
+      "ageDays": 24,
       "recent": false,
       "bytes": 13953,
       "verdict": "KEEP — recorded as an on-demand tool (has run 2 time(s))"
@@ -4584,17 +4585,17 @@
       "missingScripts": [],
       "hasSchedule": false,
       "lastRunDays": 0,
-      "lastRunAt": "2026-09-11T04:41:56Z",
-      "runCount": 3,
+      "lastRunAt": "2026-09-11T04:45:53Z",
+      "runCount": 4,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
       "dispatchedBy": [],
-      "lastCommit": "2026-09-11T14:41:14+10:00",
+      "lastCommit": "2026-09-11T14:45:33+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 1593,
-      "verdict": "KEEP — recorded as an on-demand tool (has run 3 time(s))"
+      "bytes": 2410,
+      "verdict": "LIVE — actually ran 0d ago (4 runs)"
     },
     {
       "path": ".github/workflows/test-backfill.yml",
@@ -4789,7 +4790,7 @@
       "manifestPurpose": null,
       "dispatchedBy": [],
       "lastCommit": "2026-08-26T14:48:15+10:00",
-      "ageDays": 15,
+      "ageDays": 16,
       "recent": false,
       "bytes": 2825,
       "verdict": "LIVE — actually ran 13d ago (8 runs)"
