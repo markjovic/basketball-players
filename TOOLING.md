@@ -103,45 +103,42 @@ from a report a live script still reads.
 - `size-opposition-index.js`
 - `size-report.js`
 - `synthesize-missing-games.js`
-- `test-api.js`
 - `trace-player-game.js`
 - `verify-enrich.js`
 - `verify-p-redundancy.js`
 
 ### 2.3 Scripts removed in an earlier cleanup
 
-- `fetch-player-profiles.js`
-- `search-team-stats.js`
-- `test-failed-uuids.js`
-
-Removed 2026-09-11:
-
 - `check-roster-freshness.js`
+- `diagnose-alias-conflicts.js`
+- `diagnose-nameless-players.js`
 - `drop-stale-playercount.js`
+- `fetch-player-profiles.js`
 - `merge-phantom-profiles.js`
 - `probe-absent-games.js`
+- `probe-alias-stats.js`
 - `probe-both-resolve.js`
+- `probe-discover-teams.js`
 - `probe-duplicate-profiles.js`
 - `probe-grade-ladder.js`
 - `probe-missing-games.js`
-- `probe-setup-node-fingerprint.js`
-- `probe-shared-roster.js`
-- `redirect-exposure.js`
-- `scan-season-name-contamination.js`
-- `size-duplicate-profiles.js`
-- `diagnose-alias-conflicts.js`
-- `diagnose-nameless-players.js`
-- `probe-alias-stats.js`
-- `probe-discover-teams.js`
 - `probe-notfound.js`
 - `probe-registrations.js`
 - `probe-roster-sources.js`
 - `probe-session-throwaway.js`
+- `probe-setup-node-fingerprint.js`
+- `probe-shared-roster.js`
 - `probe-stattrack-shapes.cjs`
 - `probe-stattrack-shapes.js`
 - `probe-wrong-rosters.js`
 - `prove-player-files-intact.js`
+- `redirect-exposure.js`
+- `scan-season-name-contamination.js`
+- `search-team-stats.js`
+- `size-duplicate-profiles.js`
 - `size-locked-backfill.js`
+- `test-api.js`
+- `test-failed-uuids.js`
 
 ### 2.4 Spent scripts — concluded; their findings are recorded outside this repo
 
@@ -243,7 +240,6 @@ kept out of that group are classified in 2.2.
 - `size-resweep.yml`
 - `size-spectator-queue.yml`
 - `synthesize-missing-games.yml`
-- `test-api.yml`
 - `test-backfill.yml`
 - `trace-player-game.yml`
 - `update-team-index.yml`
@@ -258,28 +254,29 @@ Removed 2026-09-11:
 
 - `backfill.yml`
 - `check-roster-freshness.yml`
+- `diagnose-alias-conflicts.yml`
 - `drop-stale-playercount.yml`
 - `merge-phantom-profiles.yml`
 - `probe-absent-games.yml`
+- `probe-alias-stats.yml`
 - `probe-both-resolve.yml`
+- `probe-discover-teams.yml`
 - `probe-duplicate-profiles.yml`
 - `probe-grade-ladder.yml`
 - `probe-missing-games.yml`
-- `probe-setup-node-fingerprint.yml`
-- `probe-shared-roster.yml`
-- `redirect-exposure.yml`
-- `scan-season-name-contamination.yml`
-- `size-duplicate-profiles.yml`
-- `diagnose-alias-conflicts.yml`
-- `probe-alias-stats.yml`
-- `probe-discover-teams.yml`
 - `probe-notfound.yml`
 - `probe-registrations.yml`
 - `probe-roster-sources.yml`
+- `probe-setup-node-fingerprint.yml`
+- `probe-shared-roster.yml`
 - `probe-stattrack-shapes.yml`
 - `probe-wrong-rosters.yml`
 - `prove-player-files-intact.yml`
+- `redirect-exposure.yml`
+- `scan-season-name-contamination.yml`
+- `size-duplicate-profiles.yml`
 - `size-locked-backfill.yml`
+- `test-api.yml`
 
 ### 4.1 Reports kept
 
