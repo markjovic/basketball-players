@@ -1093,8 +1093,94 @@ async function finishOk(uuid, player, result, stats, prefix, short) {
     return;
   }
 
+  // ── EMPTY-RESPONSE GUARD (2026-09-11) ────────────────────────────────────────
+  // A SUCCESSFUL fetch that credits NOTHING must never delete a career we already
+  // hold. This is the same rule markNotObtainable has carried since 2026-07-29 —
+  // "withheld data must never be overwritten by an empty API response" — but that
+  // guard only covers the WITHHELD path (403, NOT_FOUND, null stats object). This
+  // is the SUCCESSFUL path, and it was unguarded.
+  //
+  // HOW IT HAPPENS. `parseProfileStats` returns null only when seasonStatistics is
+  // ABSENT. If PlayHQ returns the object with an EMPTY ARRAY, the array is truthy,
+  // the parse succeeds with nothing in it, and everything below treats zero as the
+  // new truth: foulOuts is replaced with {}, maxGamePTS and maxGameThreePt with
+  // null, every reg's stats emptied, all six career fields DELETED (they are
+  // deleted, not zeroed, when a total is 0), and the c/x diff writes every held
+  // game into `x` — inverting that field's meaning from "PlayHQ disagrees about
+  // these games" to "we asked at a bad moment".
+  //
+  // MEASURED, not hypothesised. Jade Chow 11fdc0c2 was probed live on 2026-09-11:
+  // the API returned OK and credited her with nothing, while her file holds
+  // gp=373 and 372 games. Her statsChecked is 2026-09-04 and her `c` and `x`
+  // fields are populated — both can only be computed from a response that CARRIED
+  // credits — so the empty state arose within that week and is transient, not a
+  // deletion upstream. §2.19 measured 25 profiles in 100 returning NOT_FOUND or
+  // zero registrations, so the population is not one player.
+  //
+  // Deliberately an EARLY RETURN rather than three guards further down. The
+  // damage is spread across foulOuts, the records block, the per-reg loop, the
+  // career loop and the c/x diff; guarding each is five chances to miss one, and
+  // a later edit adding a sixth write site would not inherit the protection.
+  //
+  // The test is asymmetric ON PURPOSE: it fires only when we hold a non-zero
+  // career and the response carries none. A player whose stored career is already
+  // zero or absent is untouched, so a genuine new player with no games yet still
+  // flows through normally and this cannot mask one.
+  //
+  // TERMINAL, and that is a decision rather than an oversight. statsChecked IS
+  // written, so the player is not re-offered. Preserving the file and writing
+  // NOTHING would leave it unchanged, so `written` would not increment, the player
+  // would stay in `remaining` for ever, the shard would be carried into every run,
+  // and the chain would reach the 150-run ceiling and exit red with the terminal
+  // fan-out never firing — the exact non-termination described at markNotObtainable
+  // and observed on 211 players in the 2026-07-28 run. Cost of terminal: she is not
+  // re-checked until a --force or --recheck-private sweep, holding CORRECT data in
+  // the meantime.
+  //
+  // KNOWN LIMITATION (T18): this is a deliberate refusal to write, and a refusal
+  // leaves no trace in the data. It is counted per shard and in the matrix
+  // aggregate, but a counter is not durable. If that number is large, the right
+  // follow-up is a per-file marker so the population can be found later; that field
+  // is NOT added now because on ~411k files it is bytes spent on a population
+  // nobody has sized.
+  // PRIVACY HAS A SECOND FORM, AND IT IS NOT A 403. Confirmed 2026-09-11 from
+  // PlayHQ's own page for Jade Chow: playhq.com/.../11fdc0c2-.../statistics renders
+  // "Private Profile — This profile is private", while the API answers our query
+  // with HTTP 200 and a successful response crediting nothing. So fetchProfile's
+  // private detection (an application-403, L533) NEVER FIRES for this form, and the
+  // request looks indistinguishable from a public player who has played no games —
+  // except that we already hold their career.
+  //
+  // An earlier version of this guard set private = FALSE here, reasoning that the
+  // profile had resolved. That inference is backwards: resolving is exactly what a
+  // profile privatised this way does. It would have preserved her stats and shown
+  // her as public with a frozen career.
+  //
+  // markNotObtainable is the right write path and already exists — it preserves
+  // every captured field, sets private = true, writes statsChecked, and carries the
+  // dirty-check so a later --recheck-private sweep re-offers her, needs no write,
+  // and counts as `unchanged` rather than churning a timestamp and preventing the
+  // chain from terminating. The requirement is that the uuid remains and StatTrack
+  // keeps displaying her with a private stamp until the profile is made public
+  // again, which is precisely what that path delivers.
+  const parsedCareerGp = (() => {
+    let n = 0;
+    for (const [, rs] of parsed.regStats) n += (rs.gp || 0);
+    return n;
+  })();
+  const storedCareerGp = Number(player?.sports?.Basketball?.gp) || 0;
+  if (parsedCareerGp === 0 && storedCareerGp > 0) {
+    stats.emptyPreserved++;
+    console.log(`${prefix} ⚠ ${short} API credited 0 games but file holds gp=${storedCareerGp} — ` +
+      `profile has almost certainly gone PRIVATE (200 + empty, not 403)`);
+    markNotObtainable(uuid, player, stats, prefix, short, 'credits no games — private profile (200 + empty)');
+    return;
+  }
+
   if (!player.sports)            player.sports = {};
   if (!player.sports.Basketball) player.sports.Basketball = {};
+
+
 
   // Real name — the authoritative source. publicProfileStatistics carries none, so
   // fetch it directly from publicProfile (account tenant) when the stored name is
@@ -1479,6 +1565,13 @@ async function main() {
     nameHealed:     0,  // contaminated name successfully replaced with a real one
     nameHealFailed: 0,  // heal attempted, publicProfile gave nothing (counter incremented)
     nameHealGaveUp: 0,  // attempts hit NAME_HEAL_MAX_ATTEMPTS — no fetch made
+    // Successful fetches (HTTP 200, no error) that credited ZERO games for a player
+    // whose file already holds a non-zero career — the SECOND FORM OF PRIVACY, which
+    // returns a valid empty response rather than a 403. Stats preserved and the
+    // player marked private via markNotObtainable. Counted here as well because
+    // `inaccessible` cannot distinguish this from a 403, and the two have different
+    // causes worth watching separately.
+    emptyPreserved: 0,
   };
 
   console.log(`  Already done (statsChecked present): ${stats.skipped}`);
@@ -1531,6 +1624,7 @@ async function main() {
       name_heal_gave_up:  0,
       recovery_rejected:  0,
       tier2_suppressed:   0,
+      empty_preserved:    0,
       remaining:    0,
       blocked:      false,
     }));
@@ -1598,6 +1692,9 @@ async function main() {
   if (recoveryRejected) {
     console.log(`  Recovery rejected: ${recoveryRejected} candidate(s) shared no grade with the player — not aliased`);
   }
+  if (stats.emptyPreserved) {
+    console.log(`  Gone private (200+empty): ${stats.emptyPreserved} player(s) credited 0 games while holding a career — stats kept, marked private`);
+  }
   if (tier2Suppressed) {
     console.log(`  Tier 2 suppressed: ${tier2Suppressed} candidate(s) matched only in a grade where tier 1 had a team id and failed — not aliased`);
   }
@@ -1629,6 +1726,9 @@ async function main() {
     // some of these were the right player, and all of them were written on a name
     // alone. Do not read it as an error count.
     tier2_suppressed:   tier2Suppressed,
+    // Players PlayHQ credited with nothing while we hold a career. Their stats were
+    // preserved rather than deleted. Subset of `written`.
+    empty_preserved:    stats.emptyPreserved,
     remaining:    remaining,
     blocked:      stats.blocked || false,
   }));
