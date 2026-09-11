@@ -90,6 +90,7 @@ from an abandoned one.
 - `repair-player.js`
 - `repair-players-batch.js`
 - `repair-reg-sibling-sync.js`
+- `repair-season-names.js`
 - `repoint-aliases.js`
 - `report-alias-index.js`
 - `restore-deleted-file.js`
@@ -100,6 +101,7 @@ from an abandoned one.
 - `size-misses.yml`
 - `size-negative-gap.yml`
 - `size-opposition-index.js`
+- `size-report.js`
 - `size-resweep.yml`
 - `synthesize-missing-games.js`
 - `test-api.js`
@@ -109,23 +111,29 @@ from an abandoned one.
 
 ### 2.3 Scripts removed in an earlier cleanup
 
-- `.github/workflows/.yml`
 - `fetch-player-profiles.js`
-- `scripts/lib/namespace-resolve.cjs`
-- `scripts/lib/uuid-prefix.cjs`
 - `search-team-stats.js`
 - `test-failed-uuids.js`
 
-### 2.4 Spent scripts — concluded; their findings are recorded outside this repo
+Removed 2026-09-11:
 
+- `check-roster-freshness.js`
+- `drop-stale-playercount.js`
 - `merge-phantom-profiles.js`
 - `probe-absent-games.js`
 - `probe-both-resolve.js`
 - `probe-duplicate-profiles.js`
 - `probe-grade-ladder.js`
+- `probe-missing-games.js`
 - `probe-setup-node-fingerprint.js`
 - `probe-shared-roster.js`
+- `redirect-exposure.js`
+- `scan-season-name-contamination.js`
 - `size-duplicate-profiles.js`
+
+### 2.4 Spent scripts — concluded; their findings are recorded outside this repo
+
+None. The eight probes that sat here were deleted on 2026-09-11 and are listed in 2.3.
 
 ### 3.1 Live workflows — scheduled
 
@@ -168,6 +176,7 @@ from an abandoned one.
 - `diagnose-id-field-lengths.yml`
 - `diagnose-nightly-health.yml`
 - `diagnose.yml`
+- `discover-seasons.yml`
 - `find-code-refs.yml`
 - `find-flag-collisions.yml`
 - `find-players-by-team.yml`
@@ -177,10 +186,12 @@ from an abandoned one.
 - `recheck-forfeit-games.yml`
 - `repair-forfeit-score.yml`
 - `repair-legacy-flags.yml`
+- `repair-season-names.yml`
 - `report-alias-index.yml`
 - `restore-deleted-file.yml`
 - `scan-complete-rounds.yml`
 - `size-locked-split.yml`
+- `size-report.yml`
 - `test-api.yml`
 - `update-team-index.yml`
 - `update-venue-lookup.yml`
@@ -189,4 +200,19 @@ from an abandoned one.
 
 ### 3.4 Workflows removed in an earlier cleanup
 
-- `fetch-profile-stats-matrix.yml`
+Removed 2026-09-11:
+
+- `backfill.yml`
+- `check-roster-freshness.yml`
+- `drop-stale-playercount.yml`
+- `merge-phantom-profiles.yml`
+- `probe-absent-games.yml`
+- `probe-both-resolve.yml`
+- `probe-duplicate-profiles.yml`
+- `probe-grade-ladder.yml`
+- `probe-missing-games.yml`
+- `probe-setup-node-fingerprint.yml`
+- `probe-shared-roster.yml`
+- `redirect-exposure.yml`
+- `scan-season-name-contamination.yml`
+- `size-duplicate-profiles.yml`
