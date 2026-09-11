@@ -28,6 +28,16 @@ name: Cleanup Repo
 # is empty this pass and is kept for the section 7 work, where each report must be
 # read before its script goes.
 #
+# HELD BACK 2026-09-11 after review, both deliberately:
+#   - repair-season-names.js + .yml. The source bug is closed (fetch-profile-stats.js
+#     and seed-missing-profiles.js both refuse to derive a name from
+#     seasonStatistics[].name) and the repair finished at 35,824 of 36,080, so the
+#     tool is spent. But nothing else repairs `name == own season label`, and
+#     db-audit.js prints "run repair-season-names.js" when it finds any. Kept as the
+#     remediation path. Reclassified into TOOLING.md 2.2 / 3.3.
+#   - discover-seasons.yml. discover-seasons-matrix.yml runs the same script but
+#     exposes neither `uuid` (single-player escape hatch) nor `limit`. Kept.
+#
 # DRY RUN FIRST. dry_run=true lists every deletion and commits nothing.
 
 on:
@@ -130,11 +140,12 @@ jobs:
             scripts/probe-shared-roster.js
             scripts/size-duplicate-profiles.js
 
-            # §5 — concluded work, superseded or documented
+            # §5 — concluded work, superseded or documented.
+            # scan-season-name-contamination goes because db-audit.js computes
+            # seasonNameContaminated and prints it: the detection is preserved.
             scripts/check-roster-freshness.js
             scripts/probe-missing-games.js
             scripts/redirect-exposure.js
-            scripts/repair-season-names.js
             scripts/scan-season-name-contamination.js
 
             # §2 — spent one-off, its own header says to delete it
@@ -156,7 +167,6 @@ jobs:
             .github/workflows/check-roster-freshness.yml
             .github/workflows/probe-missing-games.yml
             .github/workflows/redirect-exposure.yml
-            .github/workflows/repair-season-names.yml
             .github/workflows/scan-season-name-contamination.yml
 
             # §2 — paired with the script above
@@ -167,10 +177,6 @@ jobs:
             # analysis were filename-suffix matches on discover-game-backfill.yml,
             # size-locked-backfill.yml and spectator-backfill.yml. It cannot run.
             .github/workflows/backfill.yml
-
-            # Workflow-only. Superseded by discover-seasons-matrix.yml, which runs
-            # the same scripts/discover-seasons.js. The script stays.
-            .github/workflows/discover-seasons.yml
           )
 
           # CLEANUP_PLAN.md §2 — the four project documents. They were committed so
