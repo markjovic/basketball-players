@@ -187,7 +187,6 @@ kept out of that group are classified in 2.2.
 ### 3.3 Kept workflows — on-demand, deliberately retained
 
 - `audit-removed-org-seasons.yml`
-- `audit-seasons-gaps.yml`
 - `audit-tooling-inventory.yml`
 - `audit-uuid-collisions.yml`
 - `build-alias-worklist.yml`
@@ -195,21 +194,15 @@ kept out of that group are classified in 2.2.
 - `clear-stats-checked.yml`
 - `count-stats-checked.yml`
 - `db-audit.yml`
-- `diagnose-forfeit-game.yml`
-- `diagnose-id-field-lengths.yml`
-- `diagnose-nightly-health.yml`
-- `diagnose.yml`
+- `diagnostics.yml`
 - `discover-seasons.yml`
 - `find-code-refs.yml`
-- `find-flag-collisions.yml`
 - `find-players-by-team.yml`
 - `find-root-json-refs.yml`
 - `fix-merge-aliases.yml`
 - `generate-roster.yml`
 - `overnight-chain.yml`
 - `probe-alias-names.yml`
-- `probe-api-limits.yml`
-- `probe-selfalias-check.yml`
 - `probe-shared-name-aliases.yml`
 - `probe-squad-evidence.yml`
 - `probe-unresolved-aliases.yml`
@@ -226,57 +219,67 @@ kept out of that group are classified in 2.2.
 - `restore-deleted-file.yml`
 - `salvage-spectator-names.yml`
 - `scan-complete-rounds.yml`
-- `scan-roster-id-forms.yml`
 - `seed-missing-profiles.yml`
-- `size-appearance-gaps.yml`
-- `size-locked-resweep.yml`
-- `size-missing-gids.yml`
-- `size-opposition-index.yml`
-- `size-report.yml`
-- `size-spectator-queue.yml`
 - `synthesize-missing-games.yml`
 - `test-backfill.yml`
-- `trace-player-game.yml`
 - `update-team-index.yml`
 - `update-venue-lookup.yml`
-- `verify-enrich.yml`
-- `verify-p-redundancy.yml`
 - `weekly-future-fixtures.yml`
 
 ### 3.4 Workflows removed in an earlier cleanup
 
 Removed 2026-09-11:
 
+- `audit-seasons-gaps.yml`
 - `backfill.yml`
 - `check-roster-freshness.yml`
 - `diagnose-alias-conflicts.yml`
+- `diagnose-forfeit-game.yml`
+- `diagnose-id-field-lengths.yml`
+- `diagnose-nightly-health.yml`
+- `diagnose.yml`
 - `drop-stale-playercount.yml`
+- `find-flag-collisions.yml`
 - `merge-phantom-profiles.yml`
 - `probe-absent-games.yml`
 - `probe-alias-stats.yml`
+- `probe-api-limits.yml`
 - `probe-both-resolve.yml`
 - `probe-discover-teams.yml`
 - `probe-duplicate-profiles.yml`
 - `probe-grade-ladder.yml`
 - `probe-missing-games.yml`
+- `probe-my-aliases.yml`
 - `probe-notfound.yml`
+- `probe-player.yml`
 - `probe-registrations.yml`
 - `probe-roster-sources.yml`
+- `probe-selfalias-check.yml`
 - `probe-setup-node-fingerprint.yml`
 - `probe-shared-roster.yml`
 - `probe-stattrack-shapes.yml`
 - `probe-wrong-rosters.yml`
 - `prove-player-files-intact.yml`
 - `redirect-exposure.yml`
+- `scan-roster-id-forms.yml`
 - `scan-season-name-contamination.yml`
+- `size-appearance-gaps.yml`
 - `size-duplicate-profiles.yml`
 - `size-gap-players.yml`
 - `size-locked-backfill.yml`
+- `size-locked-resweep.yml`
 - `size-misses.yml`
+- `size-missing-gids.yml`
 - `size-negative-gap.yml`
+- `size-opposition-index.yml`
 - `size-repair-rosters.yml`
+- `size-report.yml`
 - `size-resweep.yml`
+- `size-spectator-queue.yml`
 - `test-api.yml`
+- `trace-player-game.yml`
+- `verify-enrich.yml`
+- `verify-p-redundancy.yml`
 
 ### 4.1 Reports kept
 
