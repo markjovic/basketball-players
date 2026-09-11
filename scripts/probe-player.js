@@ -326,8 +326,43 @@ async function main() {
     console.log(`\n  API status: ${r.status} — the mobile API does not serve this profile; the route is dead for this player.`);
     return;
   }
-  const seasonStats = r.data?.publicProfileStatistics?.seasonStatistics || [];
-  if (!seasonStats.length) { console.log('\n  API returned OK but no seasonStatistics — nothing to reconcile.'); return; }
+
+  // ── THREE OUTCOMES, NOT ONE ─────────────────────────────────────────────────
+  // Corrected 2026-09-11. This block used to collapse every empty result into
+  // "API returned OK but no seasonStatistics", because fetchProfile() above has no
+  // null check and returns status 'ok' regardless of what the response contains.
+  // That message was then read as evidence that PlayHQ returns an EMPTY ARRAY for a
+  // privatised profile — which would have meant fetch-profile-stats.js parsed it
+  // successfully and deleted the player's whole career. A live console capture
+  // showed the opposite: `publicProfileStatistics` comes back NULL, which
+  // fetch-profile-stats turns into 'inaccessible' and handles non-destructively.
+  // Most of a session went into a risk that did not exist, on the strength of this
+  // one line. The three cases have different meanings and now print differently.
+  const pps = r.data?.publicProfileStatistics;
+  if (pps === null || pps === undefined) {
+    console.log('\n  publicProfileStatistics is NULL — the profile exists but serves no statistics.');
+    console.log('  That is what a PRIVATE profile returns (PlayHQ\'s own page shows "This profile is private").');
+    console.log('  It is ALSO what a deleted or unresolvable id returns; this call cannot tell them apart.');
+    console.log('  Check the page directly: https://playhq.com/public/profile/' + UUID + '/statistics?tenant=basketball-victoria');
+    console.log('  In fetch-profile-stats.js this becomes status \'inaccessible\' -> markNotObtainable:');
+    console.log('  the stored capture is PRESERVED and the player is marked private. Nothing is deleted.');
+    return;
+  }
+  const seasonStats = pps.seasonStatistics;
+  if (!Array.isArray(seasonStats)) {
+    console.log('\n  publicProfileStatistics is present but seasonStatistics is ABSENT (not an empty array).');
+    console.log('  parseProfileStats returns null for this shape, so fetch-profile-stats treats it as');
+    console.log('  not-obtainable and preserves the capture. Nothing to reconcile here.');
+    return;
+  }
+  if (!seasonStats.length) {
+    console.log('\n  seasonStatistics is an EMPTY ARRAY — the profile is served and credits no games.');
+    console.log('  ⚠ THIS SHAPE HAS NEVER BEEN OBSERVED. It is the one that parses successfully with a');
+    console.log('  zero career, which the zero-career guard in fetch-profile-stats.js finishOk exists to');
+    console.log('  catch. If you are reading this line, that guard is no longer hypothetical — record the');
+    console.log('  uuid and check whether the player\'s file still holds its career.');
+    return;
+  }
 
   let ok = 0, lag = 0, aliasOk = 0, aliasGap = 0, gaps = 0, uncap = 0, absent = 0, odd = 0, noSide = 0;
   let recoverPts = 0, recoverApps = 0;

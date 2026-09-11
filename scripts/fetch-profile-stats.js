@@ -493,7 +493,13 @@ async function fetchPublicProfileName(profileID) {
     // 200 + data.publicProfile === null is the interesting case: the id is simply
     // not resolvable on the ACCOUNT tenant. A folded player is keyed by its api id,
     // which may not be the account/spectator identity this endpoint expects.
-    if (!pr) { lastPublicProfileFail = 'publicProfile null (id not on account tenant)'; return null; }
+    // A null publicProfile has (at least) TWO causes and this message used to assert
+    // only one of them. Corrected 2026-09-11 after a live console capture: a PRIVATE
+    // profile returns {"data":{"publicProfile":null}} on the account tenant, exactly
+    // as an id that does not resolve there does. Naming the namespace cause alone
+    // sent an investigation after the wrong thing for most of a session. Both causes
+    // are stated; neither is asserted.
+    if (!pr) { lastPublicProfileFail = 'publicProfile null — profile is PRIVATE, or the id does not resolve on the account tenant (both return null; this call cannot tell them apart)'; return null; }
     const nm = `${pr.firstName || ''} ${pr.lastName || ''}`.trim();
     if (!nm) { lastPublicProfileFail = 'profile found but no first/last name'; return null; }
     return nm;
