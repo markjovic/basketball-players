@@ -691,6 +691,12 @@ async function profileSearchLookup(fullName) {
 // Counted per run and printed in the shard summary, so the effect of the grade
 // corroboration check is visible without a separate log.
 let recoveryRejected = 0;
+// Candidates tier 2 would have written before 2026-09-11 and no longer does,
+// because the only grade the name matched in is one where we hold a team id and
+// tier 1 had already tested that team and failed. See the tier 2 block below.
+// Counted, never acted on — this is the measured cost of the narrowing, and it
+// costs no extra API call because those grade rosters are fetched either way.
+let tier2Suppressed = 0;
 
 async function attemptNamespaceRecovery(uuid, player) {
   if (isPlaceholderName(player.name)) return null; // no real name on file -- can't match
@@ -719,19 +725,59 @@ async function attemptNamespaceRecovery(uuid, player) {
   let candidate = tidHits.size === 1 ? [...tidHits][0] : null;
   let candidateTier = candidate ? 1 : 0;
 
-  // Tier 2: grade-roster name-only match, for any grade we haven't already
-  // resolved. gradePlayers() is cached, so a grade already fetched in Tier 1
-  // costs nothing extra here.
+  // Tier 2: grade-roster name-only match, for grades where we hold NO team id.
+  // gradePlayers() is cached, so a grade already fetched in Tier 1 costs nothing
+  // extra here.
+  //
+  // ⚠ NARROWED 2026-09-11. This loop used to search EVERY grade in allGids,
+  // including the grades tier 1 had just searched. For those grades we hold a team
+  // id, tier 1 required the name to match a player ON THAT TEAM, and it failed —
+  // so tier 2 immediately re-asked the same question with the team requirement
+  // deleted. That is not a second opinion, it is the same test made weaker, and it
+  // is the Jida McCrae-Cooper shape exactly: our player is on one team in that
+  // grade, the profile carrying the name is on another, and the alias was written
+  // with nothing but a name behind it. The tier list above has always said this
+  // tier is for a registration with a grade and no team; the loop did not do that.
+  //
+  // TWO SETS, because the narrowing must only ever make this tier DECLINE MORE.
+  //   rosterHits — hits from grades with no team id. These are eligible.
+  //   wideHits   — hits from every grade, used ONLY as the ambiguity test.
+  // Requiring wideHits to hold exactly one id keeps the old ambiguity guard intact.
+  // Without it the narrowing could turn a case the old code refused as ambiguous
+  // (two same-named profiles, one in a team-bearing grade, one not) into a
+  // confident write — a narrowing that produced a write the wide version would not
+  // have made, which is the opposite of the intent.
+  //
+  // Every grade in allGids is still fetched, exactly as before, so this changes no
+  // API call and no request count. It changes only which hits may become a
+  // candidate.
   if (!candidate) {
-    const rosterHits = new Set();
+    const gidsWithTid = new Set(regsWithTid.map(r => r.gid));
+    const rosterHits  = new Set();   // eligible: grades where we hold no team id
+    const wideHits    = new Set();   // every grade — ambiguity test only
     for (const gid of allGids) {
       const g = await gradePlayers(gid);
       if (g.status === 'blocked') return { blocked: true };
       const m = matchFromGradeRosterByName(g.results, { name: player.name });
-      if (m) rosterHits.add(m);
+      if (!m) continue;
+      wideHits.add(m);
+      if (!gidsWithTid.has(gid)) rosterHits.add(m);
     }
-    candidate = rosterHits.size === 1 ? [...rosterHits][0] : null;
-    if (candidate) candidateTier = 2;
+    if (wideHits.size === 1 && rosterHits.size === 1) {
+      candidate = [...rosterHits][0];
+      candidateTier = 2;
+    } else if (wideHits.size === 1 && rosterHits.size === 0) {
+      // The old code would have written this one. The single name hit came only
+      // from a grade where we hold a team id — the case this narrowing exists to
+      // refuse. Counted so the cost of refusing is a measured number rather than
+      // an estimate, and reported in the shard summary.
+      tier2Suppressed++;
+      if (tier2Suppressed <= 20) {
+        console.log(`    tier 2 SUPPRESSED for ${uuid.slice(0, 8)} "${player.name}": candidate ` +
+          `${String([...wideHits][0]).slice(0, 8)} matched only in a grade where this player has a ` +
+          `team id and tier 1 already failed on that team — not aliased`);
+      }
+    }
   }
 
   // Tier 3: profileSearch (+ orgId) fallback.
@@ -1479,6 +1525,7 @@ async function main() {
       name_heal_failed:   0,
       name_heal_gave_up:  0,
       recovery_rejected:  0,
+      tier2_suppressed:   0,
       remaining:    0,
       blocked:      false,
     }));
@@ -1546,6 +1593,9 @@ async function main() {
   if (recoveryRejected) {
     console.log(`  Recovery rejected: ${recoveryRejected} candidate(s) shared no grade with the player — not aliased`);
   }
+  if (tier2Suppressed) {
+    console.log(`  Tier 2 suppressed: ${tier2Suppressed} candidate(s) matched only in a grade where tier 1 had a team id and failed — not aliased`);
+  }
   if (stats.blocked) {
     console.log(`  Remaining:     ~${remainingCount(stats)} (re-run shard to continue)`);
   }
@@ -1568,6 +1618,12 @@ async function main() {
     // grades this player is registered in. Before 2026-08-29 these were written
     // as aliases on a name match alone.
     recovery_rejected:  recoveryRejected,
+    // Candidates tier 2 would have aliased before 2026-09-11: the name matched in
+    // exactly one grade, and it was a grade where we hold a team id that tier 1
+    // had already tested and failed on. This number IS the cost of the narrowing —
+    // some of these were the right player, and all of them were written on a name
+    // alone. Do not read it as an error count.
+    tier2_suppressed:   tier2Suppressed,
     remaining:    remaining,
     blocked:      stats.blocked || false,
   }));

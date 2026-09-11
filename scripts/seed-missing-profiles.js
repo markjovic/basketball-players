@@ -562,6 +562,12 @@ async function profileSearchLookup(fullName) {
   return { status: 'ok', result: (json.data || json)?.profileSearch?.result || [] };
 }
 
+// Counters for the two guards below. This tool reports no shard summary, so they
+// are read from the log only — unlike fetch-profile-stats.js, which reports both
+// per shard and in the matrix aggregate.
+let recoveryRejected = 0;
+let tier2Suppressed  = 0;
+
 // Returns { blocked: true } | null | { apiId, result } (result = a verified
 // 'ok' fetchProfile() response for apiId — reused by the caller so we never
 // fetch the same recovered id twice).
@@ -572,6 +578,20 @@ async function profileSearchLookup(fullName) {
 //   2. grade + NAME-ONLY roster match — for any reg that has gid but no tid
 //      (a much tighter search space than tenant-wide profileSearch).
 //   3. profileSearch (+ orgId disambiguation) — final fallback.
+//
+// ⚠ THIS FUNCTION IS NOT REACHED FROM THIS TOOL. main() works from
+// reports/unresolved-alias-audit.json and calls fetchPublicProfileName only;
+// processUUID, the sole caller of this function, is defined and never invoked,
+// and playerPath() below reads SHARD, which is hard-coded null. So no alias has
+// ever been written from here.
+//
+// It is kept in step with fetch-profile-stats.js anyway, and both guards below
+// were ported on 2026-09-11, because this file exists BECAUSE a block was copied
+// out of that script — the header at the top of this file records that the copy
+// went wrong the first time. Leaving a stale copy here is how the next script
+// built the same way inherits the old behaviour. The block should be deleted
+// outright; that is recorded in OUTSTANDING_TASKS.md as its own change rather
+// than folded into a behaviour fix.
 async function attemptNamespaceRecovery(uuid, player) {
   if (isPlaceholderName(player.name)) return null; // no real name on file -- can't match
 
@@ -597,19 +617,49 @@ async function attemptNamespaceRecovery(uuid, player) {
     }
   }
   let candidate = tidHits.size === 1 ? [...tidHits][0] : null;
+  let candidateTier = candidate ? 1 : 0;
 
-  // Tier 2: grade-roster name-only match, for any grade we haven't already
-  // resolved. gradePlayers() is cached, so a grade already fetched in Tier 1
-  // costs nothing extra here.
+  // Tier 2: grade-roster name-only match, for grades where we hold NO team id.
+  // gradePlayers() is cached, so a grade already fetched in Tier 1 costs nothing
+  // extra here.
+  //
+  // ⚠ NARROWED 2026-09-11, identical to fetch-profile-stats.js. This loop used to
+  // search EVERY grade in allGids, including the grades tier 1 had just searched.
+  // For those grades we hold a team id, tier 1 required the name to match a player
+  // ON THAT TEAM, and it failed — so tier 2 immediately re-asked the same question
+  // with the team requirement deleted. That is not a second opinion, it is the same
+  // test made weaker, and it is the Jida McCrae-Cooper shape exactly: our player is
+  // on one team in that grade, the profile carrying the name is on another.
+  //
+  // TWO SETS, because the narrowing must only ever make this tier DECLINE MORE.
+  //   rosterHits — hits from grades with no team id. These are eligible.
+  //   wideHits   — hits from every grade, used ONLY as the ambiguity test.
+  // Requiring wideHits to hold exactly one id keeps the old ambiguity guard intact,
+  // so the narrowing can never turn a case the old code refused as ambiguous into a
+  // confident write.
   if (!candidate) {
-    const rosterHits = new Set();
+    const gidsWithTid = new Set(regsWithTid.map(r => r.gid));
+    const rosterHits  = new Set();   // eligible: grades where we hold no team id
+    const wideHits    = new Set();   // every grade — ambiguity test only
     for (const gid of allGids) {
       const g = await gradePlayers(gid);
       if (g.status === 'blocked') return { blocked: true };
       const m = matchFromGradeRosterByName(g.results, { name: player.name });
-      if (m) rosterHits.add(m);
+      if (!m) continue;
+      wideHits.add(m);
+      if (!gidsWithTid.has(gid)) rosterHits.add(m);
     }
-    candidate = rosterHits.size === 1 ? [...rosterHits][0] : null;
+    if (wideHits.size === 1 && rosterHits.size === 1) {
+      candidate = [...rosterHits][0];
+      candidateTier = 2;
+    } else if (wideHits.size === 1 && rosterHits.size === 0) {
+      tier2Suppressed++;
+      if (tier2Suppressed <= 20) {
+        console.log(`    tier 2 SUPPRESSED for ${uuid.slice(0, 8)} "${player.name}": candidate ` +
+          `${String([...wideHits][0]).slice(0, 8)} matched only in a grade where this player has a ` +
+          `team id and tier 1 already failed on that team — not aliased`);
+      }
+    }
   }
 
   // Tier 3: profileSearch (+ orgId) fallback.
@@ -618,12 +668,52 @@ async function attemptNamespaceRecovery(uuid, player) {
     if (sr.status === 'blocked') return { blocked: true };
     candidate = matchFromSearch(sr.result, { name: player.name, orgId: null })
              || (orgId ? matchFromSearch(sr.result, { name: player.name, orgId }) : null);
+    if (candidate) candidateTier = 3;
   }
   if (!candidate || candidate === uuid) return null;
 
   const check = await fetchProfile(candidate);
   if (check.status === 'cloudfront-block') return { blocked: true };
   if (check.status !== 'ok') return null; // recovered id itself doesn't resolve -- don't overclaim
+
+  // ── The candidate must actually appear in a grade this player is registered in.
+  //
+  // Ported 2026-09-11 from fetch-profile-stats.js, where it shipped 2026-08-29.
+  // Tier 2 matches on NAME ALONE within a grade roster and tier 3 matches
+  // tenant-wide, narrowed only by lastInteractedOrganisation. Neither establishes
+  // that the match is this player. If the recovered profile's own statistics name
+  // none of the grades this player is registered in, the match is corroborated by
+  // nothing except a name, and a name is what got us here. Reject rather than write.
+  //
+  // Deliberately NOT applied to Tier 1: matchFromGrade already required team.id,
+  // which is a stronger link than grade membership.
+  if (candidateTier !== 1) {
+    const candidateGids = new Set();
+    for (const season of (check.data?.publicProfileStatistics?.seasonStatistics || [])) {
+      for (const reg of (season.statistics || [])) {
+        for (const teamStat of (reg.teamStatistics || [])) {
+          for (const gradeStat of (teamStat.gradeStatistics || [])) {
+            const gid = gradeStat.grade && gradeStat.grade.id;
+            if (gid) candidateGids.add(gid);
+          }
+        }
+      }
+    }
+    // No grade statistics at all means nothing to corroborate against — a profile
+    // that has never played cannot confirm it is this player. Reject: silence is
+    // not agreement.
+    const shares = [...candidateGids].some(g => allGids.has(g));
+    if (!shares) {
+      recoveryRejected++;
+      if (recoveryRejected <= 20) {
+        console.log(`    recovery REJECTED for ${uuid.slice(0, 8)} "${player.name}": candidate ` +
+          `${String(candidate).slice(0, 8)} appears in ${candidateGids.size} grade(s), none of the ` +
+          `${allGids.size} this player is registered in (matched by tier ${candidateTier})`);
+      }
+      return null;
+    }
+  }
+
   return { apiId: candidate, result: check };
 }
 
