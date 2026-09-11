@@ -73,9 +73,10 @@ jobs:
         with:
           sparse-checkout: scripts/probe-api-limits.js
           sparse-checkout-cone-mode: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      # NO actions/setup-node — this job fetches PlayHQ, and setup-node's fingerprint
+      # change makes CloudFront 403-block every request including session acquisition
+      # (proven 2026-07-20 on the instrumented matrix shard 00; same-day nightly-crawl
+      # without setup-node worked). Preinstalled node only.
       - name: Run probe
         run: |
           node scripts/probe-api-limits.js \
