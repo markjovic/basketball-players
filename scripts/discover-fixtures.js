@@ -915,11 +915,11 @@ async function main() {
     for (const s of staleGradeSeasons.slice(0, 15)) {
       console.log(`      ${s.id}  index ${s.indexGrades} → live ${s.liveGrades} (${s.missing} missing)  ${s.name}`);
     }
-    console.log('      Harmless for THIS sweep — a team returns its whole fixture regardless of grade —');
-    console.log('      but discover-seasons.js will not correct the index by itself (L542 only refreshes');
-    console.log('      seasons at grades:[]).');
-    console.log(`      Written to data/stale-grade-seasons.json — discover-seasons.js`);
-    console.log('      grade-refresh reads it and re-resolves these seasons.');
+    console.log('      Harmless for THIS sweep — a team returns its whole fixture regardless of grade.');
+    console.log(`      Written to data/stale-grade-seasons.json, which discover-seasons.js reads in its`);
+    console.log('      grade-refresh and re-resolves. NOTE THE LAG: that sweep runs Sunday 20:00 UTC and');
+    console.log('      this one Monday 20:00 UTC, so a season flagged here is corrected SIX DAYS later,');
+    console.log('      on the following Sunday — not the next run.');
   }
   console.log(`  Transient:     ${stillTransient.length} (null on every call, survived retry — run goes RED)`);
 
@@ -931,9 +931,19 @@ async function main() {
   // Until 2026-09-08 this was printed and thrown away. The 29 seasons the
   // 2026-09-07 run found - EDJBA holding 55 grades against 263 live - vanished
   // with the run log, and nothing downstream could act on them. The comment at the
-  // detection site says discover-seasons.js "will not correct the index by itself
-  // (L542 only refreshes seasons at grades:[])", which is true and was the end of
-  // it: a season captured mid-grading kept its grading grades forever.
+  // detection site USED TO SAY discover-seasons.js "will not correct the index by
+  // itself (L542 only refreshes seasons at grades:[])". That was true until
+  // 2026-09-08, when discover-seasons.js's grade-refresh was widened to read this
+  // file; the sentence was left in place for three days after it stopped being
+  // true, two lines above the line announcing the file this fixes it with.
+  // Corrected 2026-09-11.
+  //
+  // FIRST OVERLAP. The writer shipped on Monday 2026-09-08, and this workflow's
+  // cron is Monday 20:00 UTC — the 09-08 run started before the commit, so it
+  // printed the detection without writing the file. The first run to write it is
+  // 2026-09-15, and the first discover-seasons sweep to READ it is Sunday
+  // 2026-09-20. Until then `stale-grade-seasons.json: not present` in that log is
+  // expected and is not a fault.
   //
   // Written even when EMPTY, deliberately. An absent file is indistinguishable
   // from "this run found none", and the consumer must be able to tell the
