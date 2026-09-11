@@ -263,13 +263,29 @@ Removed 2026-09-11:
 ### 4.1 Reports kept
 
 Anything in `reports/` not listed here is flagged by `db-audit.js` §11b, which also reports
-whether a surviving script still references it. A report that nothing references and that is
-not listed here is residue. Reasons for each entry are recorded outside this repository.
+whether a surviving script or workflow still references it. A report that nothing references
+and that is not listed here is residue.
 
+Listed means a deliberate decision to keep, and it holds even if every reference disappears.
+Every entry below is either a permanent record or an INPUT — something a surviving script
+reads, or a workflow passes as a default. Regenerated outputs are deliberately NOT listed:
+they are rewritten on every run, so being referenced is all the protection they need, and
+listing them would turn this into an inventory of whatever happens to exist. Reasons for
+each entry are recorded outside this repository.
+
+- `alias-credit-audit.json`
 - `alias-history-sweep.json`
+- `alias-merge-candidates.json`
+- `alias-name-audit.json`
+- `alias-repoint-log.json`
+- `alias-resolve-cache.json`
 - `alias-vs-playhq-audit-after-fold.json`
 - `alias-vs-playhq-audit-wide.json`
 - `alias-vs-playhq-audit.json`
+- `both-resolve-pairs.json`
+- `census-12-fa.json`
+- `census-recovery-diagnosis.json`
+- `duplicate-profile-pairs.json`
 - `fold-diverged.json`
 - `git-history-recovery-report.json`
 - `manual-alias-decisions.json`
@@ -279,6 +295,9 @@ not listed here is residue. Reasons for each entry are recorded outside this rep
 - `rekey-enrich-report.json`
 - `repair-batch-progress.json`
 - `season-name-contamination.json`
+- `shared-name-alias-audit.json`
+- `squad-evidence-audit.json`
+- `unresolved-alias-audit.json`
 - `unresolved-prefix-diagnosis.json`
 - `uuid-collisions-len10.json`
 - `wrongly-keyed-census.json`
