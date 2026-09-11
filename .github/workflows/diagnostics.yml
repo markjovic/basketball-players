@@ -64,80 +64,93 @@ jobs:
           case "${{ inputs.tool }}" in
             audit-seasons-gaps)
               SPARSE=$''
-              FLAGS='--max-old-space-size=6144'; SCRIPT='scripts/audit-seasons-gaps.js'; DEPTH=0; TMO=120 ;;
+              FLAGS='--max-old-space-size=6144'; SCRIPT='scripts/audit-seasons-gaps.js'; DEPTH=0; TMO=120; DEFAULT_ARGS='--samples=20' ;;
             db-audit)
               SPARSE=$''
-              FLAGS=''; SCRIPT='scripts/db-audit.js'; DEPTH=1; TMO=30 ;;
+              FLAGS=''; SCRIPT='scripts/db-audit.js'; DEPTH=1; TMO=30; DEFAULT_ARGS='' ;;
             diagnose)
               SPARSE=$''
-              FLAGS=''; SCRIPT='scripts/diagnose.js'; DEPTH=10; TMO=30 ;;
+              FLAGS=''; SCRIPT='scripts/diagnose.js'; DEPTH=10; TMO=30; DEFAULT_ARGS='' ;;
             diagnose-forfeit-game)
               # Its original sparse list was the script plus ONE season file:
               # games/bv/${{ inputs.season }}.json. That input does not exist here,
               # so the season is read out of `args`. Falling back to all of games/bv
               # is correct but pulls 1.94 GB for a job that needs one file, so only
               # do that when --season is genuinely absent.
-              SEASON=$(printf '%s' "${{ inputs.args }}" | sed -n 's/.*--season=\([A-Za-z0-9_-]*\).*/\1/p')
-              if [ -n "$SEASON" ]; then
-                SPARSE=$'scripts/diagnose-forfeit-game.js\ngames/bv/'"$SEASON"'.json'
-              else
-                echo "  no --season= in args; checking out all of games/bv (1.94 GB)"
-                SPARSE=$'scripts/diagnose-forfeit-game.js\ngames/bv'
-              fi
-              FLAGS=''; SCRIPT='scripts/diagnose-forfeit-game.js'; DEPTH=1; TMO=15 ;;
+              SPARSE=$'scripts/diagnose-forfeit-game.js\ngames/bv'
+              FLAGS=''; SCRIPT='scripts/diagnose-forfeit-game.js'; DEPTH=1; TMO=15; DEFAULT_ARGS='--game=ba9d21fe --season=68f8c050' ;;
             diagnose-id-field-lengths)
               SPARSE=$'games\nplayers/indexes\nscripts'
-              FLAGS=''; SCRIPT='scripts/diagnose-id-field-lengths.js'; DEPTH=1; TMO=30 ;;
+              FLAGS=''; SCRIPT='scripts/diagnose-id-field-lengths.js'; DEPTH=1; TMO=30; DEFAULT_ARGS='' ;;
             diagnose-nightly-health)
               SPARSE=$'scripts/diagnose-nightly-health.js'
-              FLAGS=''; SCRIPT='scripts/diagnose-nightly-health.js'; DEPTH=1; TMO=5 ;;
+              FLAGS=''; SCRIPT='scripts/diagnose-nightly-health.js'; DEPTH=1; TMO=5; DEFAULT_ARGS='--runs=5' ;;
             find-flag-collisions)
               SPARSE=$''
-              FLAGS=''; SCRIPT='scripts/find-flag-collisions.js'; DEPTH=0; TMO=60 ;;
+              FLAGS=''; SCRIPT='scripts/find-flag-collisions.js'; DEPTH=0; TMO=60; DEFAULT_ARGS='' ;;
             probe-api-limits)
               SPARSE=$'scripts/probe-api-limits.js'
-              FLAGS=''; SCRIPT='scripts/probe-api-limits.js'; DEPTH=0; TMO=360 ;;
+              FLAGS=''; SCRIPT='scripts/probe-api-limits.js'; DEPTH=0; TMO=360; DEFAULT_ARGS='--season=15908988 --op=grade --levels=25,50,100,200,400 --calls=400 --cycles=0 --duration=0 --burst=1000 --rest=90000 --conc=25 --recover' ;;
             probe-my-aliases)
               SPARSE=$''
-              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/probe-my-aliases.js'; DEPTH=0; TMO=60 ;;
+              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/probe-my-aliases.js'; DEPTH=0; TMO=60; DEFAULT_ARGS='--show=40' ;;
             probe-player)
               SPARSE=$''
-              FLAGS=''; SCRIPT='scripts/probe-player.js'; DEPTH=1; TMO=20 ;;
+              FLAGS=''; SCRIPT='scripts/probe-player.js'; DEPTH=1; TMO=20; DEFAULT_ARGS='' ;;
             probe-selfalias-check)
               SPARSE=$''
-              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/probe-selfalias-check.js'; DEPTH=0; TMO=30 ;;
+              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/probe-selfalias-check.js'; DEPTH=0; TMO=30; DEFAULT_ARGS='' ;;
             scan-roster-id-forms)
               SPARSE=$''
-              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/scan-roster-id-forms.js'; DEPTH=0; TMO=60 ;;
+              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/scan-roster-id-forms.js'; DEPTH=0; TMO=60; DEFAULT_ARGS='--show=30' ;;
             size-appearance-gaps)
               SPARSE=$''
-              FLAGS=''; SCRIPT='scripts/size-appearance-gaps.js'; DEPTH=1; TMO=60 ;;
+              FLAGS=''; SCRIPT='scripts/size-appearance-gaps.js'; DEPTH=1; TMO=60; DEFAULT_ARGS='' ;;
             size-locked-resweep)
               SPARSE=$'scripts\ndata\nplayers/indexes\ngames/bv'
-              FLAGS=''; SCRIPT='scripts/size-locked-resweep.js'; DEPTH=1; TMO=45 ;;
+              FLAGS=''; SCRIPT='scripts/size-locked-resweep.js'; DEPTH=1; TMO=45; DEFAULT_ARGS='' ;;
             size-missing-gids)
               SPARSE=$''
-              FLAGS=''; SCRIPT='scripts/size-missing-gids.js'; DEPTH=1; TMO=60 ;;
+              FLAGS=''; SCRIPT='scripts/size-missing-gids.js'; DEPTH=1; TMO=60; DEFAULT_ARGS='' ;;
             size-opposition-index)
               SPARSE=$''
-              FLAGS='--max-old-space-size=12288'; SCRIPT='scripts/size-opposition-index.js'; DEPTH=0; TMO=180 ;;
+              FLAGS='--max-old-space-size=12288'; SCRIPT='scripts/size-opposition-index.js'; DEPTH=0; TMO=180; DEFAULT_ARGS='' ;;
             size-report)
               SPARSE=$''
-              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/size-report.js'; DEPTH=0; TMO=90 ;;
+              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/size-report.js'; DEPTH=0; TMO=90; DEFAULT_ARGS='' ;;
             size-spectator-queue)
               SPARSE=$'scripts\ndata\ngames/bv'
-              FLAGS=''; SCRIPT='scripts/size-spectator-queue.js'; DEPTH=1; TMO=45 ;;
+              FLAGS=''; SCRIPT='scripts/size-spectator-queue.js'; DEPTH=1; TMO=45; DEFAULT_ARGS='' ;;
             trace-player-game)
               SPARSE=$''
-              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/trace-player-game.js'; DEPTH=0; TMO=60 ;;
+              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/trace-player-game.js'; DEPTH=0; TMO=60; DEFAULT_ARGS='--player=e9dee630-ab52-4056-b1fb-c68bd6bd8b3b' ;;
             verify-enrich)
               SPARSE=$''
-              FLAGS=''; SCRIPT='scripts/verify-enrich.js'; DEPTH=0; TMO=90 ;;
+              FLAGS=''; SCRIPT='scripts/verify-enrich.js'; DEPTH=0; TMO=90; DEFAULT_ARGS='' ;;
             verify-p-redundancy)
               SPARSE=$'games\nscripts'
-              FLAGS=''; SCRIPT='scripts/verify-p-redundancy.js'; DEPTH=1; TMO=30 ;;
+              FLAGS=''; SCRIPT='scripts/verify-p-redundancy.js'; DEPTH=1; TMO=30; DEFAULT_ARGS='--examples=5' ;;
             *) echo "Unknown tool: ${{ inputs.tool }}"; exit 1 ;;
           esac
+
+          # Each tool's old workflow supplied default arguments from its input
+          # defaults. Dropping them is how `probe-api-limits` with a blank args
+          # field exited 1 on its usage banner — it requires --season. So a blank
+          # args field means "use what the old workflow used", not "pass nothing".
+          ARGS=$(printf '%s' "${{ inputs.args }}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          if [ -z "$ARGS" ]; then ARGS="$DEFAULT_ARGS"; [ -n "$ARGS" ] && echo "  args    : (tool default) $ARGS"; fi
+
+          # diagnose-forfeit-game reads one season file. Narrow the checkout to it
+          # once the args are resolved — the season can come from either the user
+          # or the tool default, so this has to happen after the line above.
+          if [ "${{ inputs.tool }}" = "diagnose-forfeit-game" ]; then
+            SEASON=$(printf '%s' "$ARGS" | sed -n 's/.*--season=\([A-Za-z0-9_-]*\).*/\1/p')
+            if [ -n "$SEASON" ]; then
+              SPARSE=$'scripts/diagnose-forfeit-game.js\ngames/bv/'"$SEASON"'.json'
+            else
+              echo "  no --season= resolved; checking out all of games/bv (1.94 GB)"
+            fi
+          fi
 
           OVERRIDE=$(cat <<'EOF'
           ${{ inputs.paths }}
@@ -151,6 +164,7 @@ jobs:
           echo "script=$SCRIPT" >> "$GITHUB_OUTPUT"
           echo "depth=$DEPTH"   >> "$GITHUB_OUTPUT"
           echo "tmo=$TMO"       >> "$GITHUB_OUTPUT"
+          echo "args=$ARGS"     >> "$GITHUB_OUTPUT"
           echo "  tool    : ${{ inputs.tool }}"
           echo "  script  : $SCRIPT"
           echo "  flags   : ${FLAGS:-none}"
@@ -196,4 +210,4 @@ jobs:
           ${{ inputs.env }}
           EOF
           echo ""
-          node ${{ steps.plan.outputs.flags }} ${{ steps.plan.outputs.script }} ${{ inputs.args }}
+          node ${{ steps.plan.outputs.flags }} ${{ steps.plan.outputs.script }} ${{ steps.plan.outputs.args }}
