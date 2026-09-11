@@ -29,9 +29,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      # SPARSE, added 2026-09-11. This was a bare checkout: the full 6.6 GB /
+      # 537,651-file tree, about seven minutes, to run a script that opens ONE
+      # json file and then talks to PlayHQ. test-api.js reads only
+      # data/sports-index.json (concurrency mode); every other mode reads nothing
+      # from disk at all.
+      #
+      # blob:none is safe HERE and is not the thing banned in cleanup-repo.yml.
+      # That ban is on remote git WRITES from a filtered clone — push and merge
+      # make git enumerate objects and backfill every blob. This job is
+      # contents: read and runs no git command, so nothing ever enumerates.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            scripts/test-api.js
+            data/sports-index.json
+          sparse-checkout-cone-mode: false
       # NO actions/setup-node — this job fetches PlayHQ, and setup-node's fingerprint
       # change makes CloudFront 403-block every request including session acquisition
       # (proven 2026-07-20 on the instrumented matrix shard 00; same-day nightly-crawl
