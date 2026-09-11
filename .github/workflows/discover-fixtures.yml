@@ -26,9 +26,21 @@ name: Discover fixtures
 # `--no-season-teams` restores the old behaviour if it ever needs isolating.
 #
 # The run also reports seasons where sports-index holds fewer grades than
-# discoverTeams sees. That is harmless for the sweep itself (a team returns its
-# whole fixture regardless of grade) but discover-seasons.js will not correct it —
-# its grade-refresh only re-reads seasons sitting at grades:[].
+# discoverTeams sees, and since 2026-09-08 WRITES them to
+# data/stale-grade-seasons.json. That is harmless for the sweep itself — a team
+# returns its whole fixture regardless of grade — and discover-seasons.js's
+# grade-refresh reads that file and re-resolves those seasons. This header used to
+# say it would not, which was true only until 2026-09-08.
+#
+# ⚠️ SIX-DAY LAG, BY DESIGN. discover-seasons runs Sunday 20:00 UTC and this runs
+# Monday 20:00 UTC, so a season flagged here is corrected on the FOLLOWING Sunday.
+# The dependency is a cycle — discover-seasons writes the index this sweep reads,
+# and this sweep writes the flags that sweep reads — so one direction is always a
+# day and the other six. Season discovery holds the fast path deliberately: a
+# season found late costs GAMES, while a stale grade list costs only metadata
+# (teams resolve via discoverTeams regardless). Do not swap the crons to "fix" the
+# lag. Chaining them was considered and rejected 2026-08-10: it leaves discovery
+# several dispatches deep, where a broken link silently skips a week.
 
 on:
   # Weekly schedule added 2026-08-10, replacing the dispatch from nightly-crawl's
