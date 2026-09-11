@@ -1,71 +1,45 @@
 # .github/workflows/cleanup-repo.yml
 name: Cleanup Repo
 
-# ARRAYS REPLACED 2026-09-11. The previous SCRIPTS/WORKFLOWS lists were written on
-# 2026-07-16 and named 233 paths, of which exactly two still existed on disk
-# (scripts/repair-season-names.js and .github/workflows/backfill.yml). Both are
-# carried forward below, so nothing has been lost by replacing rather than
-# extending the lists.
+# REWRITTEN 2026-09-11 to use the GitHub Git Data API instead of a git clone.
 #
-# Every path below was verified against the working tree on 2026-09-11:
-#   - the script exists and exactly one workflow executes it;
-#   - no other script requires it and no workflow dispatches its workflow;
-#   - remaining mentions elsewhere are comments recording provenance, not calls.
+# WHY. The previous version checked the repo out with fetch-depth 1 and
+# filter: blob:none, then performed five remote or object-hungry git operations
+# on top of it. Three of them cannot work at this repository's size:
+#   - `git push origin refs/tags/...` at the shallow boundary commit. Git cannot
+#     assume the remote holds that commit's tree, starts enumerating objects to
+#     pack, and under blob:none enumerating means lazily backfilling every blob.
+#     Ran past ten minutes, cancelled.
+#   - `git fetch origin main` + `git merge -X ours FETCH_HEAD` before the
+#     deletions. A depth-1 clone has no common ancestor, so the merge compares
+#     whole trees and backfills the lot. Ran three minutes, cancelled.
+#   - the same merge again inside the push retry loop.
+# Patching them one at a time cost two dispatches. The class of fault is the
+# clone itself: deleting a list of known paths does not need a working tree.
 #
-# Verification notes worth keeping:
-#   - `node --max-old-space-size=... scripts/x.js` is the usual invocation form.
-#     A reference scan that only matches `node scripts/x.js` misses most of them.
-#   - The chain workflows dispatch through /tmp/gh-dispatch.sh, not a literal
-#     `gh workflow run <name>`. A scan for the literal form finds no dispatchers
-#     anywhere in this repository and is worthless as a safety signal.
-#   - A filename suffix is not a reference. `discover-game-backfill.yml`,
-#     `size-locked-backfill.yml` and `spectator-backfill.yml` all contain the
-#     string "backfill.yml".
+# WHAT THIS DOES INSTEAD. No checkout. It reads the tree entries for the three
+# locations it touches, builds one new tree with those paths removed, commits it
+# against the current head, and moves the ref. Five or six API calls, seconds,
+# nothing packed and nothing fetched. Directory deletion is deliberately NOT
+# supported here — every path below is a file, and a recursive tree read would
+# be truncated at this repo's size. Add files individually.
 #
-# ORDERING SAFETY: STAGE 2 remains as the opt-in list for deletions gated on
-# ordering. The three July gates (build-alias-index.js, fix-uuid-prefix-length.js,
-# cleanup-dead-artifacts.js) are cleared — none of those files exist — so STAGE 2
-# is empty this pass and is kept for the section 7 work, where each report must be
-# read before its script goes.
+# SAFETY. The pre-cleanup tag is created at the OLD head before the ref moves.
+# The ref update is a non-forced PATCH, so if main advanced between the read and
+# the write it is rejected and nothing changes.
 #
-# HELD BACK 2026-09-11 after review, both deliberately:
-#   - repair-season-names.js + .yml. The source bug is closed (fetch-profile-stats.js
-#     and seed-missing-profiles.js both refuse to derive a name from
-#     seasonStatistics[].name) and the repair finished at 35,824 of 36,080, so the
-#     tool is spent. But nothing else repairs `name == own season label`, and
-#     db-audit.js prints "run repair-season-names.js" when it finds any. Kept as the
-#     remediation path. Reclassified into TOOLING.md 2.2 / 3.3.
-#   - discover-seasons.yml. discover-seasons-matrix.yml runs the same script but
-#     exposes neither `uuid` (single-player escape hatch) nor `limit`. Kept.
-#
-# SECTION 7 RESOLVED 2026-09-11. Twelve of the fifteen held scripts are defunct and
-# are deleted here. Three are kept:
-#   - build-alias-worklist.js and probe-squad-evidence.js both write
-#     reports/manual-alias-decisions.json, which repoint-aliases.yml reads and which
-#     still has five null decisions. Tied to the open alias campaign, not idle.
-#   - rebuild-player-index.js. Its migration purpose is discharged, but it is the
-#     only full rebuild of players/indexes/ from the player files — everything else
-#     reads that index or appends to it incrementally. Kept as recovery.
-# All three are now classified in TOOLING.md so the inventory stops calling them spent.
-#
-# REPORTS ARE NOT TOUCHED. reports/ is 172 MB but the section 7 reports are under
-# 5 MB of it; three quarters sits in wrongly-keyed-census-progress.json (76 MB), the
-# two alias-vs-playhq-audit sweeps (28 MB each) and repair-batch-progress.json
-# (18 MB), none of which belong to anything deleted here. rekey-apply-log.json must
-# survive regardless: rebuild-player-index.js reads it for the re-keyed old-key map.
-#
-# DRY RUN FIRST. dry_run=true lists every deletion and commits nothing.
+# DRY RUN FIRST. dry_run=true resolves and lists every deletion, writes nothing.
 
 on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry run — list every deletion, commit NOTHING (run this FIRST)'
+        description: 'Dry run — list every deletion, change NOTHING (run this FIRST)'
         required: false
         default: true
         type: boolean
       include_gated:
-        description: 'STAGE 2: also delete ordering-gated files. Empty this pass — see header.'
+        description: 'STAGE 2: also delete ordering-gated paths. Empty this pass.'
         required: false
         default: false
         type: boolean
@@ -76,252 +50,157 @@ permissions:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
 
     steps:
-      - name: Checkout (sparse — scripts, workflows, reports, root, no blobs)
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.WORKFLOW_PAT }}
-          fetch-depth: 1
-          filter: blob:none
-          sparse-checkout: |
-            scripts
-            .github/workflows
-            reports
-            players/aliases
-            players/alias-inverse
-            /*.json
-            /*.md
-            /*.html
-          sparse-checkout-cone-mode: false
-
-      # SAFETY: before deleting anything on a LIVE run, create a permanent tag at
-      # the current commit so the exact pre-cleanup state is recoverable with one
-      # click (GitHub UI -> tag -> "Browse files"). Skipped in dry-run: a preview
-      # must not create tags. Idempotent: an existing tag is reused, not recreated.
-      #
-      # CREATED THROUGH THE API, NOT `git tag` + `git push`. This checkout is both
-      # shallow (fetch-depth 1) and blob-filtered (filter: blob:none), and the tag
-      # points at the shallow boundary commit. Pushing a ref from that state makes
-      # git enumerate objects to pack, and under blob:none enumerating means lazily
-      # backfilling every blob it does not hold — across 418,000 player files it
-      # does not finish. It ran past ten minutes on 2026-09-11 and was cancelled.
-      # The API creates the ref server-side from a sha we already know: one call,
-      # nothing packed, nothing fetched.
-      - name: Tag pre-cleanup state (live runs only)
-        if: ${{ inputs.dry_run != true }}
+      - name: Delete stale files
         env:
           GH_TOKEN: ${{ secrets.WORKFLOW_PAT }}
+          REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          INCLUDE_GATED: ${{ inputs.include_gated }}
           TAG: pre-cleanup-${{ github.run_id }}
         run: |
           set -euo pipefail
-          if gh api "repos/${{ github.repository }}/git/ref/tags/$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists — reusing it."
-          else
-            gh api --method POST "repos/${{ github.repository }}/git/refs" \
-              -f ref="refs/tags/$TAG" \
-              -f sha="${{ github.sha }}" >/dev/null
-            echo "Tagged pre-cleanup state as: $TAG"
-          fi
-          echo "TO RECOVER ANY DELETED FILE LATER:"
-          echo "  GitHub -> Code -> the tag dropdown -> select $TAG -> open the file -> Raw -> copy,"
-          echo "  or restore-deleted-file.yml with the path (it reads from history)."
 
-      - name: Delete stale files
-        env:
-          GIT_AUTHOR_NAME: github-actions[bot]
-          GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
-          GIT_COMMITTER_NAME: github-actions[bot]
-          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
-          DRY_RUN: ${{ inputs.dry_run }}
-          INCLUDE_GATED: ${{ inputs.include_gated }}
-        run: |
-          set -e
+          # ── STAGE 1 — always deleted ────────────────────────────────────────
+          # CLEANUP_PLAN.md §3 — concluded probes, findings recorded.
+          # CLEANUP_PLAN.md §5 — concluded work, superseded or documented.
+          # CLEANUP_PLAN.md §2 — drop-stale-playercount, plus the four project
+          #                      documents, which the classifier no longer reads.
+          # CLEANUP_PLAN.md §7 — the twelve probes confirmed defunct on review.
+          #                      build-alias-worklist, probe-squad-evidence and
+          #                      rebuild-player-index are NOT here: all three are
+          #                      kept and classified in TOOLING.md.
+          cat > /tmp/paths.txt <<'PATHS'
+          scripts/merge-phantom-profiles.js
+          scripts/probe-absent-games.js
+          scripts/probe-both-resolve.js
+          scripts/probe-duplicate-profiles.js
+          scripts/probe-grade-ladder.js
+          scripts/probe-setup-node-fingerprint.js
+          scripts/probe-shared-roster.js
+          scripts/size-duplicate-profiles.js
+          scripts/check-roster-freshness.js
+          scripts/probe-missing-games.js
+          scripts/redirect-exposure.js
+          scripts/scan-season-name-contamination.js
+          scripts/drop-stale-playercount.js
+          scripts/diagnose-alias-conflicts.js
+          scripts/diagnose-nameless-players.js
+          scripts/probe-alias-stats.js
+          scripts/probe-discover-teams.js
+          scripts/probe-notfound.js
+          scripts/probe-registrations.js
+          scripts/probe-roster-sources.js
+          scripts/probe-session-throwaway.js
+          scripts/probe-stattrack-shapes.cjs
+          scripts/probe-stattrack-shapes.js
+          scripts/probe-wrong-rosters.js
+          scripts/prove-player-files-intact.js
+          scripts/size-locked-backfill.js
+          .github/workflows/merge-phantom-profiles.yml
+          .github/workflows/probe-absent-games.yml
+          .github/workflows/probe-both-resolve.yml
+          .github/workflows/probe-duplicate-profiles.yml
+          .github/workflows/probe-grade-ladder.yml
+          .github/workflows/probe-setup-node-fingerprint.yml
+          .github/workflows/probe-shared-roster.yml
+          .github/workflows/size-duplicate-profiles.yml
+          .github/workflows/check-roster-freshness.yml
+          .github/workflows/probe-missing-games.yml
+          .github/workflows/redirect-exposure.yml
+          .github/workflows/scan-season-name-contamination.yml
+          .github/workflows/drop-stale-playercount.yml
+          .github/workflows/backfill.yml
+          .github/workflows/diagnose-alias-conflicts.yml
+          .github/workflows/probe-alias-stats.yml
+          .github/workflows/probe-discover-teams.yml
+          .github/workflows/probe-notfound.yml
+          .github/workflows/probe-registrations.yml
+          .github/workflows/probe-roster-sources.yml
+          .github/workflows/probe-stattrack-shapes.yml
+          .github/workflows/probe-wrong-rosters.yml
+          .github/workflows/prove-player-files-intact.yml
+          .github/workflows/size-locked-backfill.yml
+          REPO_MANIFEST.md
+          claude_context.md
+          OUTSTANDING_TASKS.md
+          playhq_api_reference.md
+          PATHS
+          sed -i 's/^[[:space:]]*//' /tmp/paths.txt
+          sed -i '/^$/d' /tmp/paths.txt
 
-          # NO upfront `git fetch` + `git merge -X ours FETCH_HEAD`. Removed
-          # 2026-09-11 after it hung for three minutes and was cancelled. This
-          # clone is depth-1 and blob-filtered, so the merge has no common
-          # ancestor to work from and compares whole trees — which under
-          # blob:none means backfilling every blob in the repository. It was also
-          # redundant: the checkout takes github.sha seconds earlier, and a race
-          # is handled at the push below.
-
-          # ────────────────────────────────────────────────────────────────────
-          # STAGE 1 — always deleted (no ordering constraints)
-          # ────────────────────────────────────────────────────────────────────
-
-          # CLEANUP_PLAN.md §3 — concluded, finding recorded in TOOLING.md §2.4.
-          # CLEANUP_PLAN.md §5 — concluded, finding recorded in the documents.
-          # CLEANUP_PLAN.md §2 — drop-stale-playercount, the one-off that reports
-          #                      "already absent" on a second run.
-          SCRIPTS=(
-            # §3 — findings recorded, campaign closed
-            scripts/merge-phantom-profiles.js
-            scripts/probe-absent-games.js
-            scripts/probe-both-resolve.js
-            scripts/probe-duplicate-profiles.js
-            scripts/probe-grade-ladder.js
-            scripts/probe-setup-node-fingerprint.js
-            scripts/probe-shared-roster.js
-            scripts/size-duplicate-profiles.js
-
-            # §5 — concluded work, superseded or documented.
-            # scan-season-name-contamination goes because db-audit.js computes
-            # seasonNameContaminated and prints it: the detection is preserved.
-            scripts/check-roster-freshness.js
-            scripts/probe-missing-games.js
-            scripts/redirect-exposure.js
-            scripts/scan-season-name-contamination.js
-
-            # §2 — spent one-off, its own header says to delete it
-            scripts/drop-stale-playercount.js
-
-            # §7 — probes confirmed defunct on review, 2026-09-11. Verified: each
-            # is executed by its own workflow and nothing else; no script requires
-            # any of them. diagnose-nameless-players and probe-session-throwaway
-            # have no workflow at all. The two probe-stattrack-shapes files are
-            # identical apart from the extension string and its workflow takes
-            # whichever exists, so both go with it.
-            scripts/diagnose-alias-conflicts.js
-            scripts/diagnose-nameless-players.js
-            scripts/probe-alias-stats.js
-            scripts/probe-discover-teams.js
-            scripts/probe-notfound.js
-            scripts/probe-registrations.js
-            scripts/probe-roster-sources.js
-            scripts/probe-session-throwaway.js
-            scripts/probe-stattrack-shapes.cjs
-            scripts/probe-stattrack-shapes.js
-            scripts/probe-wrong-rosters.js
-            scripts/prove-player-files-intact.js
-            scripts/size-locked-backfill.js
-          )
-
-          WORKFLOWS=(
-            # §3 — paired with the scripts above
-            .github/workflows/merge-phantom-profiles.yml
-            .github/workflows/probe-absent-games.yml
-            .github/workflows/probe-both-resolve.yml
-            .github/workflows/probe-duplicate-profiles.yml
-            .github/workflows/probe-grade-ladder.yml
-            .github/workflows/probe-setup-node-fingerprint.yml
-            .github/workflows/probe-shared-roster.yml
-            .github/workflows/size-duplicate-profiles.yml
-
-            # §5 — paired with the scripts above
-            .github/workflows/check-roster-freshness.yml
-            .github/workflows/probe-missing-games.yml
-            .github/workflows/redirect-exposure.yml
-            .github/workflows/scan-season-name-contamination.yml
-
-            # §2 — paired with the script above
-            .github/workflows/drop-stale-playercount.yml
-
-            # Workflow-only. scripts/backfill.js does not exist and nothing
-            # dispatches this workflow: the "six dispatchers" in the earlier
-            # analysis were filename-suffix matches on discover-game-backfill.yml,
-            # size-locked-backfill.yml and spectator-backfill.yml. It cannot run.
-            .github/workflows/backfill.yml
-
-            # §7 — paired with the scripts above. No entry for
-            # diagnose-nameless-players or probe-session-throwaway: neither has
-            # a workflow.
-            .github/workflows/diagnose-alias-conflicts.yml
-            .github/workflows/probe-alias-stats.yml
-            .github/workflows/probe-discover-teams.yml
-            .github/workflows/probe-notfound.yml
-            .github/workflows/probe-registrations.yml
-            .github/workflows/probe-roster-sources.yml
-            .github/workflows/probe-stattrack-shapes.yml
-            .github/workflows/probe-wrong-rosters.yml
-            .github/workflows/prove-player-files-intact.yml
-            .github/workflows/size-locked-backfill.yml
-          )
-
-          # CLEANUP_PLAN.md §2 — the four project documents. They were committed so
-          # the classifier could read them; it reads TOOLING.md now. They carry the
-          # method (endpoint knowledge, concurrency ceilings, identity architecture,
-          # the trap catalogue) and none of it has to be public for a tool to know a
-          # filename is classified. They stay in the project, outside the repository.
-          ROOT_FILES=(
-            REPO_MANIFEST.md
-            claude_context.md
-            OUTSTANDING_TASKS.md
-            playhq_api_reference.md
-          )
-
-          # Empty this pass. Report deletion belongs to the section 7 work, where the
-          # report must be READ and its finding recorded before the pair goes. The
-          # three reports that pair with the deletions above — both-resolve-pairs.json,
-          # duplicate-profile-pairs.json, season-name-contamination.json — are left in
-          # place deliberately: they hold the underlying data behind findings that are
-          # only summarised in the documents.
-          REPORT_FILES=()
-
-          DIRS=()
-
-          HTML_FILES=()
-
-          # ── STAGE 2 — ordering-gated (only with include_gated=true) ───────────
-          # Empty this pass. The three July gates are cleared: build-alias-index.js,
-          # fix-uuid-prefix-length.js and cleanup-dead-artifacts.js no longer exist,
-          # and neither do reports/backfill-collisions/ or players/alias-inverse/.
-          # Kept as the mechanism for the section 7 deletions.
-          GATED_SCRIPTS=()
-          GATED_WORKFLOWS=()
-          GATED_DIRS=()
-
-          # ────────────────────────────────────────────────────────────────────
-          echo "=== $([ "$DRY_RUN" = "true" ] && echo "DRY RUN — nothing will be committed" || echo "LIVE RUN") ==="
-          echo ""
-
-          deleted=0; skipped=0
-
-          remove_file() {
-            local f="$1"
-            if [ -f "$f" ]; then
-              if [ "$DRY_RUN" = "true" ]; then echo "  would rm: $f"; else git rm --ignore-unmatch -f "$f" >/dev/null; echo "  rm: $f"; fi
-              deleted=$((deleted+1))
-            else
-              echo "  skip (absent): $f"; skipped=$((skipped+1))
-            fi
-          }
-          remove_dir() {
-            local d="$1"
-            if [ -d "$d" ]; then
-              if [ "$DRY_RUN" = "true" ]; then echo "  would rm -r: $d"; else git rm --ignore-unmatch -rf "$d" >/dev/null; echo "  rm -r: $d"; fi
-              deleted=$((deleted+1))
-            else
-              echo "  skip (absent): $d"; skipped=$((skipped+1))
-            fi
-          }
-
-          # ${ARR[@]+"${ARR[@]}"} — expands to nothing when the array is empty
-          # instead of to one empty string. Several arrays are empty this pass.
-          echo "── STAGE 1: scripts ──"
-          for f in ${SCRIPTS[@]+"${SCRIPTS[@]}"};         do remove_file "$f"; done
-          echo "── STAGE 1: workflows ──"
-          for f in ${WORKFLOWS[@]+"${WORKFLOWS[@]}"};     do remove_file "$f"; done
-          echo "── STAGE 1: root files ──"
-          for f in ${ROOT_FILES[@]+"${ROOT_FILES[@]}"};   do remove_file "$f"; done
-          echo "── STAGE 1: report files ──"
-          for f in ${REPORT_FILES[@]+"${REPORT_FILES[@]}"}; do remove_file "$f"; done
-          echo "── STAGE 1: html files ──"
-          for f in ${HTML_FILES[@]+"${HTML_FILES[@]}"};   do remove_file "$f"; done
-          echo "── STAGE 1: directories ──"
-          for d in ${DIRS[@]+"${DIRS[@]}"};               do remove_dir "$d"; done
+          # ── STAGE 2 — ordering-gated. Empty this pass: the three July gates
+          #    (build-alias-index.js, fix-uuid-prefix-length.js,
+          #    cleanup-dead-artifacts.js) no longer exist. Kept as the mechanism
+          #    for the reports/ work, where a report must be read before it goes.
+          : > /tmp/gated.txt
 
           if [ "$INCLUDE_GATED" = "true" ]; then
-            echo "── STAGE 2 (gated): scripts ──"
-            for f in ${GATED_SCRIPTS[@]+"${GATED_SCRIPTS[@]}"};     do remove_file "$f"; done
-            echo "── STAGE 2 (gated): workflows ──"
-            for f in ${GATED_WORKFLOWS[@]+"${GATED_WORKFLOWS[@]}"}; do remove_file "$f"; done
-            echo "── STAGE 2 (gated): directories ──"
-            for d in ${GATED_DIRS[@]+"${GATED_DIRS[@]}"};           do remove_dir "$d"; done
-          else
-            echo "── STAGE 2 skipped (include_gated=false). It is empty this pass."
+            cat /tmp/gated.txt >> /tmp/paths.txt
           fi
+
+          echo "=== $([ "$DRY_RUN" = "true" ] && echo "DRY RUN — nothing will be changed" || echo "LIVE RUN") ==="
+          echo ""
+
+          # ── Resolve head, commit and the three trees we touch ───────────────
+          # No recursive tree read: at 418,000 player files the recursive
+          # endpoint truncates at 100,000 entries and would silently under-report.
+          # Each directory is read on its own, which is exact.
+          SHA=$(gh api "repos/$REPO/git/ref/heads/main" --jq '.object.sha')
+          ROOT_TREE=$(gh api "repos/$REPO/git/commits/$SHA" --jq '.tree.sha')
+          echo "main head:  $SHA"
+          echo "root tree:  $ROOT_TREE"
+          echo ""
+
+          subtree() {  # subtree <parent-tree-sha> <name> -> sha, empty if absent
+            gh api "repos/$REPO/git/trees/$1" --jq \
+              --arg n "$2" '.tree[] | select(.path==$n and .type=="tree") | .sha'
+          }
+
+          : > /tmp/modes.tsv
+          # root-level blobs
+          gh api "repos/$REPO/git/trees/$ROOT_TREE" --jq \
+            '.tree[] | select(.type=="blob") | "\(.path)\t\(.mode)"' >> /tmp/modes.tsv
+          # scripts/
+          SCRIPTS_TREE=$(subtree "$ROOT_TREE" "scripts")
+          if [ -n "$SCRIPTS_TREE" ]; then
+            gh api "repos/$REPO/git/trees/$SCRIPTS_TREE" --jq \
+              '.tree[] | select(.type=="blob") | "scripts/\(.path)\t\(.mode)"' >> /tmp/modes.tsv
+          fi
+          # .github/workflows/
+          GH_TREE=$(subtree "$ROOT_TREE" ".github")
+          if [ -n "$GH_TREE" ]; then
+            WF_TREE=$(subtree "$GH_TREE" "workflows")
+            if [ -n "$WF_TREE" ]; then
+              gh api "repos/$REPO/git/trees/$WF_TREE" --jq \
+                '.tree[] | select(.type=="blob") | ".github/workflows/\(.path)\t\(.mode)"' >> /tmp/modes.tsv
+            fi
+          fi
+          echo "tree entries read: $(wc -l < /tmp/modes.tsv)"
+          echo ""
+
+          # ── Match each target against the tree ──────────────────────────────
+          : > /tmp/todelete.tsv
+          deleted=0; skipped=0
+          section=""
+          while read -r p; do
+            case "$p" in
+              scripts/*)            s="scripts" ;;
+              .github/workflows/*)  s="workflows" ;;
+              *)                    s="root files" ;;
+            esac
+            if [ "$s" != "$section" ]; then echo "── $s ──"; section="$s"; fi
+            mode=$(awk -F'\t' -v t="$p" '$1==t {print $2; exit}' /tmp/modes.tsv)
+            if [ -n "$mode" ]; then
+              printf '%s\t%s\n' "$p" "$mode" >> /tmp/todelete.tsv
+              if [ "$DRY_RUN" = "true" ]; then echo "  would rm: $p"; else echo "  rm: $p"; fi
+              deleted=$((deleted+1))
+            else
+              echo "  skip (absent): $p"; skipped=$((skipped+1))
+            fi
+          done < /tmp/paths.txt
 
           echo ""
           echo "=== Summary ==="
@@ -329,40 +208,57 @@ jobs:
 
           if [ "$DRY_RUN" = "true" ]; then
             echo ""
-            echo "DRY RUN complete — no changes staged, nothing committed."
-            echo "Re-run with dry_run=false to apply STAGE 1."
+            echo "DRY RUN complete — nothing changed."
+            echo "Re-run with dry_run=false to apply."
             exit 0
           fi
 
-          # A deletion run that stages nothing has failed, not succeeded. The old
-          # message treated it as a benign outcome; it is the signature of an array
-          # full of paths that no longer match anything.
-          if git diff --cached --quiet; then
-            echo "NOTHING STAGED. Every listed path was already absent — the arrays are stale."
+          # A deletion run that matched nothing has failed, not succeeded. That is
+          # the signature of a list of paths that no longer exist.
+          if [ "$deleted" -eq 0 ]; then
+            echo ""
+            echo "NOTHING MATCHED. Every listed path is already absent — the list is stale."
             exit 1
           fi
 
-          echo ""
-          echo "Staged for deletion:"
-          git diff --staged --shortstat
+          # ── Tag the pre-cleanup state, at the OLD head, before anything moves ─
+          if gh api "repos/$REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo ""
+            echo "Tag $TAG already exists — reusing it."
+          else
+            gh api --method POST "repos/$REPO/git/refs" \
+              -f ref="refs/tags/$TAG" -f sha="$SHA" >/dev/null
+            echo ""
+            echo "Tagged pre-cleanup state as: $TAG"
+          fi
+          echo "TO RECOVER ANY DELETED FILE LATER:"
+          echo "  GitHub -> Code -> the tag dropdown -> select $TAG -> open the file -> Raw -> copy,"
+          echo "  or restore-deleted-file.yml with the path (it reads from history)."
 
-          git commit -m "chore: delete concluded probes, superseded tools and the four project documents"
+          # ── One tree, one commit, one ref move ──────────────────────────────
+          awk -F'\t' '{printf "{\"path\":\"%s\",\"mode\":\"%s\",\"type\":\"blob\",\"sha\":null}\n",$1,$2}' \
+            /tmp/todelete.tsv | jq -s --arg bt "$ROOT_TREE" '{base_tree:$bt, tree:.}' > /tmp/tree.json
 
-          # Push only. No fetch, no merge — see the note at the top of this step.
-          # Retries cover a transient network failure; they cannot fix a rejected
-          # push, and are not meant to. If main moved since checkout the push is
-          # rejected and this fails loudly: nothing is lost, the commit exists only
-          # on this runner, and re-dispatching starts cleanly from the new main.
-          for attempt in 1 2 3; do
-            if git push origin main; then
-              echo "Committed and pushed."
-              exit 0
-            fi
-            echo "  push attempt ${attempt} failed"
-            [ "$attempt" -lt 3 ] && sleep $((attempt * 5))
-          done
+          NEW_TREE=$(gh api --method POST "repos/$REPO/git/trees" --input /tmp/tree.json --jq '.sha')
           echo ""
-          echo "PUSH FAILED. Nothing was lost — the deletion commit exists only on this"
-          echo "runner and main is untouched. If the error above is a non-fast-forward,"
-          echo "main moved since checkout: re-dispatch the workflow."
-          exit 1
+          echo "new tree:   $NEW_TREE"
+
+          NEW_COMMIT=$(gh api --method POST "repos/$REPO/git/commits" \
+            -f message="chore: delete concluded probes, superseded tools and the four project documents" \
+            -f tree="$NEW_TREE" \
+            -f "parents[]=$SHA" --jq '.sha')
+          echo "new commit: $NEW_COMMIT"
+
+          # Non-forced: if main moved between the read above and now, this is
+          # rejected and NOTHING changes. The commit and tree are orphaned objects
+          # and harmless; re-dispatch starts cleanly from the new head.
+          if gh api --method PATCH "repos/$REPO/git/refs/heads/main" \
+               -f sha="$NEW_COMMIT" -F force=false >/dev/null; then
+            echo ""
+            echo "main moved to $NEW_COMMIT — $deleted paths deleted."
+          else
+            echo ""
+            echo "REF UPDATE REJECTED. main advanced since this run read it at $SHA."
+            echo "Nothing was deleted. Re-dispatch the workflow."
+            exit 1
+          fi
