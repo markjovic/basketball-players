@@ -491,6 +491,7 @@ jobs:
           total = already_done = written = inaccessible = unchanged = errors = blocked = 0
           rejected = 0
           suppressed = 0
+          preserved = 0
 
           for f in files:
             try:
@@ -503,6 +504,7 @@ jobs:
               errors       += d.get('errors', 0)
               rejected     += d.get('recovery_rejected', 0)
               suppressed   += d.get('tier2_suppressed', 0)
+              preserved    += d.get('empty_preserved', 0)
               if d.get('blocked'): blocked += 1
             except Exception as e:
               print(f'  Warning: could not parse {f}: {e}')
@@ -523,6 +525,7 @@ jobs:
           print(f'  Shards blocked mid-run:    {blocked}')
           print(f'  Recovery rejected:         {rejected:,}   (candidate shared no grade with the player)')
           print(f'  Tier 2 suppressed:         {suppressed:,}   (name matched only in a grade where tier 1 had a team and failed)')
+          print(f'  Gone private (200+empty): {preserved:,}   (credited 0 games while holding a career — stats kept, marked private)')
           print('══════════════════════════════════════════════════')
           print('  "Tier 2 suppressed" is the COST of the 2026-09-11 narrowing, not')
           print('  an error count. Before it, tier 2 searched every grade the player')
@@ -532,6 +535,19 @@ jobs:
           print('  an alias got written on a name alone. Each one counted here would')
           print('  have been aliased before; some were the right player, and none of')
           print('  them were corroborated by anything but a name.')
+          print('')
+          print('  "Gone private (200+empty)" — PRIVACY HAS A SECOND FORM and it is not')
+          print('  a 403. Confirmed 2026-09-11 on PlayHQ\'s own page for Jade Chow')
+          print('  11fdc0c2, which renders "This profile is private" while the API')
+          print('  answers HTTP 200 with a successful response crediting nothing. Her')
+          print('  file holds gp=373, and seven days earlier the same call returned her')
+          print('  full career. Before this change such a response DELETED all six')
+          print('  career fields, emptied every registration, and wrote every held game')
+          print('  into x — silently, counted as a successful write. Now the capture is')
+          print('  preserved and the player is marked private, so StatTrack keeps')
+          print('  displaying them with a private stamp until the profile is public')
+          print('  again. These are a subset of "Not obtainable" above, counted apart')
+          print('  because a 403 and a 200-with-nothing are different events.')
           print('  NOTE: "shard writes reported" is what the shards WROTE TO DISK.')
           print('  It is progress only if apply-and-commit succeeded — the commit')
           print('  history is the proof of persistence, not this number.')
