@@ -80,7 +80,25 @@ jobs:
           # is the staged fix removing actions/setup-node from discover-seasons.yml,
           # which on main still carries it. Delete it only after that fix is
           # committed, or the correction goes and the defect stays.
+          # 2026-09-11, final pass. Four paths.
+          #
+          # test-api.js + .yml — REDUNDANT with probe-api-limits, which is also
+          #   contents:read, also dispatches bare (every input has a default), and
+          #   measures the rate ceiling properly with rest=90000 and recover=true.
+          #   test-api's concurrency search has no cooldown, so once it trips the
+          #   WAF every lower level fails 100% and its "safe concurrency" number is
+          #   whatever it tested last before tripping — 512 on 2026-09-11 was not a
+          #   measurement. Its four unique modes (profile/game/gps/schema inspect a
+          #   single object) have not been used in ten weeks; the pre-cleanup tag
+          #   holds them if they are ever wanted.
+          #
+          # The two .js files in .github/workflows — that directory executes only
+          #   .yml, so neither can ever run. diagnose-nameless-players.js is
+          #   byte-identical to the script deleted earlier today; build-alias-worklist.js
+          #   is a 9,479-byte older copy of the live 10,795-byte scripts/ version.
           cat > /tmp/paths.txt <<'PATHS'
+          scripts/test-api.js
+          .github/workflows/test-api.yml
           .github/workflows/build-alias-worklist.js
           .github/workflows/diagnose-nameless-players.js
           PATHS
@@ -213,7 +231,7 @@ jobs:
           echo "new tree:   $NEW_TREE"
 
           NEW_COMMIT=$(gh api --method POST "repos/$REPO/git/commits" \
-            -f message="chore: delete the two stray .js files from .github/workflows" \
+            -f message="chore: final pass — retire test-api, delete the two stray .js files" \
             -f tree="$NEW_TREE" \
             -f "parents[]=$SHA" | jq -r '.sha')
           echo "new commit: $NEW_COMMIT"
