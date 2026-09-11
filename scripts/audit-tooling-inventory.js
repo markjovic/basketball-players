@@ -15,7 +15,7 @@
 //
 // WHAT IT DECIDES, AND WHAT IT REFUSES TO DECIDE. It reports facts: whether a
 // script is referenced by a workflow, whether a workflow calls a script that
-// exists, whether anything requires or imports it, whether REPO_MANIFEST.md
+// exists, whether anything requires or imports it, whether TOOLING.md
 // mentions it, and when it was last committed. It classifies on those facts
 // alone. It NEVER proposes deleting anything whose findings are not already
 // written down somewhere — an undocumented one-off is flagged
@@ -89,12 +89,11 @@ const OUT_LIST_REL  = path.relative(ROOT, OUT_LIST);
 // It carries filenames and section numbers ONLY — no purpose text, no findings, no
 // method. The operator's real notes stay outside the repository; publishing them to
 // satisfy a classifier was never a good trade.
-// REPO_MANIFEST.md is still read when present, for its purpose column, but nothing
-// depends on it.
+// REPO_MANIFEST.md, claude_context.md and OUTSTANDING_TASKS.md were REMOVED from
+// the repo on 2026-09-11 and live in the operator's project. This tool no longer
+// looks for them. It used to fall back to them for `documented`, which meant that
+// once they left, every script read UNDOCUMENTED — a false reading, not a finding.
 const TOOLING       = path.join(ROOT, 'TOOLING.md');
-const MANIFEST      = path.join(ROOT, 'REPO_MANIFEST.md');
-const CONTEXT       = path.join(ROOT, 'claude_context.md');
-const TASKS         = path.join(ROOT, 'OUTSTANDING_TASKS.md');
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 // gitCommit below is copied verbatim from discover-game-backfill.js, and that
@@ -301,8 +300,6 @@ async function main() {
   console.log(`  scripts/lib/      : ${libFiles.length} files`);
   console.log(`  .github/workflows/: ${workflowFiles.length} files\n`);
 
-  const docText = readText(MANIFEST) + '\n' + readText(CONTEXT) + '\n' + readText(TASKS);
-
   // ── What the manifest SAYS about each file, not merely that it mentions it ──
   // Only §2.x (scripts) and §3.x (workflows) classify. See the header for why §1.1
   // is skipped. First matching row wins; later mentions are cross-references.
@@ -316,9 +313,8 @@ async function main() {
     '3.4': 'RECORDED AS REMOVED (cleanup fe8eedb)',
   };
   const manifestRows = new Map();   // basename -> { purpose, section }
-  // TOOLING.md first; anything it classifies wins. REPO_MANIFEST.md is read after,
-  // and only fills in a purpose or a section TOOLING.md did not supply.
-  for (const src of [TOOLING, MANIFEST]) {
+  // TOOLING.md is the only source.
+  for (const src of [TOOLING]) {
     let section = null;
     for (const line of readText(src).split('\n')) {
       const h = line.match(/^###\s+(\d+\.\d+)\s/);
@@ -354,17 +350,14 @@ async function main() {
     void section;
   }
   const toolingPresent = fs.existsSync(TOOLING);
-  console.log(`  classified rows (§2/§3): ${manifestRows.size}   source: ${toolingPresent ? 'TOOLING.md' : 'REPO_MANIFEST.md only'}`);
+  console.log(`  classified rows (§2/§3): ${manifestRows.size}   source: ${toolingPresent ? 'TOOLING.md' : 'NONE'}`);
   if (!toolingPresent) {
-    console.log('  ⚠ TOOLING.md is absent. It is the intended source and the only one that has to');
-    console.log('    live in this repo. Without it, classification depends on REPO_MANIFEST.md.');
+    console.log('  ⚠ TOOLING.md is absent. It is the only source of classification, so every');
+    console.log('    file below is judged on age and reference-counting alone. Restore it.');
   }
   console.log('');
   const manifestOf = (base) => manifestRows.get(base) || null;
   const manLabel   = (r) => r ? (SECTION_LABEL[r.section] || `§${r.section}`) : null;
-  const docsPresent = { manifest: fs.existsSync(MANIFEST), context: fs.existsSync(CONTEXT), tasks: fs.existsSync(TASKS) };
-  if (!docsPresent.manifest) console.log('  ⚠ REPO_MANIFEST.md not found — "documented" cannot be assessed and every');
-  if (!docsPresent.manifest) console.log('    script will read as undocumented. Treat that column as unknown, not as fact.\n');
 
   // Workflow bodies, once.
   const runHistory = lastRunDays();
@@ -422,7 +415,11 @@ async function main() {
     // this script is concluded and its finding is written down outside this repo. That
     // keeps the marker in the repo while the finding itself does not have to be.
     const man0 = manifestRows.get(base);
-    const documented = (man0 && (man0.section === '2.4' || man0.section === '3.4')) || docText.includes(base);
+    // §2.4/§3.4 membership is the WHOLE test now. The old `|| docText.includes(base)`
+    // searched three documents that are no longer in the repo, so it could only ever
+    // return false and made every script read UNDOCUMENTED.
+    const documented = !!(man0 && (man0.section === '2.4' || man0.section === '3.4'));
+    const classified = !!man0;
     const lastCommit = lastCommitISO(`scripts/${rel}`);
     const age = daysAgo(lastCommit);
     const scheduled = wf.some(w => w.hasSchedule && w.body.includes(base));
@@ -436,7 +433,7 @@ async function main() {
     else                                    klass = 'ORPHAN: no workflow, nothing requires it, undocumented';
 
     const man = manifestOf(base);
-    scripts.push({ path: `scripts/${rel}`, base, klass, usedByWorkflows, requiredBy, documented,
+    scripts.push({ path: `scripts/${rel}`, base, klass, usedByWorkflows, requiredBy, documented, classified,
                    manifestSection: man ? man.section : null,
                    manifestClass:   manLabel(man),
                    manifestPurpose: man ? man.purpose : null,
@@ -666,7 +663,7 @@ async function main() {
 
   console.log(`\n──── ADDED OR AMENDED IN THE LAST ${DAYS} DAYS ────`);
   console.log(`  ${recentScripts.length} script(s), ${recentWorkflows.length} workflow(s)`);
-  for (const s of recentScripts) console.log(`  ${String(s.ageDays).padStart(3)}d  ${s.path}  [${s.klass}]${s.documented ? '' : '  UNDOCUMENTED'}`);
+  for (const s of recentScripts) console.log(`  ${String(s.ageDays).padStart(3)}d  ${s.path}  [${s.klass}]${s.classified ? '' : '  UNCLASSIFIED — no TOOLING.md row'}`);
 
   // ── Is it still useful? ─────────────────────────────────────────────────────
   const vTally = (arr) => {
@@ -695,7 +692,7 @@ async function main() {
 
   console.log(`\n── DECIDE NOW — recent, not recorded as a tool (${decide.length} script(s), ${decideW.length} workflow(s)) ──`);
   console.log('  Added inside the recent window and in neither manifest section. This is current');
-  console.log('  work: either write its finding into REPO_MANIFEST §2.2 and keep it, or delete it');
+  console.log('  work: either add it to TOOLING.md §2.2 and keep it, or delete it');
   console.log('  in the same commit that records what it found. Left alone it becomes SPENT and');
   console.log('  then nobody remembers what it established.');
   for (const x of decide)  console.log(`  ${String(x.ageDays === null ? '?' : x.ageDays).padStart(4)}d  ${x.path}`);
@@ -719,7 +716,7 @@ async function main() {
   }
 
   // ── Stale manifest rows ─────────────────────────────────────────────────────
-  console.log(`\n── IN THE MANIFEST BUT NOT ON DISK — ${staleRows.length} row(s) ──`);
+  console.log(`\n── IN TOOLING.md BUT NOT ON DISK — ${staleRows.length} row(s) ──`);
   if (!staleRows.length) {
     console.log('  none — every §2/§3 row outside the "removed" sections has a file.');
   } else {
@@ -766,7 +763,7 @@ async function main() {
     '#',
     '# DOCUMENT FIRST — nothing references these, but NO document mentions them.',
     '# Deleting one discards whatever it established. Write the finding into',
-    '# REPO_MANIFEST.md in the same commit, then move the line up into SAFE.',
+    '# TOOLING.md §2.4 in the same commit, then move the line up into SAFE.',
     ...documentFirst.map(p => `  # ${p}`),
     '#',
     '# BROKEN WORKFLOWS — these call a script that is not in the repo. They cannot',
@@ -778,7 +775,7 @@ async function main() {
 
   const out = {
     generatedAt: new Date().toISOString(),
-    docsPresent,
+    toolingPresent,
     counts: { scripts: scriptFiles.length, libs: libFiles.length, workflows: workflowFiles.length,
               recentScripts: recentScripts.length, recentWorkflows: recentWorkflows.length,
               staleManifestRows: staleRows.length,
