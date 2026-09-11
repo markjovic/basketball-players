@@ -1,5 +1,5 @@
 # reports/tooling-delete-list.txt
-# generated 2026-09-11T01:42:34.753Z by scripts/audit-tooling-inventory.js
+# generated 2026-09-11T01:55:02.143Z by scripts/audit-tooling-inventory.js
 #
 # Paste into the SCRIPTS=( ) / WORKFLOWS=( ) arrays in cleanup-repo.yml.
 # Run cleanup-repo with dry_run=true FIRST and read the list it prints.
@@ -12,4 +12,3 @@
 #
 # BROKEN WORKFLOWS — these call a script that is not in the repo. They cannot
 # run. Confirm the script was deleted deliberately, then remove the workflow:
-  .github/workflows/cleanup-repo.yml
