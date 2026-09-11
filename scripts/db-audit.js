@@ -913,25 +913,42 @@ function humanSize(bytes) {
       const h = line.match(/^###\s+(\d+\.\d+)\s/);
       if (h) { inReports = /^4\./.test(h[1]); continue; }
       if (!inReports) continue;
-      for (const bt of line.matchAll(/`([^`]+)`/g)) KEEP.add(bt[1].trim());
+      // LIST ITEMS ONLY. Taking every backticked token under the heading scraped
+      // the section's own prose: on 2026-09-11 the §4.1 preamble mentioning
+      // `reports/` and `db-audit.js` put both on the keep-list and the count read
+      // 16/18 with two phantom entries "listed but absent". §2/§3 deliberately
+      // scrape prose because some of those sections are written that way; §4 is a
+      // plain list, so it is parsed as one.
+      const li = line.match(/^\s*-\s+`([^`]+)`\s*$/);
+      if (li) KEEP.add(li[1].trim());
     }
   } catch (e) { toolingPresent = false; }
 
-  // Every script body, once — for the reference evidence below. A mention counts,
-  // comments included: over-counting leaves a dead report in place, under-counting
-  // deletes one a live script reads. The cheaper mistake is the first.
-  const scriptBodies = [];
-  for (const dir of ['scripts', path.join('scripts', 'lib')]) {
+  // Every script AND WORKFLOW body, once. A mention counts, comments included:
+  // over-counting leaves a dead report in place, under-counting deletes one that
+  // something live reads. The cheaper mistake is the first.
+  //
+  // ⚠️ WORKFLOWS ARE NOT OPTIONAL HERE. Scanning only scripts/ reported
+  // alias-merge-candidates.json and census-12-fa.json as "referenced by nothing —
+  // safe to delete" on 2026-09-11. The first is read by build-alias-worklist.yml
+  // (its only script reference, probe-duplicate-profiles.js, was deleted that day)
+  // and the second by merge-census-partial.yml. Plenty of reports are passed to a
+  // script as a workflow input and never named in the script at all.
+  const bodies = [];
+  const scanDir = (dir, pred) => {
     const d = path.join(ROOT, dir);
-    if (!fs.existsSync(d)) continue;
+    if (!fs.existsSync(d)) return;
     for (const f of fs.readdirSync(d)) {
-      if (!/\.(js|cjs)$/.test(f)) continue;
+      if (!pred(f)) continue;
       const fp = path.join(d, f);
-      if (fs.statSync(fp).isDirectory()) continue;
-      try { scriptBodies.push([f, fs.readFileSync(fp, 'utf8')]); } catch (e) {}
+      try { if (fs.statSync(fp).isDirectory()) continue; } catch (e) { continue; }
+      try { bodies.push([f, fs.readFileSync(fp, 'utf8')]); } catch (e) {}
     }
-  }
-  const referencedBy = (name) => scriptBodies.filter(([, b]) => b.includes(name)).map(([f]) => f);
+  };
+  scanDir('scripts', f => /\.(js|cjs)$/.test(f));
+  scanDir(path.join('scripts', 'lib'), f => /\.(js|cjs)$/.test(f));
+  scanDir(path.join('.github', 'workflows'), f => /\.ya?ml$/.test(f));
+  const referencedBy = (name) => bodies.filter(([, b]) => b.includes(name)).map(([f]) => f);
 
   if (!toolingPresent) {
     row('reports/ keep-list', '⚠️  TOOLING.md absent', 'cannot classify — every report below reads as unlisted');
@@ -953,18 +970,18 @@ function humanSize(bytes) {
       const refs = referencedBy(f);
       if (refs.length) {
         row(`reports/${f}${isDir ? '/' : ''}`, label,
-          `⚠️  not in TOOLING.md §4.x — but ${refs.length} script(s) reference it: ${refs.slice(0, 3).join(', ')}${refs.length > 3 ? ` +${refs.length - 3}` : ''}`);
+          `⚠️  not in TOOLING.md §4.x — but ${refs.length} file(s) reference it: ${refs.slice(0, 3).join(', ')}${refs.length > 3 ? ` +${refs.length - 3}` : ''}`);
       } else {
         orphaned++;
         row(`reports/${f}${isDir ? '/' : ''}`, label,
-          '❌ not in TOOLING.md §4.x and NO script references it — safe to delete');
+          '❌ not in TOOLING.md §4.x and NO script or workflow references it — safe to delete');
       }
     }
     const missingKeep = [...KEEP].filter(f => !fs.existsSync(path.join(reportsDir, f)));
     row('reports/ listed in TOOLING.md §4.x', `${kept}/${KEEP.size}`,
       missingKeep.length ? `ℹ️  listed but absent: ${missingKeep.join(', ')}` : '✅ all present');
     row('reports/ not listed', String(flagged),
-      orphaned ? `${orphaned} of them referenced by nothing — delete those first` : 'all still referenced by a script');
+      orphaned ? `${orphaned} referenced by no script or workflow — delete those first` : 'all still referenced by a script');
   }
 }
 
