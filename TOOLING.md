@@ -58,6 +58,7 @@ from an abandoned one.
 
 - `audit-seasons-gaps.js`
 - `audit-uuid-collisions.js`
+- `build-alias-worklist.js`
 - `build-search-index.js`
 - `clear-stats-checked.js`
 - `count-stats-checked.js`
@@ -80,16 +81,19 @@ from an abandoned one.
 - `probe-player.js`
 - `probe-selfalias-check.js`
 - `probe-shared-name-aliases.js`
+- `probe-squad-evidence.js`
 - `probe-unresolved-aliases.js`
 - `probe-verdict-conflict.js`
 - `recheck-forfeit-games.js`
 - `recheck-private-profiles.js`
+- `rebuild-player-index.js`
 - `repair-duplicate-regs.js`
 - `repair-forfeit-score.js`
 - `repair-legacy-flags.js`
 - `repair-player.js`
 - `repair-players-batch.js`
 - `repair-reg-sibling-sync.js`
+- `repair-season-names.js`
 - `repoint-aliases.js`
 - `report-alias-index.js`
 - `restore-deleted-file.js`
@@ -100,6 +104,7 @@ from an abandoned one.
 - `size-misses.yml`
 - `size-negative-gap.yml`
 - `size-opposition-index.js`
+- `size-report.js`
 - `size-resweep.yml`
 - `synthesize-missing-games.js`
 - `test-api.js`
@@ -109,23 +114,44 @@ from an abandoned one.
 
 ### 2.3 Scripts removed in an earlier cleanup
 
-- `.github/workflows/.yml`
 - `fetch-player-profiles.js`
-- `scripts/lib/namespace-resolve.cjs`
-- `scripts/lib/uuid-prefix.cjs`
 - `search-team-stats.js`
 - `test-failed-uuids.js`
 
-### 2.4 Spent scripts — concluded; their findings are recorded outside this repo
+Removed 2026-09-11:
 
+- `check-roster-freshness.js`
+- `drop-stale-playercount.js`
 - `merge-phantom-profiles.js`
 - `probe-absent-games.js`
 - `probe-both-resolve.js`
 - `probe-duplicate-profiles.js`
 - `probe-grade-ladder.js`
+- `probe-missing-games.js`
 - `probe-setup-node-fingerprint.js`
 - `probe-shared-roster.js`
+- `redirect-exposure.js`
+- `scan-season-name-contamination.js`
 - `size-duplicate-profiles.js`
+- `diagnose-alias-conflicts.js`
+- `diagnose-nameless-players.js`
+- `probe-alias-stats.js`
+- `probe-discover-teams.js`
+- `probe-notfound.js`
+- `probe-registrations.js`
+- `probe-roster-sources.js`
+- `probe-session-throwaway.js`
+- `probe-stattrack-shapes.cjs`
+- `probe-stattrack-shapes.js`
+- `probe-wrong-rosters.js`
+- `prove-player-files-intact.js`
+- `size-locked-backfill.js`
+
+### 2.4 Spent scripts — concluded; their findings are recorded outside this repo
+
+None. The eight probes that sat here were deleted on 2026-09-11 and are listed in 2.3.
+The twelve held probes were reviewed the same day and are in 2.3 as well; the three
+kept out of that group are classified in 2.2.
 
 ### 3.1 Live workflows — scheduled
 
@@ -160,6 +186,7 @@ from an abandoned one.
 ### 3.3 Kept workflows — on-demand, deliberately retained
 
 - `audit-uuid-collisions.yml`
+- `build-alias-worklist.yml`
 - `build-team-stats.yml`
 - `clear-stats-checked.yml`
 - `count-stats-checked.yml`
@@ -168,19 +195,24 @@ from an abandoned one.
 - `diagnose-id-field-lengths.yml`
 - `diagnose-nightly-health.yml`
 - `diagnose.yml`
+- `discover-seasons.yml`
 - `find-code-refs.yml`
 - `find-flag-collisions.yml`
 - `find-players-by-team.yml`
 - `find-root-json-refs.yml`
 - `generate-roster.yml`
 - `probe-api-limits.yml`
+- `probe-squad-evidence.yml`
+- `rebuild-player-index.yml`
 - `recheck-forfeit-games.yml`
 - `repair-forfeit-score.yml`
 - `repair-legacy-flags.yml`
+- `repair-season-names.yml`
 - `report-alias-index.yml`
 - `restore-deleted-file.yml`
 - `scan-complete-rounds.yml`
 - `size-locked-split.yml`
+- `size-report.yml`
 - `test-api.yml`
 - `update-team-index.yml`
 - `update-venue-lookup.yml`
@@ -189,4 +221,29 @@ from an abandoned one.
 
 ### 3.4 Workflows removed in an earlier cleanup
 
-- `fetch-profile-stats-matrix.yml`
+Removed 2026-09-11:
+
+- `backfill.yml`
+- `check-roster-freshness.yml`
+- `drop-stale-playercount.yml`
+- `merge-phantom-profiles.yml`
+- `probe-absent-games.yml`
+- `probe-both-resolve.yml`
+- `probe-duplicate-profiles.yml`
+- `probe-grade-ladder.yml`
+- `probe-missing-games.yml`
+- `probe-setup-node-fingerprint.yml`
+- `probe-shared-roster.yml`
+- `redirect-exposure.yml`
+- `scan-season-name-contamination.yml`
+- `size-duplicate-profiles.yml`
+- `diagnose-alias-conflicts.yml`
+- `probe-alias-stats.yml`
+- `probe-discover-teams.yml`
+- `probe-notfound.yml`
+- `probe-registrations.yml`
+- `probe-roster-sources.yml`
+- `probe-stattrack-shapes.yml`
+- `probe-wrong-rosters.yml`
+- `prove-player-files-intact.yml`
+- `size-locked-backfill.yml`
