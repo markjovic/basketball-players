@@ -15,6 +15,11 @@ listing does not.
 whole maintenance burden, and skipping it means the inventory cannot tell your new tool
 from an abandoned one.
 
+Section 4 does the same job for `reports/`, and `db-audit.js` §11b reads it. Before
+2026-09-11 that keep-list was hardcoded inside `db-audit.js`, where two of its ten entries
+named files the July cleanup had already deleted and nothing distinguished a spent output
+from a report a live script still reads.
+
 ### 2.1 Live scripts — run on a schedule or by the nightly chain
 
 - `audit-diff-fields.js`
@@ -246,3 +251,26 @@ Removed 2026-09-11:
 - `probe-wrong-rosters.yml`
 - `prove-player-files-intact.yml`
 - `size-locked-backfill.yml`
+
+### 4.1 Reports kept
+
+Anything in `reports/` not listed here is flagged by `db-audit.js` §11b, which also reports
+whether a surviving script still references it. A report that nothing references and that is
+not listed here is residue. Reasons for each entry are recorded outside this repository.
+
+- `alias-history-sweep.json`
+- `alias-vs-playhq-audit-after-fold.json`
+- `alias-vs-playhq-audit-wide.json`
+- `alias-vs-playhq-audit.json`
+- `fold-diverged.json`
+- `git-history-recovery-report.json`
+- `manual-alias-decisions.json`
+- `misrouted-appearances.json`
+- `rebuild-player-index.json`
+- `rekey-apply-log.json`
+- `rekey-enrich-report.json`
+- `repair-batch-progress.json`
+- `season-name-contamination.json`
+- `unresolved-prefix-diagnosis.json`
+- `uuid-collisions-len10.json`
+- `wrongly-keyed-census.json`
