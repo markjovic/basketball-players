@@ -229,15 +229,10 @@ kept out of that group are classified in 2.2.
 - `scan-roster-id-forms.yml`
 - `seed-missing-profiles.yml`
 - `size-appearance-gaps.yml`
-- `size-gap-players.yml`
 - `size-locked-resweep.yml`
-- `size-misses.yml`
 - `size-missing-gids.yml`
-- `size-negative-gap.yml`
 - `size-opposition-index.yml`
-- `size-repair-rosters.yml`
 - `size-report.yml`
-- `size-resweep.yml`
 - `size-spectator-queue.yml`
 - `synthesize-missing-games.yml`
 - `test-backfill.yml`
@@ -275,7 +270,12 @@ Removed 2026-09-11:
 - `redirect-exposure.yml`
 - `scan-season-name-contamination.yml`
 - `size-duplicate-profiles.yml`
+- `size-gap-players.yml`
 - `size-locked-backfill.yml`
+- `size-misses.yml`
+- `size-negative-gap.yml`
+- `size-repair-rosters.yml`
+- `size-resweep.yml`
 - `test-api.yml`
 
 ### 4.1 Reports kept
