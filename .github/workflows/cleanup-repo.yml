@@ -117,7 +117,49 @@ jobs:
           #   runs only .yml. They do not show in the Actions list; they go because
           #   one is a duplicate of a deleted script and the other a stale copy of a
           #   live one.
+          # 2026-09-11. 29 paths; 26 of them are entries that leave the Actions
+          # list. The measure is how many workflows Mark scrolls past to find one.
+          #
+          # THE 20 FOLDED INTO diagnostics.yml. Each was a single read-only job whose
+          #   whole content was: check out, run one script, print. Their node flags,
+          #   script paths, sparse-checkout paths, fetch depth and timeouts are lifted
+          #   verbatim into that workflow's case statement and were diffed against the
+          #   originals — all 21 matched exactly. THE SCRIPTS ARE NOT DELETED: the
+          #   runner still executes them. Only the per-tool workflow entry goes.
+          #   db-audit.yml is deliberately NOT here. It is in the runner as well, but it
+          #   runs daily and does not deserve an extra dropdown.
+          #
+          # THE 5 INLINE size-* carry heredoc copies of what scripts/size-report.js
+          #   consolidated on 2026-08-19 — its sections are misses, resweep, rosters,
+          #   gaps, consolidation, collisions, grades, and ALIAS maps negative-gap and
+          #   gap-players to 'gaps', repair-rosters to 'rosters'. Reach them now with
+          #   tool=size-report and env SECTIONS=misses.
+          #
+          # test-api — redundant with probe-api-limits, which also dispatches bare and
+          #   measures the ceiling properly with rest=90000 and recover=true.
+          # The two .js in .github/workflows can never execute; that directory runs
+          #   only .yml.
           cat > /tmp/paths.txt <<'PATHS'
+          .github/workflows/audit-seasons-gaps.yml
+          .github/workflows/diagnose.yml
+          .github/workflows/diagnose-forfeit-game.yml
+          .github/workflows/diagnose-id-field-lengths.yml
+          .github/workflows/diagnose-nightly-health.yml
+          .github/workflows/find-flag-collisions.yml
+          .github/workflows/probe-api-limits.yml
+          .github/workflows/probe-my-aliases.yml
+          .github/workflows/probe-player.yml
+          .github/workflows/probe-selfalias-check.yml
+          .github/workflows/scan-roster-id-forms.yml
+          .github/workflows/size-appearance-gaps.yml
+          .github/workflows/size-locked-resweep.yml
+          .github/workflows/size-missing-gids.yml
+          .github/workflows/size-opposition-index.yml
+          .github/workflows/size-report.yml
+          .github/workflows/size-spectator-queue.yml
+          .github/workflows/trace-player-game.yml
+          .github/workflows/verify-enrich.yml
+          .github/workflows/verify-p-redundancy.yml
           .github/workflows/size-misses.yml
           .github/workflows/size-resweep.yml
           .github/workflows/size-negative-gap.yml
@@ -257,7 +299,7 @@ jobs:
           echo "new tree:   $NEW_TREE"
 
           NEW_COMMIT=$(gh api --method POST "repos/$REPO/git/commits" \
-            -f message="chore: retire test-api and the five size-* predecessors; delete two stray .js" \
+            -f message="chore: fold 20 diagnostics into diagnostics.yml; retire test-api and the size-* predecessors" \
             -f tree="$NEW_TREE" \
             -f "parents[]=$SHA" | jq -r '.sha')
           echo "new commit: $NEW_COMMIT"

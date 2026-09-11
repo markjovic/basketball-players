@@ -1,0 +1,183 @@
+# .github/workflows/diagnostics.yml
+name: Diagnostics
+
+# ONE ENTRY IN THE ACTIONS LIST INSTEAD OF 21. Every tool below was its own
+# workflow whose entire content was: check out, run one script, print. They are all
+# read-only (each declared `permissions: contents: read`) and single-job, so they
+# collapse safely into one dispatcher.
+#
+# NOTHING HERE IS INVENTED. Each tool's node flags, script path, sparse-checkout
+# paths, fetch depth and timeout are lifted verbatim from the workflow it replaces,
+# so every tool keeps the checkout it had — no tool inherits a full clone it did not
+# already have, and no tool loses one it needs.
+#
+# ⚠️ NO actions/setup-node, EVER. probe-api-limits, probe-my-aliases and probe-player
+# fetch api.playhq.com, and setup-node's fingerprint change makes CloudFront 403-block
+# every request including session acquisition. Preinstalled node only.
+#
+# Three tools read the ENVIRONMENT rather than argv — audit-seasons-gaps (SAMPLES),
+# size-report (SECTIONS, TOP) and diagnose-nightly-health (GITHUB_TOKEN). Use the
+# `env` input for those, one KEY=VALUE per line. Passing them as `args` silently runs
+# the tool with its defaults instead, which is why the field exists.
+#
+# TO ADD A TOOL: add it to the `tool` options list and add a case below with its
+# flags, script, sparse paths, depth and timeout copied from its old workflow. Then
+# delete the old workflow and move its row to TOOLING.md §3.4.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: 'Which diagnostic to run'
+        required: true
+        default: 'db-audit'
+        type: choice
+        options: ['audit-seasons-gaps', 'db-audit', 'diagnose', 'diagnose-forfeit-game', 'diagnose-id-field-lengths', 'diagnose-nightly-health', 'find-flag-collisions', 'probe-api-limits', 'probe-my-aliases', 'probe-player', 'probe-selfalias-check', 'scan-roster-id-forms', 'size-appearance-gaps', 'size-locked-resweep', 'size-missing-gids', 'size-opposition-index', 'size-report', 'size-spectator-queue', 'trace-player-game', 'verify-enrich', 'verify-p-redundancy']
+      args:
+        description: 'Command-line arguments, e.g. --limit=10. Blank for most tools.'
+        required: false
+        default: ''
+        type: string
+      env:
+        description: 'Environment variables, one KEY=VALUE per line. size-report needs SECTIONS; audit-seasons-gaps needs SAMPLES.'
+        required: false
+        default: ''
+        type: string
+      paths:
+        description: 'Override the sparse-checkout paths, one per line. Leave blank to use the tool default.'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360          # per-tool timeout is applied to the run step below
+    steps:
+      - name: Plan
+        id: plan
+        run: |
+          set -euo pipefail
+          case "${{ inputs.tool }}" in
+            audit-seasons-gaps)
+              SPARSE=$''
+              FLAGS='--max-old-space-size=6144'; SCRIPT='scripts/audit-seasons-gaps.js'; DEPTH=0; TMO=120 ;;
+            db-audit)
+              SPARSE=$''
+              FLAGS=''; SCRIPT='scripts/db-audit.js'; DEPTH=1; TMO=30 ;;
+            diagnose)
+              SPARSE=$''
+              FLAGS=''; SCRIPT='scripts/diagnose.js'; DEPTH=10; TMO=30 ;;
+            diagnose-forfeit-game)
+              SPARSE=$'scripts/diagnose-forfeit-game.js\ngames/bv'
+              FLAGS=''; SCRIPT='scripts/diagnose-forfeit-game.js'; DEPTH=1; TMO=15 ;;
+            diagnose-id-field-lengths)
+              SPARSE=$'games\nplayers/indexes\nscripts'
+              FLAGS=''; SCRIPT='scripts/diagnose-id-field-lengths.js'; DEPTH=1; TMO=30 ;;
+            diagnose-nightly-health)
+              SPARSE=$'scripts/diagnose-nightly-health.js'
+              FLAGS=''; SCRIPT='scripts/diagnose-nightly-health.js'; DEPTH=1; TMO=5 ;;
+            find-flag-collisions)
+              SPARSE=$''
+              FLAGS=''; SCRIPT='scripts/find-flag-collisions.js'; DEPTH=0; TMO=60 ;;
+            probe-api-limits)
+              SPARSE=$'scripts/probe-api-limits.js'
+              FLAGS=''; SCRIPT='scripts/probe-api-limits.js'; DEPTH=0; TMO=360 ;;
+            probe-my-aliases)
+              SPARSE=$''
+              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/probe-my-aliases.js'; DEPTH=0; TMO=60 ;;
+            probe-player)
+              SPARSE=$''
+              FLAGS=''; SCRIPT='scripts/probe-player.js'; DEPTH=1; TMO=20 ;;
+            probe-selfalias-check)
+              SPARSE=$''
+              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/probe-selfalias-check.js'; DEPTH=0; TMO=30 ;;
+            scan-roster-id-forms)
+              SPARSE=$''
+              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/scan-roster-id-forms.js'; DEPTH=0; TMO=60 ;;
+            size-appearance-gaps)
+              SPARSE=$''
+              FLAGS=''; SCRIPT='scripts/size-appearance-gaps.js'; DEPTH=1; TMO=60 ;;
+            size-locked-resweep)
+              SPARSE=$'scripts\ndata\nplayers/indexes\ngames/bv'
+              FLAGS=''; SCRIPT='scripts/size-locked-resweep.js'; DEPTH=1; TMO=45 ;;
+            size-missing-gids)
+              SPARSE=$''
+              FLAGS=''; SCRIPT='scripts/size-missing-gids.js'; DEPTH=1; TMO=60 ;;
+            size-opposition-index)
+              SPARSE=$''
+              FLAGS='--max-old-space-size=12288'; SCRIPT='scripts/size-opposition-index.js'; DEPTH=0; TMO=180 ;;
+            size-report)
+              SPARSE=$''
+              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/size-report.js'; DEPTH=0; TMO=90 ;;
+            size-spectator-queue)
+              SPARSE=$'scripts\ndata\ngames/bv'
+              FLAGS=''; SCRIPT='scripts/size-spectator-queue.js'; DEPTH=1; TMO=45 ;;
+            trace-player-game)
+              SPARSE=$''
+              FLAGS='--max-old-space-size=8192'; SCRIPT='scripts/trace-player-game.js'; DEPTH=0; TMO=60 ;;
+            verify-enrich)
+              SPARSE=$''
+              FLAGS=''; SCRIPT='scripts/verify-enrich.js'; DEPTH=0; TMO=90 ;;
+            verify-p-redundancy)
+              SPARSE=$'games\nscripts'
+              FLAGS=''; SCRIPT='scripts/verify-p-redundancy.js'; DEPTH=1; TMO=30 ;;
+            *) echo "Unknown tool: ${{ inputs.tool }}"; exit 1 ;;
+          esac
+
+          OVERRIDE=$(cat <<'EOF'
+          ${{ inputs.paths }}
+          EOF
+          )
+          OVERRIDE=$(echo "$OVERRIDE" | sed 's/^[[:space:]]*//' | sed '/^$/d')
+          if [ -n "$OVERRIDE" ]; then SPARSE="$OVERRIDE"; echo "  paths overridden by input"; fi
+
+          { echo "sparse<<SPARSE_EOF"; echo "$SPARSE"; echo "SPARSE_EOF"; } >> "$GITHUB_OUTPUT"
+          echo "flags=$FLAGS"   >> "$GITHUB_OUTPUT"
+          echo "script=$SCRIPT" >> "$GITHUB_OUTPUT"
+          echo "depth=$DEPTH"   >> "$GITHUB_OUTPUT"
+          echo "tmo=$TMO"       >> "$GITHUB_OUTPUT"
+          echo "  tool    : ${{ inputs.tool }}"
+          echo "  script  : $SCRIPT"
+          echo "  flags   : ${FLAGS:-none}"
+          echo "  depth   : $DEPTH  (0 = full history)"
+          echo "  timeout : ${TMO}m"
+          echo "  checkout: $([ -n "$SPARSE" ] && echo "sparse" || echo "FULL TREE")"
+          [ -n "$SPARSE" ] && echo "$SPARSE" | sed 's/^/            /' || true
+
+      # Two checkouts, mutually exclusive. An empty sparse-checkout input does not
+      # mean "everything" — it is safer to branch than to pass a pattern and hope.
+      - name: Checkout (sparse)
+        if: steps.plan.outputs.sparse != ''
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{ steps.plan.outputs.depth }}
+          sparse-checkout: ${{ steps.plan.outputs.sparse }}
+          sparse-checkout-cone-mode: false
+
+      - name: Checkout (full)
+        if: steps.plan.outputs.sparse == ''
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{ steps.plan.outputs.depth }}
+
+      - name: Run
+        timeout-minutes: ${{ steps.plan.outputs.tmo }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r line; do
+            line="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+            [ -z "$line" ] && continue
+            case "$line" in *=*) export "$line"; echo "  export ${line%%=*}" ;;
+              *) echo "  ignoring malformed env line: $line" ;; esac
+          done <<'EOF'
+          ${{ inputs.env }}
+          EOF
+          echo ""
+          node ${{ steps.plan.outputs.flags }} ${{ steps.plan.outputs.script }} ${{ inputs.args }}
