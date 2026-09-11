@@ -96,7 +96,33 @@ jobs:
           #   .yml, so neither can ever run. diagnose-nameless-players.js is
           #   byte-identical to the script deleted earlier today; build-alias-worklist.js
           #   is a 9,479-byte older copy of the live 10,795-byte scripts/ version.
+          # 2026-09-11, final pass. Nine paths, six of which are entries that
+          # disappear from the Actions list — which is the point. The measure here
+          # is how many workflows Mark scrolls past to find the one he wants, not
+          # bytes saved.
+          #
+          # The five inline size-* workflows carry heredoc copies of exactly what
+          #   scripts/size-report.js consolidated on 2026-08-19. Its sections are
+          #   misses, resweep, rosters, gaps, consolidation, collisions, grades, and
+          #   its ALIAS map sends negative-gap and gap-players to 'gaps' and
+          #   repair-rosters to 'rosters'. So size-report.yml with SECTIONS=misses
+          #   is size-misses.yml, and so on for all five. Nothing is lost.
+          # test-api — redundant with probe-api-limits, which is also contents:read,
+          #   also dispatches bare, and measures the rate ceiling properly with
+          #   rest=90000 and recover=true. test-api's concurrency search has no
+          #   cooldown, so once it trips the WAF every lower level fails 100% and its
+          #   "safe concurrency = 512" was the last level before the trip, not a
+          #   measurement.
+          # The two .js files in .github/workflows can never execute — that directory
+          #   runs only .yml. They do not show in the Actions list; they go because
+          #   one is a duplicate of a deleted script and the other a stale copy of a
+          #   live one.
           cat > /tmp/paths.txt <<'PATHS'
+          .github/workflows/size-misses.yml
+          .github/workflows/size-resweep.yml
+          .github/workflows/size-negative-gap.yml
+          .github/workflows/size-gap-players.yml
+          .github/workflows/size-repair-rosters.yml
           scripts/test-api.js
           .github/workflows/test-api.yml
           .github/workflows/build-alias-worklist.js
@@ -231,7 +257,7 @@ jobs:
           echo "new tree:   $NEW_TREE"
 
           NEW_COMMIT=$(gh api --method POST "repos/$REPO/git/commits" \
-            -f message="chore: final pass — retire test-api, delete the two stray .js files" \
+            -f message="chore: retire test-api and the five size-* predecessors; delete two stray .js" \
             -f tree="$NEW_TREE" \
             -f "parents[]=$SHA" | jq -r '.sha')
           echo "new commit: $NEW_COMMIT"
