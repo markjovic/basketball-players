@@ -695,7 +695,7 @@ async function main() {
   for (const [k, v] of vTally(workflows)) console.log(`    ${String(v).padStart(5)}  ${k}`);
 
   console.log(`\n── SPENT — a one-off nothing decided to keep (${spent.length} script(s), ${spentW.length} workflow(s)) ──`);
-  console.log('  No §2.1/§3.1/§3.2 live row and no §2.2/§3.3 tool row, and either a handful of runs');
+  console.log('  No §2.1/§3.1/§3.2 live row and no §2.2/§3.3 tool row, and either only a handful of\n  runs or none at all in 120 days.');
   console.log('  Delete the SCRIPT AND ITS WORKFLOW TOGETHER — a workflow left behind calls a file');
   console.log('  that no longer exists, which is exactly what cleanup-repo.yml looks like today.');
   console.log('  ⚠️ Check the finding is written down FIRST. The safe/document-first split below');
