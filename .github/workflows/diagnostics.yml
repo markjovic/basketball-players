@@ -72,7 +72,18 @@ jobs:
               SPARSE=$''
               FLAGS=''; SCRIPT='scripts/diagnose.js'; DEPTH=10; TMO=30 ;;
             diagnose-forfeit-game)
-              SPARSE=$'scripts/diagnose-forfeit-game.js\ngames/bv'
+              # Its original sparse list was the script plus ONE season file:
+              # games/bv/${{ inputs.season }}.json. That input does not exist here,
+              # so the season is read out of `args`. Falling back to all of games/bv
+              # is correct but pulls 1.94 GB for a job that needs one file, so only
+              # do that when --season is genuinely absent.
+              SEASON=$(printf '%s' "${{ inputs.args }}" | sed -n 's/.*--season=\([A-Za-z0-9_-]*\).*/\1/p')
+              if [ -n "$SEASON" ]; then
+                SPARSE=$'scripts/diagnose-forfeit-game.js\ngames/bv/'"$SEASON"'.json'
+              else
+                echo "  no --season= in args; checking out all of games/bv (1.94 GB)"
+                SPARSE=$'scripts/diagnose-forfeit-game.js\ngames/bv'
+              fi
               FLAGS=''; SCRIPT='scripts/diagnose-forfeit-game.js'; DEPTH=1; TMO=15 ;;
             diagnose-id-field-lengths)
               SPARSE=$'games\nplayers/indexes\nscripts'
@@ -165,7 +176,12 @@ jobs:
           fetch-depth: ${{ steps.plan.outputs.depth }}
 
       - name: Run
-        timeout-minutes: ${{ steps.plan.outputs.tmo }}
+        # fromJSON, not the bare expression. timeout-minutes is a workflow key and
+        # requires a NUMBER; an expression yields the string "30" and GitHub refuses
+        # it with "An error occurred when attempting to determine the step timeout"
+        # then silently falls back to the job timeout. fetch-depth above is an ACTION
+        # INPUT, which does take a string, which is why only this one broke.
+        timeout-minutes: ${{ fromJSON(steps.plan.outputs.tmo) }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
