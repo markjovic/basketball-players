@@ -5,12 +5,18 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Mode: concurrency | profile | game | schema | gps | fixture'
+        # DEFAULT CHANGED 2026-09-11 from 'fixture' to 'concurrency'. 'fixture'
+        # REQUIRES --grade, and args defaults to empty, so a bare dispatch always
+        # exited 1 on the usage banner without ever calling PlayHQ. 'concurrency'
+        # is the only mode that needs no argument, and it acquires a session first,
+        # which makes it the cheapest check that PlayHQ is reachable at all.
+        description: 'Mode. concurrency needs no args. profile/game/gps need one. schema and fixture take --grade='
         required: true
-        default: 'fixture'
-        type: string
+        default: 'concurrency'
+        type: choice
+        options: ['concurrency', 'profile', 'game', 'schema', 'gps', 'fixture']
       args:
-        description: 'Args, e.g. --grade=<gradeId> (or a uuid/gameId for profile/game)'
+        description: 'Required for profile <uuid>, game <gameId>, gps <gradeId>, fixture --grade=<id>. Leave blank for concurrency.'
         required: false
         default: ''
         type: string
