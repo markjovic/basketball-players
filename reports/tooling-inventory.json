@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T03:14:37.779Z",
+  "generatedAt": "2026-09-11T03:42:50.345Z",
   "toolingPresent": true,
   "counts": {
     "scripts": 93,
@@ -181,10 +181,10 @@
       "manifestSection": "2.2",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
-      "lastCommit": "2026-09-11T13:10:07+10:00",
+      "lastCommit": "2026-09-11T13:38:31+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 49288,
+      "bytes": 49324,
       "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
@@ -370,7 +370,7 @@
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "",
       "lastCommit": "2026-09-09T13:15:49+10:00",
-      "ageDays": 1,
+      "ageDays": 2,
       "recent": true,
       "bytes": 15031,
       "verdict": "LIVE — runs on a schedule or in the nightly chain"
@@ -613,10 +613,10 @@
       "manifestSection": "2.2",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
-      "lastCommit": "2026-09-11T13:03:46+10:00",
+      "lastCommit": "2026-09-11T13:13:53+10:00",
       "ageDays": 0,
       "recent": true,
-      "bytes": 56684,
+      "bytes": 57797,
       "verdict": "KEEP — recorded in the manifest as an on-demand tool"
     },
     {
@@ -796,7 +796,7 @@
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "",
       "lastCommit": "2026-09-10T13:42:28+10:00",
-      "ageDays": 0,
+      "ageDays": 1,
       "recent": true,
       "bytes": 45904,
       "verdict": "LIVE — runs on a schedule or in the nightly chain"
@@ -1040,7 +1040,7 @@
       "manifestClass": "LIVE (scheduled / nightly chain)",
       "manifestPurpose": "",
       "lastCommit": "2026-09-10T13:37:18+10:00",
-      "ageDays": 0,
+      "ageDays": 1,
       "recent": true,
       "bytes": 39717,
       "verdict": "LIVE — runs on a schedule or in the nightly chain"
@@ -2328,7 +2328,7 @@
       "manifestPurpose": null,
       "dispatchedBy": [],
       "lastCommit": "2026-09-08T13:28:20+10:00",
-      "ageDays": 2,
+      "ageDays": 3,
       "recent": true,
       "bytes": 5232,
       "verdict": "DECIDE NOW — added recently, not recorded as a tool. Document it or delete it."
@@ -2416,7 +2416,7 @@
       "manifestPurpose": null,
       "dispatchedBy": [],
       "lastCommit": "2026-08-01T13:33:43+10:00",
-      "ageDays": 40,
+      "ageDays": 41,
       "recent": false,
       "bytes": 2063,
       "verdict": "SPENT — a one-off nothing decided to keep. Its question has been answered.  [last ran 41d ago]"
@@ -2431,8 +2431,8 @@
       "missingScripts": [],
       "hasSchedule": false,
       "lastRunDays": 0,
-      "lastRunAt": "2026-09-11T03:11:41Z",
-      "runCount": 19,
+      "lastRunAt": "2026-09-11T03:39:48Z",
+      "runCount": 20,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -2441,7 +2441,7 @@
       "ageDays": 0,
       "recent": true,
       "bytes": 7220,
-      "verdict": "LIVE — actually ran 0d ago (19 runs)"
+      "verdict": "LIVE — actually ran 0d ago (20 runs)"
     },
     {
       "path": ".github/workflows/audit-uuid-collisions.yml",
@@ -2825,8 +2825,8 @@
       "missingScripts": [],
       "hasSchedule": false,
       "lastRunDays": 0,
-      "lastRunAt": "2026-09-11T03:04:22Z",
-      "runCount": 45,
+      "lastRunAt": "2026-09-11T03:40:04Z",
+      "runCount": 47,
       "manifestSection": "3.3",
       "manifestClass": "TOOL (on-demand, kept)",
       "manifestPurpose": "",
@@ -2835,7 +2835,7 @@
       "ageDays": 63,
       "recent": false,
       "bytes": 1127,
-      "verdict": "LIVE — actually ran 0d ago (45 runs)"
+      "verdict": "LIVE — actually ran 0d ago (47 runs)"
     },
     {
       "path": ".github/workflows/deploy-pages.yml",
@@ -3293,7 +3293,7 @@
         "weekly-indexes.yml"
       ],
       "lastCommit": "2026-09-10T13:37:31+10:00",
-      "ageDays": 0,
+      "ageDays": 1,
       "recent": true,
       "bytes": 12672,
       "verdict": "LIVE — actually ran 0d ago (98 runs)"
@@ -3355,7 +3355,7 @@
       "manifestPurpose": "",
       "dispatchedBy": [],
       "lastCommit": "2026-09-10T13:37:31+10:00",
-      "ageDays": 0,
+      "ageDays": 1,
       "recent": true,
       "bytes": 10661,
       "verdict": "LIVE — actually ran 0d ago (6 runs)"
