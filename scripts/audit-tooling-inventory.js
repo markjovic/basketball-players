@@ -574,23 +574,36 @@ async function main() {
       return 'DECIDE NOW — added recently, not recorded as a tool. Document it or delete it.';
     }
 
+    // ⚠️ A MANIFEST ROW OUTRANKS RUN HISTORY. Both rules below used to consult only
+    // §2.2/§3.3, so anything recorded LIVE in §2.1, §3.1 or §3.2 was still reported
+    // SPENT for having few runs or a long gap — structuralVerdict() honoured those
+    // sections but this path never reached it. On 2026-09-11 that put
+    // requeue-repointed-players.yml (4 days old) and revert-alias-repoints.yml (5
+    // days) on the SPENT list, along with rebuild-chain.yml, size-locked-split.yml
+    // and size-pages-artifact.yml. Being recorded as live is a decision someone
+    // made deliberately; how often it runs does not overturn it.
+    const inLiveRow = x.manifestSection === '2.1' || x.manifestSection === '3.1' || x.manifestSection === '3.2';
+    const inToolRow = x.manifestSection === '2.2' || x.manifestSection === '3.3';
+
     // Run COUNT before run DATE. A one-off that ran recently is still a one-off,
     // and that is the whole population being hunted here.
     if (typeof x.runCount === 'number' && x.runCount > 0 && x.runCount <= ONE_OFF_RUNS) {
-      const inTool2 = x.manifestSection === '2.2' || x.manifestSection === '3.3';
-      if (!inTool2) return `SPENT — only ever ran ${x.runCount} time(s), last ${x.lastRunDays}d ago`;
-      return `KEEP — recorded as an on-demand tool (has run ${x.runCount} time(s))`;
+      if (inLiveRow) return `LIVE — recorded as live (has run ${x.runCount} time(s))`;
+      if (inToolRow) return `KEEP — recorded as an on-demand tool (has run ${x.runCount} time(s))`;
+      return `SPENT — only ever ran ${x.runCount} time(s), last ${x.lastRunDays}d ago`;
     }
     if (typeof x.lastRunDays === 'number') {
       if (x.lastRunDays <= RUN_LIVE_DAYS)  return `LIVE — actually ran ${x.lastRunDays}d ago (${x.runCount} runs)`;
-      if (x.lastRunDays >= RUN_DEAD_DAYS)  return `SPENT — has not run in ${x.lastRunDays} days`;
+      if (x.lastRunDays >= RUN_DEAD_DAYS) {
+        if (inLiveRow) return `LIVE — recorded as live (last ran ${x.lastRunDays}d ago)`;
+        if (inToolRow) return `KEEP — recorded as an on-demand tool (last ran ${x.lastRunDays}d ago)`;
+        return `SPENT — has not run in ${x.lastRunDays} days`;
+      }
       // Between the two: it ran, but not recently. Structure decides, and the date
       // is carried into the answer so nobody has to go and look it up.
       const struct = structuralVerdict(x);
       return `${struct}  [last ran ${x.lastRunDays}d ago]`;
     }
-    const inLive = x.manifestSection === '2.1' || x.manifestSection === '3.1' || x.manifestSection === '3.2';
-    const inTool = x.manifestSection === '2.2' || x.manifestSection === '3.3';
     return structuralVerdict(x);
   };
 
@@ -682,7 +695,7 @@ async function main() {
   for (const [k, v] of vTally(workflows)) console.log(`    ${String(v).padStart(5)}  ${k}`);
 
   console.log(`\n── SPENT — a one-off nothing decided to keep (${spent.length} script(s), ${spentW.length} workflow(s)) ──`);
-  console.log('  Not in §2.1 or §2.2, dispatch-only, and untouched for more than the recent window.');
+  console.log('  No §2.1/§3.1/§3.2 live row and no §2.2/§3.3 tool row, and either a handful of runs');
   console.log('  Delete the SCRIPT AND ITS WORKFLOW TOGETHER — a workflow left behind calls a file');
   console.log('  that no longer exists, which is exactly what cleanup-repo.yml looks like today.');
   console.log('  ⚠️ Check the finding is written down FIRST. The safe/document-first split below');
