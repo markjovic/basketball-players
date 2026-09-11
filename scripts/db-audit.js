@@ -945,7 +945,13 @@ function humanSize(bytes) {
       try { bodies.push([f, fs.readFileSync(fp, 'utf8')]); } catch (e) {}
     }
   };
-  scanDir('scripts', f => /\.(js|cjs)$/.test(f));
+  // EXCLUDE THIS FILE. The auditor is not a consumer. Its §4.x comments name
+  // report filenames as examples — on 2026-09-11 that made db-audit.js show up as
+  // a "referencing file" for alias-merge-candidates.json and census-12-fa.json.
+  // Harmless there because a workflow references both, but a report mentioned ONLY
+  // in a comment here would read as referenced and never be flagged.
+  const SELF = path.basename(__filename);
+  scanDir('scripts', f => /\.(js|cjs)$/.test(f) && f !== SELF);
   scanDir(path.join('scripts', 'lib'), f => /\.(js|cjs)$/.test(f));
   scanDir(path.join('.github', 'workflows'), f => /\.ya?ml$/.test(f));
   const referencedBy = (name) => bodies.filter(([, b]) => b.includes(name)).map(([f]) => f);
@@ -957,31 +963,47 @@ function humanSize(bytes) {
   }
 
   if (fs.existsSync(reportsDir)) {
-    let kept = 0, flagged = 0, orphaned = 0;
+    // ONLY THE ACTIONABLE CASE GETS A ROW. Unlisted-but-referenced is the normal
+    // state of a working file belonging to a live tool: on 2026-09-11 that was 23
+    // of the 39 reports, so §11b printed 23 warnings whose content was "something
+    // references this, it is fine". The comment on the old keep-list said it
+    // plainly — flagging them every run trains you to skim §11b, which is how a
+    // real warning gets missed — and the first version of this rewrite rebuilt
+    // exactly that. Those now collapse to one line, with the largest few named so
+    // a big new file cannot hide inside a count.
+    let kept = 0;
+    const orphans = [], referenced = [];
     for (const f of fs.readdirSync(reportsDir)) {
       const fp = path.join(reportsDir, f);
-      const isDir = fs.statSync(fp).isDirectory();
+      let isDir = false, size = 0;
+      try { const st = fs.statSync(fp); isDir = st.isDirectory(); size = isDir ? 0 : st.size; }
+      catch (e) { continue; }
       if (!isDir && KEEP.has(f)) { kept++; continue; }
-      flagged++;
-      const label = isDir ? `${fs.readdirSync(fp).length} entries` : humanSize(fs.statSync(fp).size);
-      // Directories are checked too. Short-circuiting them to [] made every
-      // directory read "NO script references it — safe to delete", which is a
-      // claim this code had not tested.
+      const label = isDir ? `${fs.readdirSync(fp).length} entries` : humanSize(size);
       const refs = referencedBy(f);
-      if (refs.length) {
-        row(`reports/${f}${isDir ? '/' : ''}`, label,
-          `⚠️  not in TOOLING.md §4.x — but ${refs.length} file(s) reference it: ${refs.slice(0, 3).join(', ')}${refs.length > 3 ? ` +${refs.length - 3}` : ''}`);
-      } else {
-        orphaned++;
-        row(`reports/${f}${isDir ? '/' : ''}`, label,
-          '❌ not in TOOLING.md §4.x and NO script or workflow references it — safe to delete');
-      }
+      (refs.length ? referenced : orphans).push({ f, isDir, size, label, refs });
     }
+
+    for (const o of orphans) {
+      row(`reports/${o.f}${o.isDir ? '/' : ''}`, o.label,
+        '❌ not in TOOLING.md §4.x and NO script or workflow references it — safe to delete');
+    }
+
+    if (referenced.length) {
+      const bytes = referenced.reduce((n, r) => n + r.size, 0);
+      const top = [...referenced].sort((a, b) => b.size - a.size).slice(0, 3).map(r => `${r.f} (${r.label})`);
+      row('reports/ unlisted but referenced', `${referenced.length}`,
+        `ℹ️  ${humanSize(bytes)} — working files of live tools, no action. Largest: ${top.join(', ')}`);
+    }
+
     const missingKeep = [...KEEP].filter(f => !fs.existsSync(path.join(reportsDir, f)));
     row('reports/ listed in TOOLING.md §4.x', `${kept}/${KEEP.size}`,
       missingKeep.length ? `ℹ️  listed but absent: ${missingKeep.join(', ')}` : '✅ all present');
-    row('reports/ not listed', String(flagged),
-      orphaned ? `${orphaned} referenced by no script or workflow — delete those first` : 'all still referenced by a script');
+    if (!orphans.length) {
+      row('reports/ residue', '✅ none', 'every report is listed or referenced');
+    } else {
+      row('reports/ residue', String(orphans.length), '❌ listed above — delete these');
+    }
   }
 }
 
