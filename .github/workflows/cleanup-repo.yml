@@ -38,6 +38,22 @@ name: Cleanup Repo
 #   - discover-seasons.yml. discover-seasons-matrix.yml runs the same script but
 #     exposes neither `uuid` (single-player escape hatch) nor `limit`. Kept.
 #
+# SECTION 7 RESOLVED 2026-09-11. Twelve of the fifteen held scripts are defunct and
+# are deleted here. Three are kept:
+#   - build-alias-worklist.js and probe-squad-evidence.js both write
+#     reports/manual-alias-decisions.json, which repoint-aliases.yml reads and which
+#     still has five null decisions. Tied to the open alias campaign, not idle.
+#   - rebuild-player-index.js. Its migration purpose is discharged, but it is the
+#     only full rebuild of players/indexes/ from the player files — everything else
+#     reads that index or appends to it incrementally. Kept as recovery.
+# All three are now classified in TOOLING.md so the inventory stops calling them spent.
+#
+# REPORTS ARE NOT TOUCHED. reports/ is 172 MB but the section 7 reports are under
+# 5 MB of it; three quarters sits in wrongly-keyed-census-progress.json (76 MB), the
+# two alias-vs-playhq-audit sweeps (28 MB each) and repair-batch-progress.json
+# (18 MB), none of which belong to anything deleted here. rekey-apply-log.json must
+# survive regardless: rebuild-player-index.js reads it for the re-keyed old-key map.
+#
 # DRY RUN FIRST. dry_run=true lists every deletion and commits nothing.
 
 on:
@@ -150,6 +166,26 @@ jobs:
 
             # §2 — spent one-off, its own header says to delete it
             scripts/drop-stale-playercount.js
+
+            # §7 — probes confirmed defunct on review, 2026-09-11. Verified: each
+            # is executed by its own workflow and nothing else; no script requires
+            # any of them. diagnose-nameless-players and probe-session-throwaway
+            # have no workflow at all. The two probe-stattrack-shapes files are
+            # identical apart from the extension string and its workflow takes
+            # whichever exists, so both go with it.
+            scripts/diagnose-alias-conflicts.js
+            scripts/diagnose-nameless-players.js
+            scripts/probe-alias-stats.js
+            scripts/probe-discover-teams.js
+            scripts/probe-notfound.js
+            scripts/probe-registrations.js
+            scripts/probe-roster-sources.js
+            scripts/probe-session-throwaway.js
+            scripts/probe-stattrack-shapes.cjs
+            scripts/probe-stattrack-shapes.js
+            scripts/probe-wrong-rosters.js
+            scripts/prove-player-files-intact.js
+            scripts/size-locked-backfill.js
           )
 
           WORKFLOWS=(
@@ -177,6 +213,20 @@ jobs:
             # analysis were filename-suffix matches on discover-game-backfill.yml,
             # size-locked-backfill.yml and spectator-backfill.yml. It cannot run.
             .github/workflows/backfill.yml
+
+            # §7 — paired with the scripts above. No entry for
+            # diagnose-nameless-players or probe-session-throwaway: neither has
+            # a workflow.
+            .github/workflows/diagnose-alias-conflicts.yml
+            .github/workflows/probe-alias-stats.yml
+            .github/workflows/probe-discover-teams.yml
+            .github/workflows/probe-notfound.yml
+            .github/workflows/probe-registrations.yml
+            .github/workflows/probe-roster-sources.yml
+            .github/workflows/probe-stattrack-shapes.yml
+            .github/workflows/probe-wrong-rosters.yml
+            .github/workflows/prove-player-files-intact.yml
+            .github/workflows/size-locked-backfill.yml
           )
 
           # CLEANUP_PLAN.md §2 — the four project documents. They were committed so
