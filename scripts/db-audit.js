@@ -890,51 +890,81 @@ function humanSize(bytes) {
   }
 }
 
-// reports/ keep-list policy
+// reports/ policy — the keep-list lives in TOOLING.md §4.x, NOT in this file.
+// REWRITTEN 2026-09-11. It used to be a hardcoded Set here, which meant the only
+// thing a warning ever told you was "this filename is not in that literal". Two
+// entries pointed at files the July cleanup had deleted, so it could never reach
+// a clean state, and it had no category for a report that a surviving script
+// READS — those were flagged for deletion alongside genuinely spent output.
+//
+// Now: TOOLING.md §4.x is the recorded decision, maintained in the same commit as
+// the report, exactly like §2 and §3. Anything not listed is flagged — and the
+// flag carries the reference evidence, so a report nothing references reads
+// differently from one that is still wired into a live script.
 {
   const reportsDir = path.join(ROOT, 'reports');
-  const KEEP = new Set([
-    'rekey-apply-log.json',        // permanent migration record; rebuild-player-index depends on it
-    'rekey-merges.json',           // the reviewed 3b-2 plan
-    'rebuild-player-index.json',
-    'rekey-enrich-report.json',
-    'rekey-flagged-classified.json',
-    'fold-diverged.json',          // live, regenerated each fold
-    // Added 2026-07-31. These are EVIDENCE, not leftovers — each is the only
-    // surviving record of a measurement or incident this project still cites.
-    // Flagging them every run trains you to skim §11b, which is how a real
-    // warning gets missed.
-    'uuid-collisions-len10.json',      // the measurement behind TRUNC_LEN = 13
-                                       // (10 chars = 9 hex digits, ~36 bits,
-                                       // ~63% collision odds at ~370k players).
-                                       // Delete it and the justification for the
-                                       // current truncation length becomes folklore.
-    'git-history-recovery-report.json',// record of the 30,426-game recovery
-    'season-name-contamination.json',  // the 40,034-file contamination baseline;
-                                       // still cited, and the "0 contaminated"
-                                       // re-scan that superseded it was WRONG
-    'unresolved-prefix-diagnosis.json',// resolver diagnostics, same class
-  ]);
-  if (fs.existsSync(reportsDir)) {
-    let kept = 0, review = 0;
-    for (const f of fs.readdirSync(reportsDir)) {
-      const p = path.join(reportsDir, f);
-      const isDir = fs.statSync(p).isDirectory();
-      if (!isDir && KEEP.has(f)) { kept++; continue; }
-      review++;
-      // Directories get an entry-count instead of a byte size — a dir's own
-      // statSync size is filesystem noise, not content.
-      const label = isDir ? `${fs.readdirSync(p).length} entries` : humanSize(fs.statSync(p).size);
-      row(`reports/${f}${isDir ? '/' : ''}`, label, '⚠️  not on keep-list — delete with its script');
+  const KEEP = new Set();
+  let toolingPresent = false;
+  try {
+    const t = fs.readFileSync(path.join(ROOT, 'TOOLING.md'), 'utf8');
+    toolingPresent = true;
+    let inReports = false;
+    for (const line of t.split('\n')) {
+      const h = line.match(/^###\s+(\d+\.\d+)\s/);
+      if (h) { inReports = /^4\./.test(h[1]); continue; }
+      if (!inReports) continue;
+      for (const bt of line.matchAll(/`([^`]+)`/g)) KEEP.add(bt[1].trim());
     }
-    // 2026-07-31: the old condition was `kept === KEEP.size - (fold-diverged ? 0 : 1)`,
-    // which assumed every keep-list entry always exists on disk. Once the list grew to
-    // 10 and only 8 were present it could never show ✅ — an unreachable success state
-    // is just noise. Now it names WHICH are absent, which is the actionable part
-    // (e.g. rebuild-player-index depends on rekey-apply-log.json being there).
+  } catch (e) { toolingPresent = false; }
+
+  // Every script body, once — for the reference evidence below. A mention counts,
+  // comments included: over-counting leaves a dead report in place, under-counting
+  // deletes one a live script reads. The cheaper mistake is the first.
+  const scriptBodies = [];
+  for (const dir of ['scripts', path.join('scripts', 'lib')]) {
+    const d = path.join(ROOT, dir);
+    if (!fs.existsSync(d)) continue;
+    for (const f of fs.readdirSync(d)) {
+      if (!/\.(js|cjs)$/.test(f)) continue;
+      const fp = path.join(d, f);
+      if (fs.statSync(fp).isDirectory()) continue;
+      try { scriptBodies.push([f, fs.readFileSync(fp, 'utf8')]); } catch (e) {}
+    }
+  }
+  const referencedBy = (name) => scriptBodies.filter(([, b]) => b.includes(name)).map(([f]) => f);
+
+  if (!toolingPresent) {
+    row('reports/ keep-list', '⚠️  TOOLING.md absent', 'cannot classify — every report below reads as unlisted');
+  } else if (KEEP.size === 0) {
+    row('reports/ keep-list', '⚠️  TOOLING.md has no §4.x', 'add a "### 4.1 Reports kept" section — see the note in this script');
+  }
+
+  if (fs.existsSync(reportsDir)) {
+    let kept = 0, flagged = 0, orphaned = 0;
+    for (const f of fs.readdirSync(reportsDir)) {
+      const fp = path.join(reportsDir, f);
+      const isDir = fs.statSync(fp).isDirectory();
+      if (!isDir && KEEP.has(f)) { kept++; continue; }
+      flagged++;
+      const label = isDir ? `${fs.readdirSync(fp).length} entries` : humanSize(fs.statSync(fp).size);
+      // Directories are checked too. Short-circuiting them to [] made every
+      // directory read "NO script references it — safe to delete", which is a
+      // claim this code had not tested.
+      const refs = referencedBy(f);
+      if (refs.length) {
+        row(`reports/${f}${isDir ? '/' : ''}`, label,
+          `⚠️  not in TOOLING.md §4.x — but ${refs.length} script(s) reference it: ${refs.slice(0, 3).join(', ')}${refs.length > 3 ? ` +${refs.length - 3}` : ''}`);
+      } else {
+        orphaned++;
+        row(`reports/${f}${isDir ? '/' : ''}`, label,
+          '❌ not in TOOLING.md §4.x and NO script references it — safe to delete');
+      }
+    }
     const missingKeep = [...KEEP].filter(f => !fs.existsSync(path.join(reportsDir, f)));
-    row('reports/ keep-list files present', `${kept}/${KEEP.size}`,
-      missingKeep.length ? `ℹ️  absent: ${missingKeep.join(', ')}` : '✅ all present');
+    row('reports/ listed in TOOLING.md §4.x', `${kept}/${KEEP.size}`,
+      missingKeep.length ? `ℹ️  listed but absent: ${missingKeep.join(', ')}` : '✅ all present');
+    row('reports/ not listed', String(flagged),
+      orphaned ? `${orphaned} of them referenced by nothing — delete those first` : 'all still referenced by a script');
   }
 }
 
