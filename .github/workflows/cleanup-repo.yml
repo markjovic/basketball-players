@@ -139,12 +139,13 @@ jobs:
         run: |
           set -e
 
-          if [ "$DRY_RUN" != "true" ]; then
-            # Only touch the remote when we intend to write. --no-stat: --stat scales
-            # with file count and has killed a merge with ENOBUFS at 25,593 files.
-            git fetch origin main
-            git merge -X ours FETCH_HEAD --no-edit --no-stat
-          fi
+          # NO upfront `git fetch` + `git merge -X ours FETCH_HEAD`. Removed
+          # 2026-09-11 after it hung for three minutes and was cancelled. This
+          # clone is depth-1 and blob-filtered, so the merge has no common
+          # ancestor to work from and compares whole trees — which under
+          # blob:none means backfilling every blob in the repository. It was also
+          # redundant: the checkout takes github.sha seconds earlier, and a race
+          # is handled at the push below.
 
           # ────────────────────────────────────────────────────────────────────
           # STAGE 1 — always deleted (no ordering constraints)
@@ -346,11 +347,22 @@ jobs:
           git diff --staged --shortstat
 
           git commit -m "chore: delete concluded probes, superseded tools and the four project documents"
-          for attempt in 1 2 3 4 5; do
-            git fetch origin main
-            git merge -X ours FETCH_HEAD --no-edit --no-stat || true
-            if git push origin main; then echo "Committed and pushed."; exit 0; fi
-            sleep $((attempt * 5))
+
+          # Push only. No fetch, no merge — see the note at the top of this step.
+          # Retries cover a transient network failure; they cannot fix a rejected
+          # push, and are not meant to. If main moved since checkout the push is
+          # rejected and this fails loudly: nothing is lost, the commit exists only
+          # on this runner, and re-dispatching starts cleanly from the new main.
+          for attempt in 1 2 3; do
+            if git push origin main; then
+              echo "Committed and pushed."
+              exit 0
+            fi
+            echo "  push attempt ${attempt} failed"
+            [ "$attempt" -lt 3 ] && sleep $((attempt * 5))
           done
-          echo "Push failed after 5 attempts."
+          echo ""
+          echo "PUSH FAILED. Nothing was lost — the deletion commit exists only on this"
+          echo "runner and main is untouched. If the error above is a non-fast-forward,"
+          echo "main moved since checkout: re-dispatch the workflow."
           exit 1
