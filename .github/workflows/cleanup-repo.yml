@@ -148,34 +148,39 @@ jobs:
           # No recursive tree read: at 418,000 player files the recursive
           # endpoint truncates at 100,000 entries and would silently under-report.
           # Each directory is read on its own, which is exact.
-          SHA=$(gh api "repos/$REPO/git/ref/heads/main" --jq '.object.sha')
-          ROOT_TREE=$(gh api "repos/$REPO/git/commits/$SHA" --jq '.tree.sha')
+          SHA=$(gh api "repos/$REPO/git/ref/heads/main" | jq -r '.object.sha')
+          ROOT_TREE=$(gh api "repos/$REPO/git/commits/$SHA" | jq -r '.tree.sha')
           echo "main head:  $SHA"
           echo "root tree:  $ROOT_TREE"
           echo ""
 
+          # NOTE: `gh api --jq` takes exactly ONE argument, the query. It does not
+          # accept jq's own flags — passing `--arg n scripts` to it gave
+          # "accepts 1 arg(s), received 4" and failed the run on 2026-09-11.
+          # Everything below pipes gh's JSON into real jq instead, which does take
+          # --arg, and uses one mechanism throughout rather than two.
           subtree() {  # subtree <parent-tree-sha> <name> -> sha, empty if absent
-            gh api "repos/$REPO/git/trees/$1" --jq \
-              --arg n "$2" '.tree[] | select(.path==$n and .type=="tree") | .sha'
+            gh api "repos/$REPO/git/trees/$1" \
+              | jq -r --arg n "$2" '.tree[] | select(.path==$n and .type=="tree") | .sha'
           }
 
           : > /tmp/modes.tsv
           # root-level blobs
-          gh api "repos/$REPO/git/trees/$ROOT_TREE" --jq \
-            '.tree[] | select(.type=="blob") | "\(.path)\t\(.mode)"' >> /tmp/modes.tsv
+          gh api "repos/$REPO/git/trees/$ROOT_TREE" \
+            | jq -r '.tree[] | select(.type=="blob") | "\(.path)\t\(.mode)"' >> /tmp/modes.tsv
           # scripts/
           SCRIPTS_TREE=$(subtree "$ROOT_TREE" "scripts")
           if [ -n "$SCRIPTS_TREE" ]; then
-            gh api "repos/$REPO/git/trees/$SCRIPTS_TREE" --jq \
-              '.tree[] | select(.type=="blob") | "scripts/\(.path)\t\(.mode)"' >> /tmp/modes.tsv
+            gh api "repos/$REPO/git/trees/$SCRIPTS_TREE" \
+              | jq -r '.tree[] | select(.type=="blob") | "scripts/\(.path)\t\(.mode)"' >> /tmp/modes.tsv
           fi
           # .github/workflows/
           GH_TREE=$(subtree "$ROOT_TREE" ".github")
           if [ -n "$GH_TREE" ]; then
             WF_TREE=$(subtree "$GH_TREE" "workflows")
             if [ -n "$WF_TREE" ]; then
-              gh api "repos/$REPO/git/trees/$WF_TREE" --jq \
-                '.tree[] | select(.type=="blob") | ".github/workflows/\(.path)\t\(.mode)"' >> /tmp/modes.tsv
+              gh api "repos/$REPO/git/trees/$WF_TREE" \
+                | jq -r '.tree[] | select(.type=="blob") | ".github/workflows/\(.path)\t\(.mode)"' >> /tmp/modes.tsv
             fi
           fi
           echo "tree entries read: $(wc -l < /tmp/modes.tsv)"
@@ -239,14 +244,14 @@ jobs:
           awk -F'\t' '{printf "{\"path\":\"%s\",\"mode\":\"%s\",\"type\":\"blob\",\"sha\":null}\n",$1,$2}' \
             /tmp/todelete.tsv | jq -s --arg bt "$ROOT_TREE" '{base_tree:$bt, tree:.}' > /tmp/tree.json
 
-          NEW_TREE=$(gh api --method POST "repos/$REPO/git/trees" --input /tmp/tree.json --jq '.sha')
+          NEW_TREE=$(gh api --method POST "repos/$REPO/git/trees" --input /tmp/tree.json | jq -r '.sha')
           echo ""
           echo "new tree:   $NEW_TREE"
 
           NEW_COMMIT=$(gh api --method POST "repos/$REPO/git/commits" \
             -f message="chore: delete concluded probes, superseded tools and the four project documents" \
             -f tree="$NEW_TREE" \
-            -f "parents[]=$SHA" --jq '.sha')
+            -f "parents[]=$SHA" | jq -r '.sha')
           echo "new commit: $NEW_COMMIT"
 
           # Non-forced: if main moved between the read above and now, this is
