@@ -18,7 +18,8 @@ name: Audit Tooling Inventory
 #                    found. Deleting it loses nothing.
 #   DOCUMENT FIRST — nothing references it and NO document mentions it. Deleting
 #                    it silently discards whatever it established. Write the
-#                    finding into REPO_MANIFEST.md, then move the line to SAFE.
+#                    finding down, add the name to TOOLING.md §2.4, then move the
+#                    line to SAFE.
 #
 # Reference detection is deliberately GENEROUS: a script counts as used if ANY
 # workflow mentions its filename anywhere, not only in an explicit invocation line.
@@ -39,10 +40,10 @@ name: Audit Tooling Inventory
 # REPO_MANIFEST.md. A file present in the repository is not present in the working tree
 # unless a sparse pattern names it.
 #
-# The other four documents are listed only while they remain in the repo. They contain the
-# operator's method and are being removed; TOOLING.md carries filenames and section numbers
-# only and is the one that has to stay. When they go, delete their lines from here too —
-# a sparse pattern naming a file that does not exist is harmless but misleading.
+# DONE 2026-09-11: the other documents were removed from the repo and their lines are
+# now deleted from here, as this comment instructed. TOOLING.md is the ONLY source the
+# classifier reads. Do not add a document back to this list without also making the
+# script read it — a sparse pattern naming a file nothing opens is pure misdirection.
 #
 # ⚠️ THE DOCUMENTS ARE NAMED ONE BY ONE, NOT MATCHED BY `/*.md`. 2026-09-10: the
 # pattern was `/*.md` and NOTHING matched, so REPO_MANIFEST.md was absent and every
@@ -52,11 +53,11 @@ name: Audit Tooling Inventory
 # inert. A leading-slash glob does not behave as expected in non-cone mode; naming
 # the files is unambiguous.
 #
-# The script reads REPO_MANIFEST.md, claude_context.md AND OUTSTANDING_TASKS.md for
-# the `documented` test, so a finding recorded in the traps or the task list counts
-# just as much as one in the manifest. Checking out only the manifest still
-# under-reports. README.md and playhq_api_reference.md are included because they are
-# the other two documents a finding is likely to be written into.
+# The `documented` test no longer reads any document. It is TOOLING.md §2.4/§3.4
+# membership and nothing else — the three documents it used to scan left the repo on
+# 2026-09-11, which made the test permanently false and every script read UNDOCUMENTED.
+# §2.4 is the assertion "concluded, and the finding is written down outside this repo",
+# which keeps the marker in the repo while the finding itself does not have to be.
 #
 # No network. No setup-node needed (nothing here fetches api.playhq.com either).
 
@@ -106,11 +107,6 @@ jobs:
             .github/workflows
             reports
             TOOLING.md
-            REPO_MANIFEST.md
-            claude_context.md
-            OUTSTANDING_TASKS.md
-            README.md
-            playhq_api_reference.md
           sparse-checkout-cone-mode: false
 
       - name: Configure git
@@ -118,22 +114,23 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Confirm the documents are actually present
-        # The `documented` column is silently meaningless without them, and a run that
-        # reports "0 safe to delete" because it could not read a file looks identical
-        # to one that found nothing to delete.
+      - name: Confirm TOOLING.md is actually present
+        # It is the ONLY classification source. Without it every file is judged on age
+        # and reference-counting alone, and a run that reports nothing to delete because
+        # it could not read the list looks identical to one that found nothing.
+        # This FAILS rather than warns: the old version printed a warning and carried on,
+        # which is how a meaningless run gets read as a clean one.
         run: |
           set -euo pipefail
-          missing=0
-          for f in TOOLING.md REPO_MANIFEST.md claude_context.md OUTSTANDING_TASKS.md; do
-            if [ -f "$f" ]; then echo "  present: $f"; else echo "  ⚠ MISSING: $f"; missing=$((missing+1)); fi
-          done
-          if [ "$missing" -gt 0 ]; then
-            echo ""
-            echo "  $missing document(s) absent. Every script will read as UNDOCUMENTED and the"
-            echo "  SAFE list will be empty regardless of what is actually safe. Fix the sparse"
-            echo "  checkout, or commit the documents to the repo, before trusting this run."
+          if [ ! -f TOOLING.md ]; then
+            echo "TOOLING.md is not in the working tree."
+            echo "Either it is missing from the sparse-checkout list above, or it is not"
+            echo "committed. A file present in the repository is NOT present in the working"
+            echo "tree unless a sparse pattern names it — that exact fault produced a whole"
+            echo "run of false UNDOCUMENTED verdicts on 2026-09-10."
+            exit 1
           fi
+          echo "  present: TOOLING.md  ($(grep -c '^- `' TOOLING.md) classified rows)"
 
       - name: Syntax check
         run: node --check scripts/audit-tooling-inventory.js
