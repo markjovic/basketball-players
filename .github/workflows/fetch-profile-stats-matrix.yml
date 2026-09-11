@@ -576,7 +576,25 @@ jobs:
             if not sh: continue
             seen.add(sh)
             # blocked shards have work left even when `remaining` looks small
-            if d.get('remaining', 0) > 0 or d.get('blocked'):
+            #
+            # ⚠️ ERRORS ARE WORK. Added 2026-09-10. This test looked only at
+            # `remaining` and `blocked`. A shard that processed everything it was
+            # handed reports remaining=0 EVEN IF SOME OF THOSE PLAYERS ERRORED — the
+            # player was attempted and not written, so it is still outstanding, but
+            # nothing carried the shard forward.
+            #
+            # Observed 2026-09-09: run 1 finished with 123 errors and reported
+            # "Next run targets: 0 shard(s) with work outstanding". carry came back
+            # empty, the fallback forwarded the original shards value, and run 2
+            # fanned out to all 256 shards to find the 123 players that run 1 had
+            # already identified. Run 2 then ended with 1 error and did the same
+            # again. The chain converges, but every run after the first costs a full
+            # 256-shard fan-out to rediscover work it already knew about.
+            #
+            # `errors` is aggregated at the top of this step and printed in the
+            # summary, so the number was visible the whole time — it just never
+            # reached the decision.
+            if d.get('remaining', 0) > 0 or d.get('blocked') or d.get('errors', 0) > 0:
               carry.append(sh)
 
           # A shard that RAN but produced no summary crashed — its state is unknown,
